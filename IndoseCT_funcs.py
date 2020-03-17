@@ -62,12 +62,24 @@ def avg_dw(imgs):
     count+=1
   return np.mean(dw)
 
+def show_imgs(img, label=None):
+  plt.imshow(img, cmap='bone')
+  if label is not None:
+    edges = canny(label)
+    coords = get_coord(edges, True)
+    plt.scatter(coords[:,1], coords[:,0], s=3, c='red', marker='s')
+  plt.show()
 
-files_path = "D:/Undip/pelatihan/pelat TC/Citra pelatihan/Citra anthopomorphic"
-if os.path.exists("citra.npy"):
-  dicom_pixels = np.load("citra.npy", allow_pickle=True)
-else:
-  dicom_pixels = get_images(files_path)
 
-avg = avg_dw(dicom_pixels)
-print('Average Dw value: {}'.format(avg))
+if __name__ == "__main__":
+  files_path = "D:/Undip/pelatihan/pelat TC/Citra pelatihan/Citra anthopomorphic"
+  if os.path.exists("citra.npy"):
+    dicom_pixels = np.load("citra.npy", allow_pickle=True)
+  else:
+    dicom_pixels = get_images(files_path)
+
+  avg = avg_dw(dicom_pixels)
+  print('Average Dw value: {}'.format(avg))
+
+  citra = dicom_pixels[12]
+  show_imgs(citra, get_label(citra))
