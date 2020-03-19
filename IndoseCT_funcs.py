@@ -26,7 +26,8 @@ def get_images(filelist, ref=False):
 def get_reference(files):
   ref = pydicom.dcmread(files[0])
   ref_data = {
-    "dimension": (int(ref.Rows), int(ref.Columns), len(files)),
+    "img_nums": len(files),
+    "dimension": (int(ref.Rows), int(ref.Columns)),
     "spacing": (float(ref.PixelSpacing[0]), float(ref.PixelSpacing[1]), float(ref.SliceThickness)),
     "intercept": float(ref.RescaleIntercept),
     "slope": float(ref.RescaleSlope),
@@ -83,18 +84,18 @@ if __name__ == "__main__":
   import tkinter as tk
   from tkinter import filedialog
 
-  root = tk.Tk()
-  root.withdraw()
-
   if os.path.exists("citra.npy") and os.path.exists("reference.json"):
     dicom_pixels = np.load("citra.npy", allow_pickle=True)
     ref = json.load(open("reference.json"))
   else:
+    root = tk.Tk()
+    root.withdraw()
     filelist = np.array(filedialog.askopenfilenames())
     dicom_pixels, ref = get_images(filelist, True)
+    root.destroy()
 
   avg = avg_dw(dicom_pixels, ref)
   print(f'Average Dw value: {avg} cm')
 
-  citra = dicom_pixels[12]
+  citra = dicom_pixels[0]
   show_imgs(citra, get_label(citra))
