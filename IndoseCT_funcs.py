@@ -9,8 +9,7 @@ from skimage.feature import canny
 from skimage.morphology import square, closing
 from scipy import ndimage as ndi
 
-def get_images(filepath, ref=False):
-  filelist = np.array(glob.glob(filepath + '/*.dcm'))
+def get_images(filelist, ref=False):
   refr = get_reference(filelist)
   print('Memuat citra...')
   imgs = np.array([np.array(pydicom.dcmread(fname).pixel_array*refr['slope'] + refr['intercept'])
@@ -57,7 +56,7 @@ def get_dw_value(img, ref):
   label = get_label(img)
   rd = ref["reconst_diameter"]
   roi = regionprops(label.astype(int), intensity_image=img)
-  area = roi[0].area*(rd*rd)/(512*512)
+  area = roi[0].area*(rd**2)/(len(img)**2)
   avg = roi[0].mean_intensity
   dw = 0.1*2*np.sqrt(((avg/1000)+1)*(area/np.pi))
   return dw
@@ -81,13 +80,18 @@ def show_imgs(img, label=None):
 
 
 if __name__ == "__main__":
-  files_path = "D:/Undip/pelatihan/pelat TC/Citra pelatihan/Citra anthopomorphic"
+  import tkinter as tk
+  from tkinter import filedialog
+
+  root = tk.Tk()
+  root.withdraw()
 
   if os.path.exists("citra.npy") and os.path.exists("reference.json"):
     dicom_pixels = np.load("citra.npy", allow_pickle=True)
     ref = json.load(open("reference.json"))
   else:
-    dicom_pixels, ref = get_images(files_path, True)
+    filelist = np.array(filedialog.askopenfilenames())
+    dicom_pixels, ref = get_images(filelist, True)
 
   avg = avg_dw(dicom_pixels, ref)
   print(f'Average Dw value: {avg} cm')
