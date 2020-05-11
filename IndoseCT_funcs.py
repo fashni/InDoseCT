@@ -11,13 +11,13 @@ from scipy import ndimage as ndi
 
 def get_images(filelist, ref=False):
   refr = get_reference(filelist)
-  print('Memuat citra...')
+  # print('Memuat citra...')
   imgs = np.array([np.array(pydicom.dcmread(fname).pixel_array*refr['slope'] + refr['intercept'])
                   for fname in filelist])
 
-  imgs.dump("citra.npy")
-  with open("reference.json", "w") as f:
-    json.dump(refr, f)
+  # imgs.dump("citra.npy")
+  # with open("reference.json", "w") as f:
+  #   json.dump(refr, f)
 
   if ref:
     return imgs, refr
