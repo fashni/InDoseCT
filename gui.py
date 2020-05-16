@@ -16,8 +16,8 @@ class MainWindow(QMainWindow):
     self.icon = None
     self.top = 100
     self.left = 100
-    self.width = 900
-    self.height = 500
+    self.width = 960
+    self.height = 540
 
     self.current_img = None
     self.total_img = None
@@ -45,10 +45,27 @@ class MainWindow(QMainWindow):
     self.addToolBar(toolbar)
 
     open_btn = QAction('Open DICOM', self)
+    open_btn.setShortcut('Ctrl+O')
     open_btn.setStatusTip('Open DICOM Files')
     open_btn.triggered.connect(self.open_files)
-
     toolbar.addAction(open_btn)
+
+    img_ctrl = QToolBar('Image Control')
+    self.addToolBar(Qt.BottomToolBarArea, img_ctrl)
+    next_btn = QAction('>', self)
+    next_btn.setStatusTip('Next Image')
+    next_btn.triggered.connect(self.next_img)
+    prev_btn = QAction('<', self)
+    prev_btn.setStatusTip('Previous Image')
+    prev_btn.triggered.connect(self.prev_img)
+    self.current_lbl = QLabel('0')
+    separator = QLabel('/')
+    self.total_lbl = QLabel('0')
+    img_ctrl.addAction(prev_btn)
+    img_ctrl.addWidget(self.current_lbl)
+    img_ctrl.addWidget(separator)
+    img_ctrl.addWidget(self.total_lbl)
+    img_ctrl.addAction(next_btn)
 
   def setLayout(self):
     hbox = QHBoxLayout()
@@ -83,21 +100,31 @@ class MainWindow(QMainWindow):
     files, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if files:
       self.dicom_pixels, _ = get_images(files, ref=True)
-      self.current_img = 0
+      self.current_img = 1
+      self.current_lbl.setText(str(self.current_img))
+      self.current_lbl.adjustSize()
       self.total_img = len(self.dicom_pixels)
+      self.total_lbl.setText(str(self.total_img))
+      self.total_lbl.adjustSize()
       self.axes.imshow(self.dicom_pixels[self.current_img])
   
   def next_img(self):
-    if not self.total_img or self.current_img == self.total_img-1:
+    if not self.total_img or self.current_img == self.total_img:
       return
     self.current_img += 1
-    self.axes.imshow(self.dicom_pixels[self.current_img])
+    self.current_lbl.setText(str(self.current_img))
+    self.current_lbl.adjustSize()
+    self.axes.clear()
+    self.axes.imshow(self.dicom_pixels[self.current_img-1])
 
   def prev_img(self):
-    if not self.total_img or self.current_img == 0:
+    if not self.total_img or self.current_img == 1:
       return
     self.current_img -= 1
-    self.axes.imshow(self.dicom_pixels[self.current_img])
+    self.current_lbl.setText(str(self.current_img))
+    self.current_lbl.adjustSize()
+    self.axes.clear()
+    self.axes.imshow(self.dicom_pixels[self.current_img-1])
 
 
 class InfoPanel(QWidget):
@@ -182,6 +209,9 @@ class Axes(FigureCanvas):
   def imshow(self, img, cmap='bone'):
     self.axes.imshow(img, cmap=cmap)
     self.draw()
+  
+  def clear(self):
+    self.axes.cla()
 
 
 app = QApplication(sys.argv)
