@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QMainWindow, QApplication, QTextEdit, QPushButton, QLabel, QFileDialog, QWidget, QTabWidget
+from PyQt5.QtWidgets import QMainWindow, QApplication, QHBoxLayout, QVBoxLayout, QGridLayout, QToolBar, QAction, QLineEdit, QPushButton, QLabel, QFileDialog, QWidget, QTabWidget, QSplitter
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import sys
@@ -26,11 +27,44 @@ class MainWindow(QMainWindow):
   def setUIComponents(self):
     self.setWindowTitle(self.title)
     self.setGeometry(self.top, self.left, self.width, self.height)
+
+    self.main_widget = QWidget()
+    self.axes = Axes(self, width=2, height=2)
+    self.axes.setMinimumSize(200, 200)
+    self.info_panel = InfoPanel()
+
+    self.setToolbar()
+    self.setTabs()
+    self.setLayout()
+    self.setCentralWidget(self.main_widget)
+
     self.statusBar().showMessage('READY')
 
-    self.tabs = QTabWidget()
-    self.setCentralWidget(self.tabs)
+  def setToolbar(self):
+    toolbar = QToolBar('Main Toolbar')
+    self.addToolBar(toolbar)
 
+    open_btn = QAction('Open DICOM', self)
+    open_btn.setStatusTip('Open DICOM Files')
+    open_btn.triggered.connect(self.open_files)
+
+    toolbar.addAction(open_btn)
+
+  def setLayout(self):
+    hbox = QHBoxLayout()
+    splitter = QSplitter(Qt.Horizontal)
+    splitter.addWidget(self.axes)
+    splitter.addWidget(self.tabs)
+    hbox.addWidget(splitter)
+
+    vbox = QVBoxLayout()
+    vbox.addWidget(self.info_panel)
+    vbox.addLayout(hbox)
+    # vbox.addStretch(5)
+    self.main_widget.setLayout(vbox)
+
+  def setTabs(self):
+    self.tabs = QTabWidget()
     self.tab1 = CTDIVolTab()
     self.tabs.addTab(self.tab1, 'CTDIVol')
     self.tab2 = DeffTab()
@@ -43,24 +77,6 @@ class MainWindow(QMainWindow):
     self.tabs.addTab(self.tab5, 'Organ')
     self.tab6 = AnalyzeTab()
     self.tabs.addTab(self.tab6, 'Analyze')
-
-    self.axes = Axes(self, width=4, height=4)
-    self.axes.move(0,20)
-    self.setButtons()
-
-  def setButtons(self):
-    self.open_btn = QPushButton('Open DICOM', self)
-    self.open_btn.move(500, 450)
-    self.open_btn.clicked.connect(self.open_files)
-    self.next_btn = QPushButton('Next Image', self)
-    self.next_btn.move(600, 450)
-    self.next_btn.clicked.connect(self.next_img)
-    self.prev_btn = QPushButton('Prev Image', self)
-    self.prev_btn.move(700, 450)
-    self.prev_btn.clicked.connect(self.prev_img)
-
-  def setLabels(self):
-    pass
   
   def open_files(self):
     self.statusBar().showMessage('Loading Images')
@@ -70,7 +86,6 @@ class MainWindow(QMainWindow):
       self.current_img = 0
       self.total_img = len(self.dicom_pixels)
       self.axes.imshow(self.dicom_pixels[self.current_img])
-    self.statusBar().showMessage('READY')
   
   def next_img(self):
     if not self.total_img or self.current_img == self.total_img-1:
@@ -83,6 +98,47 @@ class MainWindow(QMainWindow):
       return
     self.current_img -= 1
     self.axes.imshow(self.dicom_pixels[self.current_img])
+
+
+class InfoPanel(QWidget):
+  def __init__(self, *args, **kwargs):
+    super(InfoPanel, self).__init__(*args, **kwargs)
+    self.initUI()
+
+  def initUI(self):
+    no_label = QLabel('No')
+    name_label = QLabel('Name')
+    protocol_label = QLabel('Protocol')
+    exam_date_label = QLabel('Exam Date')
+    age_label = QLabel('Age')
+    sex_label = QLabel('Sex')
+    
+    self.no_edit = QLineEdit()
+    self.name_edit = QLineEdit()
+    self.protocol_edit = QLineEdit()
+    self.exam_date_edit = QLineEdit()
+    self.age_edit = QLineEdit()
+    self.sex_edit = QLineEdit()
+
+    grid = QGridLayout()
+    grid.setHorizontalSpacing(5)
+    grid.setVerticalSpacing(1)
+
+    grid.addWidget(no_label, 0, 0)
+    grid.addWidget(self.no_edit, 0, 1)
+    grid.addWidget(name_label, 1, 0)
+    grid.addWidget(self.name_edit, 1, 1)
+    grid.addWidget(protocol_label, 2, 0)
+    grid.addWidget(self.protocol_edit, 2, 1)
+    grid.addWidget(exam_date_label, 0, 2)
+    grid.addWidget(self.exam_date_edit, 0, 3)
+    grid.addWidget(age_label, 1, 2)
+    grid.addWidget(self.age_edit, 1, 3)
+    grid.addWidget(sex_label, 2, 2)
+    grid.addWidget(self.sex_edit, 2, 3)
+
+    self.setLayout(grid)
+    self.setMaximumHeight(75)
 
 
 class DwTab(QWidget):
