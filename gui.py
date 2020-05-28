@@ -99,14 +99,16 @@ class MainWindow(QMainWindow):
     self.statusBar().showMessage('Loading Images')
     files, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if files:
-      self.dicom_pixels, _ = get_images(files, ref=True)
+      self.dicom_pixels, self.info, self.patient_info = get_images(files, ref=True)
       self.current_img = 1
       self.current_lbl.setText(str(self.current_img))
       self.current_lbl.adjustSize()
       self.total_img = len(self.dicom_pixels)
       self.total_lbl.setText(str(self.total_img))
       self.total_lbl.adjustSize()
-      self.axes.imshow(self.dicom_pixels[self.current_img])
+      self.axes.clear()
+      self.axes.imshow(self.dicom_pixels[self.current_img-1])
+      self.info_panel.setInfo(self.patient_info)
   
   def next_img(self):
     if not self.total_img or self.current_img == self.total_img:
@@ -166,6 +168,13 @@ class InfoPanel(QWidget):
 
     self.setLayout(grid)
     self.setMaximumHeight(75)
+
+  def setInfo(self, pat_info):
+    self.name_edit.setText(pat_info['name'])
+    self.age_edit.setText(pat_info['age'][:3])
+    self.sex_edit.setText(pat_info['sex'])
+    self.protocol_edit.setText(pat_info['protocol'])
+    self.exam_date_edit.setText(pat_info['date'])
 
 
 class DwTab(QWidget):

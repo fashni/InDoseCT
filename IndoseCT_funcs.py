@@ -10,30 +10,33 @@ from skimage.morphology import square, closing
 from scipy import ndimage as ndi
 
 def get_images(filelist, ref=False):
-  refr = get_reference(filelist)
-  # print('Memuat citra...')
+  refr, info = get_reference(filelist)
   imgs = np.array([np.array(pydicom.dcmread(fname).pixel_array*refr['slope'] + refr['intercept'])
                   for fname in filelist])
 
-  # imgs.dump("citra.npy")
-  # with open("reference.json", "w") as f:
-  #   json.dump(refr, f)
-
   if ref:
-    return imgs, refr
+    return imgs, refr, info
   return imgs
 
 def get_reference(files):
   ref = pydicom.dcmread(files[0])
   ref_data = {
-    "img_nums": len(files),
-    "dimension": (int(ref.Rows), int(ref.Columns)),
-    "spacing": (float(ref.PixelSpacing[0]), float(ref.PixelSpacing[1]), float(ref.SliceThickness)),
-    "intercept": float(ref.RescaleIntercept),
-    "slope": float(ref.RescaleSlope),
-    "reconst_diameter": float(ref.ReconstructionDiameter),
+    'img_nums': len(files),
+    'dimension': (int(ref.Rows), int(ref.Columns)),
+    'spacing': (float(ref.PixelSpacing[0]), float(ref.PixelSpacing[1]), float(ref.SliceThickness)),
+    'intercept': float(ref.RescaleIntercept),
+    'slope': float(ref.RescaleSlope),
+    'reconst_diameter': float(ref.ReconstructionDiameter),
+    'CTDI': float(ref.CTDIvol) if 'CTDIvol' in ref else 0
   }
-  return ref_data
+  patient_info = {
+    'name': str(ref.PatientName) if 'PatientName' in ref else '',
+    'sex': str(ref.PatientSex) if 'PatientSex' in ref else '',
+    'age': str(ref.PatientAge) if 'PatientAge' in ref else '',
+    'protocol': str(ref.BodyPartExamined) if 'BodyPartExamined' in ref else '',
+    'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else ''
+  }
+  return ref_data, patient_info
 
 def get_label(img, threshold=-200):
   thres = img>threshold
@@ -79,23 +82,27 @@ def show_imgs(img, label=None):
     plt.scatter(coords[:,1], coords[:,0], s=3, c='red', marker='s')
   plt.show()
 
+def get_patient_info():
+  pass
+
 
 if __name__ == "__main__":
   import tkinter as tk
   from tkinter import filedialog
 
-  if os.path.exists("citra.npy") and os.path.exists("reference.json"):
-    dicom_pixels = np.load("citra.npy", allow_pickle=True)
-    ref = json.load(open("reference.json"))
-  else:
-    root = tk.Tk()
-    root.withdraw()
-    filelist = np.array(filedialog.askopenfilenames())
-    dicom_pixels, ref = get_images(filelist, True)
-    root.destroy()
+  # if os.path.exists("citra.npy") and os.path.exists("reference.json"):
+  #   dicom_pixels = np.load("citra.npy", allow_pickle=True)
+  #   ref = json.load(open("reference.json"))
+  # else:
+  root = tk.Tk()
+  root.withdraw()
+  filelist = np.array(filedialog.askopenfilenames())
+  dicom_pixels, ref, pat_info = get_images(filelist, True)
+  root.destroy()
+  print(pat_info)
 
-  avg = avg_dw(dicom_pixels, ref)
-  print(f'Average Dw value: {avg} cm')
+  # avg = avg_dw(dicom_pixels, ref)
+  # print(f'Average Dw value: {avg} cm')
 
-  citra = dicom_pixels[0]
-  show_imgs(citra, get_label(citra))
+  # citra = dicom_pixels[0]
+  # show_imgs(citra, get_label(citra))
