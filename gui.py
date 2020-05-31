@@ -1,23 +1,29 @@
-from PyQt5.QtWidgets import QMainWindow, QApplication, QFrame, QSizePolicy, QHBoxLayout, QVBoxLayout, QGridLayout, QToolBar, QAction, QLineEdit, QPushButton, QLabel, QFileDialog, QWidget, QTabWidget, QSplitter, QProgressBar, QComboBox
+from PyQt5.QtWidgets import QMainWindow, QApplication, QHBoxLayout, QVBoxLayout, QToolBar, QAction, QLabel, QFileDialog, QWidget, QTabWidget, QSplitter, QProgressBar
 from PyQt5.QtCore import Qt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 import numpy as np
 import sys
 from IndoseCT_funcs import get_image, get_label_pos, get_reference
+from plt_axes import Axes
+from patient_info import InfoPanel
+from tab_CTDIvol import CTDIVolTab
+from tab_Diameter import DiameterTab
+from tab_SSDE import SSDETab
+from tab_Organ import OrganTab
+from tab_Analyze import AnalyzeTab
 
 class MainWindow(QMainWindow):
   def __init__(self):
     super(MainWindow, self).__init__()
-    self.initUI()
     self.initVar()
+    self.initUI()
     self.show()
 
   def initVar(self):
     self.imgs = []
     self.current_img = None
     self.total_img = None
-    self.info = None
+    self.first_info = None
+    self.last_info = None
     self.patient_info = None
 
   def initUI(self):
@@ -89,7 +95,7 @@ class MainWindow(QMainWindow):
 
   def setTabs(self):
     self.tabs = QTabWidget()
-    self.tab1 = CTDIVolTab()
+    self.tab1 = CTDIVolTab(parent=self)
     self.tabs.addTab(self.tab1, 'CTDIVol')
     self.tab2 = DiameterTab()
     self.tabs.addTab(self.tab2, 'Diameter')
@@ -105,10 +111,11 @@ class MainWindow(QMainWindow):
     filenames, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if filenames:
       self.initVar()
-      self.info, self.patient_info = get_reference(filenames[0])
+      self.first_info, self.patient_info = get_reference(filenames[0])
+      self.last_info, _ = get_reference(filenames[-1])
 
       for filename in filenames:
-        img = get_image(filename, self.info)
+        img = get_image(filename, self.first_info)
         self.imgs.append(img)
         self.progress.setValue((filenames.index(filename)+1)*100/len(filenames))
       self.imgs = np.array(self.imgs)
@@ -142,225 +149,10 @@ class MainWindow(QMainWindow):
     self.axes.clear()
     self.axes.imshow(self.imgs[self.current_img-1])
 
+def main():
+  app = QApplication(sys.argv)
+  window = MainWindow()
+  sys.exit(app.exec())
 
-class InfoPanel(QWidget):
-  def __init__(self, *args, **kwargs):
-    super(InfoPanel, self).__init__(*args, **kwargs)
-    self.initUI()
-
-  def initUI(self):
-    no_label = QLabel('No')
-    name_label = QLabel('Name')
-    protocol_label = QLabel('Protocol')
-    exam_date_label = QLabel('Exam Date')
-    age_label = QLabel('Age')
-    sex_label = QLabel('Sex')
-    
-    self.no_edit = QLineEdit()
-    self.name_edit = QLineEdit()
-    self.protocol_edit = QLineEdit()
-    self.exam_date_edit = QLineEdit()
-    self.age_edit = QLineEdit()
-    self.sex_edit = QLineEdit()
-
-    grid = QGridLayout()
-    grid.setHorizontalSpacing(5)
-    grid.setVerticalSpacing(1)
-
-    grid.addWidget(no_label, 0, 0)
-    grid.addWidget(self.no_edit, 0, 1)
-    grid.addWidget(name_label, 1, 0)
-    grid.addWidget(self.name_edit, 1, 1)
-    grid.addWidget(protocol_label, 2, 0)
-    grid.addWidget(self.protocol_edit, 2, 1)
-    grid.addWidget(exam_date_label, 0, 2)
-    grid.addWidget(self.exam_date_edit, 0, 3)
-    grid.addWidget(age_label, 1, 2)
-    grid.addWidget(self.age_edit, 1, 3)
-    grid.addWidget(sex_label, 2, 2)
-    grid.addWidget(self.sex_edit, 2, 3)
-
-    self.setLayout(grid)
-    self.setMaximumHeight(75)
-
-  def setInfo(self, pat_info):
-    self.name_edit.setText(pat_info['name'])
-    self.age_edit.setText(pat_info['age'][:3])
-    self.sex_edit.setText(pat_info['sex'])
-    self.protocol_edit.setText(pat_info['protocol'])
-    self.exam_date_edit.setText(pat_info['date'])
-
-
-class HSeparator(QFrame):
-  def __init__(self):
-    super().__init__()
-    self.setFrameShape(QFrame.HLine)
-    # self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
-
-
-class VSeparator(QFrame):
-  def __init__(self):
-    super().__init__()
-    self.setFrameShape(QFrame.VLine)
-    self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
-
-
-class DiameterTab(QWidget):
-  def __init__(self):
-    super().__init__()
-
-
-class CTDIVolTab(QWidget):
-  def __init__(self):
-    super().__init__()
-    self.initUI()
-
-  def initUI(self):
-    self.setInputFields()
-    opt_lbl = QLabel('Options:')
-
-    param_lbls = [
-      QLabel('Manufacturer'),
-      QLabel('Scanner'),
-      QLabel('Voltage (kV)'),
-      QLabel('Tube Current (mA)'),
-      QLabel('Rotation Time (s)'),
-      QLabel('Pitch'),
-      QLabel('Collimation (mm)'),
-      QLabel('Scan Length (cm)'),
-    ]
-    tcm_btn = QPushButton('TCM')
-    calc_btn = QPushButton('Calculate')
-
-    output_lbls = [
-      QLabel('mAs'),
-      QLabel('Effective mAs'),
-      QLabel('CTDIw (mGy)'),
-      QLabel('CTDIvol (mGy)'),
-      QLabel('DLP (mGy)'),
-    ]
-    [lbl.setMinimumWidth(150) for lbl in output_lbls]
-
-    layout1 = QVBoxLayout()
-    layout1.addWidget(opt_lbl)
-    layout1.addWidget(self.opts)
-
-    self.param_layout = QGridLayout()
-    [self.param_layout.addWidget(param_lbls[row], row, 0)
-      for row in range(len(param_lbls))]
-    self.param_layout.addWidget(tcm_btn, 3, 1)
-    self.param_layout.addWidget(self.manufacturer, 0, 2)
-    self.param_layout.addWidget(self.scanner, 1, 2)
-    self.param_layout.addWidget(self.voltage, 2, 2)
-    self.param_layout.addWidget(self.tube_current, 3, 2)
-    self.param_layout.addWidget(self.rotation_time, 4, 2)
-    self.param_layout.addWidget(self.pitch, 5, 2)
-    self.param_layout.addWidget(self.collimation, 6, 2)
-    self.param_layout.addWidget(self.scan_length, 7, 2)
-    self.param_layout.addWidget(calc_btn, 8, 0)
-
-    self.output_layout = QGridLayout()
-    for row in range(len(output_lbls)):
-      self.output_layout.addWidget(output_lbls[row], row, 0)
-      self.output_layout.addWidget(self.out_edits[row], row, 1)
-
-    hbox = QHBoxLayout()
-    hbox.addLayout(self.output_layout)
-    hbox.addStretch()
-    hbox.addWidget(VSeparator())
-    hbox.addLayout(self.param_layout)
-    hbox.addStretch()
-
-    main_layout = QVBoxLayout()
-    main_layout.addLayout(layout1)
-    main_layout.addWidget(HSeparator())
-    main_layout.addLayout(hbox)
-    main_layout.addStretch()
-    
-    self.setLayout(main_layout)
-    self.options(0)
-
-  def setInputFields(self):
-    self.opts = QComboBox(self)
-    self.opts.addItem('Calculation')
-    self.opts.addItem('Input Manually')
-    self.opts.addItem('Get from DICOM')
-    self.opts.activated[int].connect(self.options)
-
-    self.manufacturer = QComboBox(self)
-    self.scanner = QComboBox(self)
-    self.voltage = QComboBox(self)
-    self.collimation = QComboBox(self)
-
-    self.tube_current = QLineEdit('100')
-    self.tube_current.setMaximumWidth(50)
-    self.rotation_time = QLineEdit('1')
-    self.rotation_time.setMaximumWidth(50)
-    self.pitch = QLineEdit('1')
-    self.pitch.setMaximumWidth(50)
-    self.scan_length = QLineEdit('10')
-    self.scan_length.setMaximumWidth(50)
-
-    self.out_edits = [QLineEdit('0') for i in range(5)]
-    [out_edit.setMaximumWidth(50) for out_edit in self.out_edits]
-
-  def options(self, sel):
-    out_items = [self.output_layout.itemAt(idx) for idx in range(self.output_layout.count())]
-    [item.widget().setEnabled(True) for item in out_items]
-    param_items = [self.param_layout.itemAt(idx) for idx in range(self.param_layout.count())]
-    [item.widget().setEnabled(True) for item in param_items]
-
-    if sel == 0:
-      [item.widget().setEnabled(False) for item in out_items[1::2]]
-
-    elif sel == 1:
-      [item.widget().setEnabled(False) for item in param_items]
-      [item.widget().setEnabled(False) for item in out_items[:6]]
-      out_items[-1].widget().setEnabled(False)
-      param_items[7].widget().setEnabled(True)
-      param_items[-2].widget().setEnabled(True)
-
-    elif sel == 2:
-      [item.widget().setEnabled(False) for item in out_items]
-      [item.widget().setEnabled(False) for item in param_items]
-      out_items[-4].widget().setEnabled(True)
-      param_items[7].widget().setEnabled(True)
-
-
-class SSDETab(QWidget):
-  def __init__(self):
-    super().__init__()
-
-
-class OrganTab(QWidget):
-  def __init__(self):
-    super().__init__()
-
-
-class AnalyzeTab(QWidget):
-  def __init__(self):
-    super().__init__()
-
-
-class Axes(FigureCanvas):
-  def __init__(self, parent = None, width = 5, height = 5, dpi = 100):
-    fig = Figure(figsize=(width, height), dpi=dpi)
-    self.axes = fig.add_subplot(111)
-
-    FigureCanvas.__init__(self, fig)
-    self.setParent(parent)
-  
-  def imshow(self, img, label=None, cmap='bone'):
-    self.axes.imshow(img, cmap=cmap)
-    if label is not None:
-      pos = get_label_pos(label)
-      self.axes.scatter(pos[:,1], pos[:,0], s=3, c='red', marker='s')
-    self.draw()
-  
-  def clear(self):
-    self.axes.cla()
-
-
-app = QApplication(sys.argv)
-window = MainWindow()
-sys.exit(app.exec())
+if __name__ == "__main__":
+  main()

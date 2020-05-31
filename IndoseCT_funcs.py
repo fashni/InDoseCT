@@ -29,6 +29,7 @@ def get_reference(file):
     'intercept': float(ref.RescaleIntercept),
     'slope': float(ref.RescaleSlope),
     'reconst_diameter': float(ref.ReconstructionDiameter),
+    'slice_pos': float(ref.SliceLocation),
     'CTDI': float(ref.CTDIvol) if 'CTDIvol' in ref else 0
   }
   patient_info = {
