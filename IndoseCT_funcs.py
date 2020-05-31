@@ -10,7 +10,7 @@ from skimage.morphology import square, closing
 from scipy import ndimage as ndi
 
 def get_images(filelist, ref=False):
-  refr, info = get_reference(filelist)
+  refr, info = get_reference(filelist[0])
   imgs = np.array([np.array(pydicom.dcmread(fname).pixel_array*refr['slope'] + refr['intercept'])
                   for fname in filelist])
 
@@ -18,10 +18,12 @@ def get_images(filelist, ref=False):
     return imgs, refr, info
   return imgs
 
-def get_reference(files):
-  ref = pydicom.dcmread(files[0])
+def get_image(filename, ref):
+  return pydicom.dcmread(filename).pixel_array*ref['slope'] + ref['intercept']
+
+def get_reference(file):
+  ref = pydicom.dcmread(file)
   ref_data = {
-    'img_nums': len(files),
     'dimension': (int(ref.Rows), int(ref.Columns)),
     'spacing': (float(ref.PixelSpacing[0]), float(ref.PixelSpacing[1]), float(ref.SliceThickness)),
     'intercept': float(ref.RescaleIntercept),
@@ -74,11 +76,15 @@ def avg_dw(imgs, ref):
     count+=1
   return np.mean(dw)
 
+def get_label_pos(label):
+  edges = canny(label)
+  pos = get_coord(edges, True)
+  return pos
+
 def show_imgs(img, label=None):
   plt.imshow(img, cmap='bone')
   if label is not None:
-    edges = canny(label)
-    coords = get_coord(edges, True)
+    coords = get_label_pos(label)
     plt.scatter(coords[:,1], coords[:,0], s=3, c='red', marker='s')
   plt.show()
 
