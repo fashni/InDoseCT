@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
 from PyQt5.QtCore import Qt
 import numpy as np
 import sys
-from IndoseCT_funcs import get_image, get_label_pos, get_reference
+from IndoseCT_funcs import get_image, get_reference
 from plt_axes import Axes
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
@@ -114,10 +114,10 @@ class MainWindow(QMainWindow):
       self.first_info, self.patient_info = get_reference(filenames[0])
       self.last_info, _ = get_reference(filenames[-1])
 
-      for filename in filenames:
+      for idx, filename in enumerate(filenames):
         img = get_image(filename, self.first_info)
         self.imgs.append(img)
-        self.progress.setValue((filenames.index(filename)+1)*100/len(filenames))
+        self.progress.setValue((idx+1)*100/len(filenames))
       self.imgs = np.array(self.imgs)
 
       self.current_img = 1

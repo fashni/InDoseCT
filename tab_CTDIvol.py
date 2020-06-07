@@ -5,12 +5,13 @@ from separator import HSeparator, VSeparator
 class CTDIVolTab(QWidget):
   def __init__(self, *args, **kwargs):
     super(CTDIVolTab, self).__init__(*args, **kwargs)
-    # print(self.parent().imgs)
+    self.initVar()
     self.initUI()
 
   def initVar(self):
     self.ctdi_val = 0
     self.scan_len_val = 0
+    self.dlp_val = 0
 
   def initUI(self):
     self.setInputFields()
@@ -163,15 +164,34 @@ class CTDIVolTab(QWidget):
   
   def get_from_dicom(self):
     try:
-      self.ctdi_val = self.parent().parent().parent().parent().parent().first_info['CTDI']
-      first = self.parent().parent().parent().parent().parent().first_info['slice_pos']
-      last = self.parent().parent().parent().parent().parent().last_info['slice_pos']
+      with GetMainWindowProps(self) as par:
+        self.ctdi_val = par.first_info['CTDI']
+        first = par.first_info['slice_pos']
+        last = par.last_info['slice_pos']
     except:
       self.ctdi_val = 0
       first = 0
       last = 0
     self.scan_len_val = abs(0.1*(last-first))
     self.dlp_val = self.scan_len_val * self.ctdi_val
-    self.out_edits[-1].setText(str(self.dlp_val))
-    self.out_edits[-2].setText(str(self.ctdi_val))
-    self.scan_length.setText(str(self.scan_len_val))
+    self.out_edits[-1].setText(f'{self.dlp_val:#.2f}')
+    self.out_edits[-2].setText(f'{self.ctdi_val:#.2f}')
+    self.scan_length.setText(f'{self.scan_len_val:#.2f}')
+
+  def calculation(self):
+    pass
+
+  def get_tcm(self):
+    pass
+
+
+class GetMainWindowProps(object):
+  def __init__(self, obj):
+    self.obj = obj
+
+  def __enter__(self):
+    self.par = self.obj.parent().parent().parent().parent().parent()
+    return self.par
+  
+  def __exit__(self, *args):
+    pass
