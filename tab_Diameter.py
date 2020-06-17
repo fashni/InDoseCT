@@ -1,9 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
 from PyQt5.QtCore import Qt
 from tab_CTDIvol import GetMainWindowProps
 from IndoseCT_funcs import get_dw_value, get_deff_value, get_label
 from separator import VSeparator
 import sip
+import numpy as np
 
 class DiameterTab(QWidget):
   def __init__(self, *args, **kwargs):
@@ -107,6 +108,8 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_dw_img_3d(self):
+    opt = QCheckBox('Truncated Image')
+    opt.stateChanged.connect(self._is_truncated)
     opt1 = QRadioButton('Slice Step')
     opt2 = QRadioButton('Slice Number')
     self.slices = QLineEdit('1')
@@ -118,10 +121,22 @@ class DiameterTab(QWidget):
     opt2.toggled.connect(self._3d_switch)
     opt1.setChecked(True)
     inner = QVBoxLayout()
+    inner.addWidget(QLabel('Options:'))
+    inner.addWidget(opt)
+    inner.addWidget(QLabel(''))
     inner.addWidget(QLabel('3D Options:'))
     inner.addWidget(opt1)
     inner.addWidget(opt2)
     inner.addWidget(self.slices)
+    inner.addStretch()
+    self.opt.setLayout(inner)
+
+  def _ui_dw_img_auto(self):
+    opt = QCheckBox('Truncated Image')
+    opt.stateChanged.connect(self._is_truncated)
+    inner = QVBoxLayout()
+    inner.addWidget(QLabel('Options:'))
+    inner.addWidget(opt)
     inner.addStretch()
     self.opt.setLayout(inner)
 
@@ -239,13 +254,19 @@ class DiameterTab(QWidget):
           self._ui_def_img_auto()
         elif self.method == 1:
           self._ui_def_img_3d()
-        else:
+        elif self.method == 2:
           self._ui_def_img_manual()
       else:
-        if self.method == 1:
+        if self.method == 0:
+          self._ui_dw_img_auto()
+        elif self.method == 1:
           self._ui_dw_img_3d()
         elif self.method == 2:
           self._ui_dw_img_manual()
+
+  def _is_truncated(self, state):
+    self.is_truncated = state == Qt.Checked
+    print(f'trunc = {self.is_truncated}')
 
   def _3d_switch(self):
     sel = self.sender()
@@ -284,7 +305,7 @@ class DiameterTab(QWidget):
     if self.based_on == 0: # deff
       self.d_val, x, y = get_deff_value(img, info, self.def_auto_method)
     elif self.based_on == 1:
-      self.d_val = get_dw_value(img, info)
+      self.d_val = get_dw_value(img, info, self.is_truncated)
     self.d_out.setText(f'{self.d_val:#.2f}')
     
   def _auto_3d(self):
@@ -298,6 +319,7 @@ class DiameterTab(QWidget):
         info = par.first_info
         imgs = par.imgs
         dval = 0
+        print(self._3d_method == 'slice number')
         if self._3d_method == 'slice step':
           n = len(imgs[::nslice])
           print(n)
@@ -305,14 +327,25 @@ class DiameterTab(QWidget):
             if self.based_on == 0:
               d, _, _ = get_deff_value(img, info, self.def_auto_method)
             else:
-              d = get_dw_value(img, info)
+              d = get_dw_value(img, info, self.is_truncated)
             dval += d
             par.progress.setValue((idx+1)*100/n)
-          self.d_val = dval/n
         elif self._3d_method == 'slice number':
-          pass
+          tmps = np.array_split(np.arange(len(imgs)), nslice)
+          idxs = [tmp[int(len(tmp)/2)] for tmp in tmps]
+          n = len(idxs)
+          print(n)
+          for i, idx in enumerate(idxs):
+            if self.based_on == 0:
+              d, _, _ = get_deff_value(imgs[idx], info, self.def_auto_method)
+            else:
+              d = get_dw_value(imgs[idx], info, self.is_truncated)
+            dval += d
+            par.progress.setValue((i+1)*100/n)
+        self.d_val = dval/n
         self.d_out.setText(f'{self.d_val:#.2f}')
-    except:
+    except Exception as e:
+      print(e)
       return
 
   def _img_manual(self):

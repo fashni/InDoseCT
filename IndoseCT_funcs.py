@@ -68,7 +68,7 @@ def get_avg_intensity(roi):
 def get_roi(img, label):
   return regionprops(label.astype(int), intensity_image=img)
 
-def get_dw_value(img, ref):
+def get_dw_value(img, ref, is_truncated):
   label = get_label(img)
   rd = ref["reconst_diameter"]
   roi = get_roi(img, label)
@@ -76,6 +76,10 @@ def get_dw_value(img, ref):
   area = px_area*(rd**2)/(len(img)**2)
   avg = get_avg_intensity(roi)
   dw = 0.1*2*np.sqrt(((avg/1000)+1)*(area/np.pi))
+  if is_truncated:
+    percent = truncation(label)
+    correction = np.exp(1.14e-6 * percent**3)
+    dw *= correction
   return dw
 
 def get_deff_value(img, ref, method):
@@ -119,6 +123,27 @@ def get_deff_value(img, ref, method):
   else:
     deff = 0
   return deff, cen_row, cen_col
+
+def truncation(label):
+  pos = get_label_pos(label)
+  row, col = label.shape
+  uniq_row, count_row = np.unique(pos[:,0], return_counts=True)
+  uniq_col, count_col = np.unique(pos[:,1], return_counts=True)
+  n = 0
+  if 0 in uniq_row:
+    idx = np.where(uniq_row==0)
+    n += int(count_row[idx])
+  if 0 in uniq_col:
+    idx = np.where(uniq_col==0)
+    n += int(count_col[idx])
+  if row in uniq_row:
+    idx = np.where(uniq_row==row)
+    n += int(count_row[idx])
+  if col in uniq_col:
+    idx = np.where(uniq_col==col)
+    n += int(count_col[idx])
+  m = len(pos)
+  return (n/m) * 100
 
 def get_label_pos(label):
   edges = canny(label)
