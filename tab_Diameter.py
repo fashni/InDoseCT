@@ -16,6 +16,7 @@ class DiameterTab(QWidget):
     self.d_val = 0
     self.def_auto_method = 'area'
     self._3d_method = 'slice step'
+    self.is_truncated = False
     self.src_method = {
       'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
       'Input Manually': ['Manual'],
