@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox
 from PyQt5.QtCore import Qt
 from tab_CTDIvol import GetMainWindowProps
 from IndoseCT_funcs import get_dw_value, get_deff_value, get_label
-from separator import VSeparator
+from custom_widgets import VSeparator
 import sip
 import numpy as np
 
@@ -295,7 +295,7 @@ class DiameterTab(QWidget):
 
   def _auto(self):
     try:
-      with GetMainWindowProps(self) as par:
+      with GetMainWindowProps(self, 5) as par:
         info = par.first_info
         img = par.imgs[par.current_img-1]
         img_label = get_label(img)
@@ -316,7 +316,7 @@ class DiameterTab(QWidget):
       return
 
     try:
-      with GetMainWindowProps(self) as par:
+      with GetMainWindowProps(self, 5) as par:
         info = par.first_info
         imgs = par.imgs
         dval = 0

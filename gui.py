@@ -42,11 +42,11 @@ class MainWindow(QMainWindow):
     self.main_widget = QWidget()
     self.axes = Axes(self, width=5, height=5)
     self.axes.setMinimumSize(200, 200)
-    self.info_panel = InfoPanel()
     self.progress = QProgressBar(self)
 
     self.setToolbar()
     self.setTabs()
+    self.info_panel = InfoPanel(self)
     self.setLayout()
     self.setCentralWidget(self.main_widget)
 

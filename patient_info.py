@@ -1,8 +1,11 @@
-from PyQt5.QtWidgets import QGridLayout, QLineEdit, QLabel, QWidget, QComboBox
+from PyQt5.QtWidgets import QRadioButton, QGridLayout, QHBoxLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox
+from custom_widgets import VSeparator
+from tab_CTDIvol import GetMainWindowProps
 
 class InfoPanel(QWidget):
   def __init__(self, *args, **kwargs):
     super(InfoPanel, self).__init__(*args, **kwargs)
+    self.first_run = True
     self.initUI()
 
   def initUI(self):
@@ -37,7 +40,29 @@ class InfoPanel(QWidget):
     grid.addWidget(sex_label, 2, 2)
     grid.addWidget(self.sex_edit, 2, 3)
 
-    self.setLayout(grid)
+    phantom_lbl = QLabel('Phantom:')
+    body_btn = QRadioButton('Body')
+    head_btn = QRadioButton('Head')
+    body_btn.toggled.connect(self._phantom_switch)
+    head_btn.toggled.connect(self._phantom_switch)
+    body_btn.setChecked(True)
+
+    phantom_layout = QVBoxLayout()
+    phantom_layout.addWidget(phantom_lbl)
+    phantom_layout.addWidget(body_btn)
+    phantom_layout.addWidget(head_btn)
+    # phantom_widget = QWidget()
+    # phantom_widget.setLayout(phantom_layout)
+    # phantom_widget.setMinimumWidth(75)
+
+    main_layout = QHBoxLayout()
+    main_layout.addLayout(grid)
+    main_layout.addWidget(VSeparator())
+    # main_layout.addStretch()
+    main_layout.addLayout(phantom_layout)
+    # main_layout.addStretch()
+
+    self.setLayout(main_layout)
     self.setMaximumHeight(75)
 
   def setInfo(self, pat_info):
@@ -46,3 +71,23 @@ class InfoPanel(QWidget):
     self.sex_edit.setText(pat_info['sex'])
     self.protocol_edit.setText(pat_info['protocol'])
     self.exam_date_edit.setText(pat_info['date'])
+
+  def _phantom_switch(self):
+    body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
+                    'Abdomen', 'Adrenal', 'Kidney', 
+                    'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
+                    'Kidney to Bladder']
+    head_protocol = ['Head', 'Head & Neck', 'Neck']
+    sel = self.sender()
+    level = 1 if self.first_run else 2
+    self.first_run = False
+    if sel.isChecked():
+      with GetMainWindowProps(self, level) as par:
+        par.tab3.protocol.clear()
+        par.tab4.protocol.clear()
+        if sel.text().lower() == 'body':
+          par.tab3.protocol.addItems(body_protocol)
+          par.tab4.protocol.addItems(body_protocol)
+        else:
+          par.tab3.protocol.addItems(head_protocol)
+          par.tab4.protocol.addItems(head_protocol)

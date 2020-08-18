@@ -1,6 +1,6 @@
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox
-from separator import HSeparator, VSeparator
+from custom_widgets import HSeparator, VSeparator
 
 class CTDIVolTab(QWidget):
   def __init__(self, *args, **kwargs):
@@ -164,7 +164,7 @@ class CTDIVolTab(QWidget):
   
   def get_from_dicom(self):
     try:
-      with GetMainWindowProps(self) as par:
+      with GetMainWindowProps(self, 5) as par:
         self.ctdi_val = par.first_info['CTDI']
         first = par.first_info['slice_pos']
         last = par.last_info['slice_pos']
@@ -186,11 +186,15 @@ class CTDIVolTab(QWidget):
 
 
 class GetMainWindowProps(object):
-  def __init__(self, obj):
+  def __init__(self, obj, level):
     self.obj = obj
+    self.level = level
 
   def __enter__(self):
-    self.par = self.obj.parent().parent().parent().parent().parent()
+    # self.par = self.obj.parent().parent().parent().parent().parent()
+    self.par = self.obj
+    for i in range(self.level):
+      self.par = self.par.parent()
     return self.par
   
   def __exit__(self, *args):
