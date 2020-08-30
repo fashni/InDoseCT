@@ -264,6 +264,7 @@ class DiameterTab(QWidget):
           self._ui_dw_img_3d()
         elif self.method == 2:
           self._ui_dw_img_manual()
+    self.d_out.setText('0')
 
   def _is_truncated(self, state):
     self.is_truncated = state == Qt.Checked
@@ -274,12 +275,14 @@ class DiameterTab(QWidget):
     if sel.isChecked():
       self._3d_method = sel.text().lower()
       print(self._3d_method)
+    self.d_out.setText('0')
 
   def _def_auto_switch(self):
     sel = self.sender()
     if sel.isChecked():
       self.def_auto_method = sel.text().lower()
       print(self.def_auto_method)
+    self.d_out.setText('0')
 
   def _calculate(self):
     self._params

@@ -1,5 +1,8 @@
-from PyQt5.QtWidgets import QMainWindow, QApplication, QHBoxLayout, QVBoxLayout, QToolBar, QAction, QLabel, QFileDialog, QWidget, QTabWidget, QSplitter, QProgressBar
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
+                             QToolBar, QAction, QLabel, QFileDialog, QWidget,
+                             QTabWidget, QSplitter, QProgressBar)
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 import numpy as np
 import sys
 from IndoseCT_funcs import get_image, get_reference
@@ -10,6 +13,7 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
+from patients_db import *
 
 class MainWindow(QMainWindow):
   def __init__(self):
@@ -57,27 +61,34 @@ class MainWindow(QMainWindow):
     toolbar = QToolBar('Main Toolbar')
     self.addToolBar(toolbar)
 
-    open_btn = QAction('Open DICOM', self)
+    open_btn = QAction(QIcon('assets/icons/open.png'), 'Open DICOM', self)
     open_btn.setShortcut('Ctrl+O')
     open_btn.setStatusTip('Open DICOM Files')
     open_btn.triggered.connect(self.open_files)
     toolbar.addAction(open_btn)
 
+    save_btn = QAction(QIcon('assets/icons/save.png'), 'Save to Database', self)
+    save_btn.setShortcut('Ctrl+S')
+    save_btn.setStatusTip('Save Result to Database')
+    save_btn.triggered.connect(self.save_db)
+    toolbar.addAction(save_btn)
+
     img_ctrl = QToolBar('Image Control')
     self.addToolBar(Qt.BottomToolBarArea, img_ctrl)
-    next_btn = QAction('>', self)
-    next_btn.setStatusTip('Next Image')
+    next_btn = QAction(QIcon('assets/icons/navigate_next.png'), 'Next Slice', self)
+    next_btn.setStatusTip('Next Slice')
     next_btn.triggered.connect(self.next_img)
-    prev_btn = QAction('<', self)
-    prev_btn.setStatusTip('Previous Image')
+    prev_btn = QAction(QIcon('assets/icons/navigate_before.png'), 'Previous Slice', self)
+    prev_btn.setStatusTip('Previous Slice')
     prev_btn.triggered.connect(self.prev_img)
     self.current_lbl = QLabel('0')
-    separator = QLabel('/')
     self.total_lbl = QLabel('0')
     img_ctrl.addAction(prev_btn)
+    img_ctrl.addWidget(QLabel(' '))
     img_ctrl.addWidget(self.current_lbl)
-    img_ctrl.addWidget(separator)
+    img_ctrl.addWidget(QLabel('/'))
     img_ctrl.addWidget(self.total_lbl)
+    img_ctrl.addWidget(QLabel(' '))
     img_ctrl.addAction(next_btn)
 
   def setLayout(self):
@@ -148,6 +159,9 @@ class MainWindow(QMainWindow):
     self.current_lbl.adjustSize()
     self.axes.clear()
     self.axes.imshow(self.imgs[self.current_img-1])
+
+  def save_db(self):
+    pass
 
 def main():
   app = QApplication(sys.argv)
