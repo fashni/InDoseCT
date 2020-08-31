@@ -165,10 +165,6 @@ if __name__ == "__main__":
   import tkinter as tk
   from tkinter import filedialog
 
-  # if os.path.exists("citra.npy") and os.path.exists("reference.json"):
-  #   dicom_pixels = np.load("citra.npy", allow_pickle=True)
-  #   ref = json.load(open("reference.json"))
-  # else:
   root = tk.Tk()
   root.withdraw()
   filelist = np.array(filedialog.askopenfilenames())
@@ -182,9 +178,6 @@ if __name__ == "__main__":
   print(f'deff center = {center: #.2f} cm')
   print(f'deff max = {_max: #.2f} cm')
   print(f'dw = {dw: #.2f} cm')
-
-  # avg = avg_dw(dicom_pixels, ref)
-  # print(f'Average Dw value: {avg} cm')
 
   # citra = dicom_pixels[0]
   # show_imgs(citra, get_label(citra))

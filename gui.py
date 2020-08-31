@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import numpy as np
 import sys
+from functools import partial
 from IndoseCT_funcs import get_image, get_reference
 from plt_axes import Axes
 from patient_info import InfoPanel
@@ -13,7 +14,8 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
-from patients_db import *
+from patients_db import open_excel_recs, convert_to_excel
+from constants import *
 
 class MainWindow(QMainWindow):
   def __init__(self):
@@ -67,11 +69,25 @@ class MainWindow(QMainWindow):
     open_btn.triggered.connect(self.open_files)
     toolbar.addAction(open_btn)
 
-    save_btn = QAction(QIcon('assets/icons/save.png'), 'Save to Database', self)
+    settings_btn = QAction(QIcon('assets/icons/setting.png'), 'Settings', self)
+    # settings_btn.setShortcut('Ctrl+J')
+    settings_btn.setStatusTip('Application Settings')
+    settings_btn.triggered.connect(self.settings_menu)
+    toolbar.addAction(settings_btn)
+
+    rec_ctrl = QToolBar('Records Control')
+    self.addToolBar(rec_ctrl)
+    save_btn = QAction(QIcon('assets/icons/save.png'), 'Save Record', self)
     save_btn.setShortcut('Ctrl+S')
-    save_btn.setStatusTip('Save Result to Database')
+    save_btn.setStatusTip('Save Record to Database')
     save_btn.triggered.connect(self.save_db)
-    toolbar.addAction(save_btn)
+    rec_ctrl.addAction(save_btn)
+    
+    openrec_btn = QAction(QIcon('assets/icons/launch.png'), 'Open Records', self)
+    # openrec_btn.setShortcut('Ctrl+S')
+    openrec_btn.setStatusTip('Open Records Data in Excel')
+    openrec_btn.triggered.connect(partial(open_excel_recs, PATIENTS_DB_XLS))
+    rec_ctrl.addAction(openrec_btn)
 
     img_ctrl = QToolBar('Image Control')
     self.addToolBar(Qt.BottomToolBarArea, img_ctrl)
@@ -161,6 +177,9 @@ class MainWindow(QMainWindow):
     self.axes.imshow(self.imgs[self.current_img-1])
 
   def save_db(self):
+    convert_to_excel(PATIENTS_DB_XLS)
+
+  def settings_menu(self):
     pass
 
 def main():

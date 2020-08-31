@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QRadioButton, QGridLayout, QHBoxLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox
 from custom_widgets import VSeparator
 from tab_CTDIvol import GetMainWindowProps
+from patients_db import get_records_num
 
 class InfoPanel(QWidget):
   def __init__(self, *args, **kwargs):
@@ -16,7 +17,7 @@ class InfoPanel(QWidget):
     age_label = QLabel('Age')
     sex_label = QLabel('Sex')
     
-    self.no_edit = QLineEdit()
+    self.no_edit = QLineEdit(str(get_records_num()+1))
     self.name_edit = QLineEdit()
     self.protocol_edit = QLineEdit()
     self.exam_date_edit = QLineEdit()
