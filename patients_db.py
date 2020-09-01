@@ -16,7 +16,7 @@ def create_patients_table():
   with con:
     try:
       con.execute("""
-        CREATE TABLE PATIENTS (
+        CREATE TABLE IF NOT EXISTS PATIENTS (
           id INTEGER PRIMARY KEY,
           name TEXT,
           protocol_num INTEGER,
@@ -64,12 +64,12 @@ def remove_all_patients():
   con.commit()
   con.close()
 
-def convert_to_excel(xls):
+def convert_to_excel():
   con = create_connection(PATIENTS_DB)
   sql = "SELECT * FROM PATIENTS"
   df = pd.read_sql_query(sql, con)
   # print(df.head())
-  df.to_excel(xls, index=False)
+  df.to_excel(PATIENTS_DB_XLS, index=False)
   con.close()
 
 def open_excel_recs(xls):

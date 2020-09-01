@@ -14,15 +14,16 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
-from patients_db import open_excel_recs, convert_to_excel
+from patients_db import open_excel_recs, convert_to_excel, insert_patient, get_records_num
 from constants import *
+import time
 
 class MainWindow(QMainWindow):
   def __init__(self):
     super(MainWindow, self).__init__()
     self.initVar()
     self.initUI()
-    self.show()
+    # self.show()
 
   def initVar(self):
     self.imgs = []
@@ -30,7 +31,8 @@ class MainWindow(QMainWindow):
     self.total_img = None
     self.first_info = None
     self.last_info = None
-    self.patient_info = None
+    pat_field = ['name', 'sex', 'age', 'protocol', 'date']
+    self.patient_info = dict(zip(pat_field, [None]*len(pat_field))) 
 
   def initUI(self):
     self.title = 'InDoseCT'
@@ -85,7 +87,7 @@ class MainWindow(QMainWindow):
     
     openrec_btn = QAction(QIcon('assets/icons/launch.png'), 'Open Records', self)
     # openrec_btn.setShortcut('Ctrl+S')
-    openrec_btn.setStatusTip('Open Records Data in Excel')
+    openrec_btn.setStatusTip('Open Records in Excel')
     openrec_btn.triggered.connect(partial(open_excel_recs, PATIENTS_DB_XLS))
     rec_ctrl.addAction(openrec_btn)
 
@@ -177,14 +179,47 @@ class MainWindow(QMainWindow):
     self.axes.imshow(self.imgs[self.current_img-1])
 
   def save_db(self):
-    convert_to_excel(PATIENTS_DB_XLS)
+    recs = [
+      self.patient_info['name'],    # 'name'
+      None,   # 'protocol_num'
+      self.patient_info['protocol'],    # 'protocol'
+      self.patient_info['date'],    # 'date'
+      self.patient_info['age'][:3] if self.patient_info['age'] is not None else None,   # 'age'
+      1,    # 'sex_id'
+      self.patient_info['sex'],   # 'sex'
+      self.tab1.ctdi_val if self.tab1.ctdi_val is not 0 else None,   # 'CTDIVol'
+      self.tab2.d_val if self.tab2.d_val is not 0 else None,    # 'DE_WED'
+      self.tab3.SSDE_val if self.tab3.SSDE_val is not 0 else None,   # 'SSDE'
+      self.tab1.dlp_val if self.tab1.dlp_val is not 0 else None,    # 'DLP'
+      self.tab3.DLPc_val if self.tab3.DLPc_val is not 0 else None,   # 'DLPc'
+      self.tab3.effdose_val if self.tab3.effdose_val is not 0 else None   # 'Effective_Dose'
+    ]
+    if recs[6] is not None:
+      if not recs[6]:
+        recs[5] = None
+        recs[6] = None
+      elif recs[6]=='F':
+        recs[5] = 2
+    else:
+        recs[5] = None
+    print(recs)
+    insert_patient(recs)
+    convert_to_excel()
+    self.info_panel.no_edit.setText(str(get_records_num()+1))
 
   def settings_menu(self):
     pass
 
 def main():
+  t = time.time()
   app = QApplication(sys.argv)
+  t2 = time.time()
+  print(t2-t)
   window = MainWindow()
+  t3 = time.time()
+  print(t3-t2)
+  window.show()
+  print(time.time()-t3)
   sys.exit(app.exec())
 
 if __name__ == "__main__":

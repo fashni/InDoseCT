@@ -33,11 +33,11 @@ def get_reference(file):
     'CTDI': float(ref.CTDIvol) if 'CTDIvol' in ref else 0
   }
   patient_info = {
-    'name': str(ref.PatientName) if 'PatientName' in ref else '',
-    'sex': str(ref.PatientSex) if 'PatientSex' in ref else '',
-    'age': str(ref.PatientAge) if 'PatientAge' in ref else '',
-    'protocol': str(ref.BodyPartExamined) if 'BodyPartExamined' in ref else '',
-    'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else ''
+    'name': str(ref.PatientName) if 'PatientName' in ref else None,
+    'sex': str(ref.PatientSex) if 'PatientSex' in ref else None,
+    'age': str(ref.PatientAge) if 'PatientAge' in ref else None,
+    'protocol': str(ref.BodyPartExamined) if 'BodyPartExamined' in ref else None,
+    'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None
   }
   return ref_data, patient_info
 

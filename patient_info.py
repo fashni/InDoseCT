@@ -67,17 +67,22 @@ class InfoPanel(QWidget):
     self.setMaximumHeight(75)
 
   def setInfo(self, pat_info):
-    self.name_edit.setText(pat_info['name'])
-    self.age_edit.setText(pat_info['age'][:3])
-    self.sex_edit.setText(pat_info['sex'])
-    self.protocol_edit.setText(pat_info['protocol'])
-    self.exam_date_edit.setText(pat_info['date'])
+    name = pat_info['name'] if pat_info['name'] is not None else ''
+    age = pat_info['age'][:3] if pat_info['age'] is not None else ''
+    sex = pat_info['sex'] if pat_info['sex'] is not None else ''
+    protocol = pat_info['protocol'] if pat_info['protocol'] is not None else ''
+    date = pat_info['date'] if pat_info['date'] is not None else ''
+    self.name_edit.setText(name)
+    self.age_edit.setText(age)
+    self.sex_edit.setText(sex)
+    self.protocol_edit.setText(protocol)
+    self.exam_date_edit.setText(date)
 
   def _phantom_switch(self):
     body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
                     'Abdomen', 'Adrenal', 'Kidney', 
                     'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
-                    'Kidney to Bladder']
+                    'Kidney to Bladder', 'Pelvis']
     head_protocol = ['Head', 'Head & Neck', 'Neck']
     sel = self.sender()
     level = 1 if self.first_run else 2

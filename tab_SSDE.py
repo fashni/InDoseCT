@@ -10,7 +10,10 @@ class SSDETab(QWidget):
     self.initUI()
 
   def initVar(self):
-    pass
+    self.SSDE_val = 0
+    self.convf_val_val = 0
+    self.DLPc_val = 0
+    self.effdose_val = 0
 
   def initUI(self):
     self.protocol = QComboBox()
