@@ -1,11 +1,10 @@
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
-                             QTabWidget, QSplitter, QProgressBar)
+                             QTabWidget, QSplitter, QProgressBar, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import numpy as np
 import sys
-from functools import partial
 from IndoseCT_funcs import get_image, get_reference
 from plt_axes import Axes
 from patient_info import InfoPanel
@@ -14,8 +13,9 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
-from patients_db import open_excel_recs, convert_to_excel, insert_patient, get_records_num
+from patients_db import insert_patient, get_records_num
 from constants import *
+from DBViewer import DBViewer
 import time
 
 class MainWindow(QMainWindow):
@@ -31,6 +31,7 @@ class MainWindow(QMainWindow):
     self.total_img = None
     self.first_info = None
     self.last_info = None
+    self.rec_viewer = None
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field))) 
 
@@ -60,54 +61,60 @@ class MainWindow(QMainWindow):
 
     self.statusBar().addPermanentWidget(self.progress)
     self.statusBar().showMessage('READY')
+    self.setUpConnect()
+
+  def setUpConnect(self):
+    self.open_btn.triggered.connect(self.open_files)
+    self.settings_btn.triggered.connect(self.settings_menu)
+    self.save_btn.triggered.connect(self.save_db)
+    self.openrec_btn.triggered.connect(self.open_viewer)
+    self.next_btn.triggered.connect(self.next_img)
+    self.prev_btn.triggered.connect(self.prev_img)
+    
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
     self.addToolBar(toolbar)
 
-    open_btn = QAction(QIcon('assets/icons/open.png'), 'Open DICOM', self)
-    open_btn.setShortcut('Ctrl+O')
-    open_btn.setStatusTip('Open DICOM Files')
-    open_btn.triggered.connect(self.open_files)
-    toolbar.addAction(open_btn)
+    self.open_btn = QAction(QIcon('assets/icons/open.png'), 'Open DICOM', self)
+    self.open_btn.setShortcut('Ctrl+O')
+    self.open_btn.setStatusTip('Open DICOM Files')
 
-    settings_btn = QAction(QIcon('assets/icons/setting.png'), 'Settings', self)
-    # settings_btn.setShortcut('Ctrl+J')
-    settings_btn.setStatusTip('Application Settings')
-    settings_btn.triggered.connect(self.settings_menu)
-    toolbar.addAction(settings_btn)
+    self.settings_btn = QAction(QIcon('assets/icons/setting.png'), 'Settings', self)
+    self.settings_btn.setStatusTip('Application Settings')
+
+    toolbar.addAction(self.open_btn)
+    toolbar.addAction(self.settings_btn)
 
     rec_ctrl = QToolBar('Records Control')
     self.addToolBar(rec_ctrl)
-    save_btn = QAction(QIcon('assets/icons/save.png'), 'Save Record', self)
-    save_btn.setShortcut('Ctrl+S')
-    save_btn.setStatusTip('Save Record to Database')
-    save_btn.triggered.connect(self.save_db)
-    rec_ctrl.addAction(save_btn)
+
+    self.save_btn = QAction(QIcon('assets/icons/save.png'), 'Save Record', self)
+    self.save_btn.setShortcut('Ctrl+S')
+    self.save_btn.setStatusTip('Save Record to Database')
     
-    openrec_btn = QAction(QIcon('assets/icons/launch.png'), 'Open Records', self)
-    # openrec_btn.setShortcut('Ctrl+S')
-    openrec_btn.setStatusTip('Open Records in Excel')
-    openrec_btn.triggered.connect(partial(open_excel_recs, PATIENTS_DB_XLS))
-    rec_ctrl.addAction(openrec_btn)
+    self.openrec_btn = QAction(QIcon('assets/icons/launch.png'), 'Open Records', self)
+    self.openrec_btn.setStatusTip('Open Patients Record')
+    rec_ctrl.addAction(self.save_btn)
+    rec_ctrl.addAction(self.openrec_btn)
 
     img_ctrl = QToolBar('Image Control')
     self.addToolBar(Qt.BottomToolBarArea, img_ctrl)
-    next_btn = QAction(QIcon('assets/icons/navigate_next.png'), 'Next Slice', self)
-    next_btn.setStatusTip('Next Slice')
-    next_btn.triggered.connect(self.next_img)
-    prev_btn = QAction(QIcon('assets/icons/navigate_before.png'), 'Previous Slice', self)
-    prev_btn.setStatusTip('Previous Slice')
-    prev_btn.triggered.connect(self.prev_img)
+
+    self.next_btn = QAction(QIcon('assets/icons/navigate_next.png'), 'Next Slice', self)
+    self.next_btn.setStatusTip('Next Slice')
+    self.prev_btn = QAction(QIcon('assets/icons/navigate_before.png'), 'Previous Slice', self)
+    self.prev_btn.setStatusTip('Previous Slice')
     self.current_lbl = QLabel('0')
     self.total_lbl = QLabel('0')
-    img_ctrl.addAction(prev_btn)
-    img_ctrl.addWidget(QLabel(' '))
+
+    img_ctrl.addAction(self.prev_btn)
+    # img_ctrl.addWidget(QLabel(' '))
     img_ctrl.addWidget(self.current_lbl)
     img_ctrl.addWidget(QLabel('/'))
     img_ctrl.addWidget(self.total_lbl)
-    img_ctrl.addWidget(QLabel(' '))
-    img_ctrl.addAction(next_btn)
+    # img_ctrl.addWidget(QLabel(' '))
+    img_ctrl.addAction(self.next_btn)
 
   def setLayout(self):
     hbox = QHBoxLayout()
@@ -178,7 +185,17 @@ class MainWindow(QMainWindow):
     self.axes.clear()
     self.axes.imshow(self.imgs[self.current_img-1])
 
+  def open_viewer(self):
+    if self.rec_viewer is None:
+      self.rec_viewer = DBViewer()
+    else:
+      self.rec_viewer.openConnection()
+    self.rec_viewer.show()
+
   def save_db(self):
+    btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
+    if btn_reply == QMessageBox.No:
+      return
     recs = [
       self.patient_info['name'],    # 'name'
       None,   # 'protocol_num'
@@ -204,7 +221,7 @@ class MainWindow(QMainWindow):
         recs[5] = None
     print(recs)
     insert_patient(recs)
-    convert_to_excel()
+    QMessageBox.information(self, "Success", "Record has been saved in database.")
     self.info_panel.no_edit.setText(str(get_records_num()+1))
 
   def settings_menu(self):

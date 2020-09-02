@@ -1,5 +1,4 @@
 import sqlite3 as sl
-import pandas as pd
 import os
 from constants import *
 
@@ -17,14 +16,14 @@ def create_patients_table():
     try:
       con.execute("""
         CREATE TABLE IF NOT EXISTS PATIENTS (
-          id INTEGER PRIMARY KEY,
-          name TEXT,
-          protocol_num INTEGER,
-          protocol TEXT,
-          date TEXT,
-          age INTEGER,
-          sex_id INTEGER,
-          sex TEXT,
+          ID INTEGER PRIMARY KEY,
+          Name TEXT,
+          Protocol_ID INTEGER,
+          Protocol TEXT,
+          Date TEXT,
+          Age INTEGER,
+          Sex_ID INTEGER,
+          Sex TEXT,
           CTDIVol REAL,
           DE_WED REAL,
           SSDE REAL,
@@ -39,7 +38,7 @@ def create_patients_table():
 
 def insert_patient(patient_data):
   con = create_connection(PATIENTS_DB)
-  sql = """INSERT INTO PATIENTS (name, protocol_num, protocol, date, age, sex_id, sex, CTDIVol, DE_WED, SSDE, DLP, DLPc, Effective_Dose)
+  sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIVol, DE_WED, SSDE, DLP, DLPc, Effective_Dose)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
   cur.execute(sql, patient_data)
@@ -64,17 +63,6 @@ def remove_all_patients():
   con.commit()
   con.close()
 
-def convert_to_excel():
-  con = create_connection(PATIENTS_DB)
-  sql = "SELECT * FROM PATIENTS"
-  df = pd.read_sql_query(sql, con)
-  # print(df.head())
-  df.to_excel(PATIENTS_DB_XLS, index=False)
-  con.close()
-
-def open_excel_recs(xls):
-  os.startfile(xls)
-
 def get_records_num():
   con = create_connection(PATIENTS_DB)
   cur = con.cursor()
@@ -94,8 +82,8 @@ def print_records():
 def main():
   create_patients_table()
 
-  patient1 = ('Bagaskara', 11, 'HEAD', '20180209', 29, 1, 'Male', 10, 17.26, 9.66, 100, 96.8, 0.54)
-  patient2 = ('Mayang', 11, 'HEAD', '20181031', 21, 2, 'Female', 10, 17.26, 9.66, 100, 96.8, 0.54)
+  patient1 = ('MACHRUP, TN', None, 'HEAD', '20150128', 72, 1, 'M', 7.0, 17.290882261324896, None, 70.0, None, None)
+  patient2 = ('XXXXXX-001', None, None, '20170209', None, None, None, 6.0, 15.613011979837614, None, 138.0, None, None)
   patient_id1 = insert_patient(patient1)
   patient_id2 = insert_patient(patient2)
 
