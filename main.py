@@ -14,8 +14,8 @@ from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
 from patients_db import insert_patient, get_records_num
-from constants import *
 from DBViewer import DBViewer
+from AppConfig import AppConfig
 import time
 
 class MainWindow(QMainWindow):
@@ -23,7 +23,6 @@ class MainWindow(QMainWindow):
     super(MainWindow, self).__init__()
     self.initVar()
     self.initUI()
-    # self.show()
 
   def initVar(self):
     self.imgs = []
@@ -32,6 +31,7 @@ class MainWindow(QMainWindow):
     self.first_info = None
     self.last_info = None
     self.rec_viewer = None
+    self.configs = AppConfig()
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field))) 
 
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
   def setUpConnect(self):
     self.open_btn.triggered.connect(self.open_files)
-    self.settings_btn.triggered.connect(self.settings_menu)
+    self.settings_btn.triggered.connect(self.open_config)
     self.save_btn.triggered.connect(self.save_db)
     self.openrec_btn.triggered.connect(self.open_viewer)
     self.next_btn.triggered.connect(self.next_img)
@@ -192,6 +192,11 @@ class MainWindow(QMainWindow):
       self.rec_viewer.openConnection()
     self.rec_viewer.show()
 
+  def open_config(self):
+    accepted = self.configs.exec()
+    if accepted:
+      self.info_panel.no_edit.setText(str(get_records_num()+1))
+
   def save_db(self):
     btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
     if btn_reply == QMessageBox.No:
@@ -224,8 +229,7 @@ class MainWindow(QMainWindow):
     QMessageBox.information(self, "Success", "Record has been saved in database.")
     self.info_panel.no_edit.setText(str(get_records_num()+1))
 
-  def settings_menu(self):
-    pass
+
 
 def main():
   t = time.time()

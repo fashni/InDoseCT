@@ -1,6 +1,11 @@
 import sqlite3 as sl
 import os
-from constants import *
+import json
+
+def get_db():
+  with open('config.json', 'r') as f:
+    js = json.load(f)
+  return os.path.abspath(js['patients_db'])
 
 def create_connection(db_file):
   conn = None
@@ -11,7 +16,8 @@ def create_connection(db_file):
   return conn
 
 def create_patients_table():
-  con = create_connection(PATIENTS_DB)
+  PATIENTS_DB_PATH = get_db()
+  con = create_connection(PATIENTS_DB_PATH)
   with con:
     try:
       con.execute("""
@@ -37,7 +43,8 @@ def create_patients_table():
   con.close()
 
 def insert_patient(patient_data):
-  con = create_connection(PATIENTS_DB)
+  PATIENTS_DB_PATH = get_db()
+  con = create_connection(PATIENTS_DB_PATH)
   sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIVol, DE_WED, SSDE, DLP, DLPc, Effective_Dose)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
@@ -48,7 +55,8 @@ def insert_patient(patient_data):
   return lastrowid
 
 def remove_patient(id):
-  con = create_connection(PATIENTS_DB)
+  PATIENTS_DB_PATH = get_db()
+  con = create_connection(PATIENTS_DB_PATH)
   sql = "DELETE FROM PATIENTS WHERE id=?"
   cur = con.cursor()
   cur.execute(sql, (id,))
@@ -56,7 +64,8 @@ def remove_patient(id):
   con.close()
 
 def remove_all_patients():
-  con = create_connection(PATIENTS_DB)
+  PATIENTS_DB_PATH = get_db()
+  con = create_connection(PATIENTS_DB_PATH)
   sql = "DELETE FROM PATIENTS"
   cur = con.cursor()
   cur.execute(sql)
@@ -64,7 +73,8 @@ def remove_all_patients():
   con.close()
 
 def get_records_num():
-  con = create_connection(PATIENTS_DB)
+  PATIENTS_DB_PATH = get_db()
+  con = create_connection(PATIENTS_DB_PATH)
   cur = con.cursor()
   recs = cur.execute("SELECT * FROM PATIENTS")
   rows = len(recs.fetchall())
@@ -72,7 +82,8 @@ def get_records_num():
   return rows
 
 def print_records():
-  con = create_connection(PATIENTS_DB)
+  PATIENTS_DB_PATH = get_db()
+  con = create_connection(PATIENTS_DB_PATH)
   with con:
     for row in con.execute("SELECT * FROM PATIENTS"):
       print(row)

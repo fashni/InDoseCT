@@ -1,4 +1,5 @@
 import sys
+import os
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
@@ -7,7 +8,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
                              QHeaderView, QToolBar, QAction, QFileDialog,
                              QMessageBox)
 from xlsxwriter.workbook import Workbook
-from constants import *
+from patients_db import get_db
 import re
 
 class DBViewer(QWidget):
@@ -80,10 +81,11 @@ class DBViewer(QWidget):
     self.exportXLS.triggered.connect(self.onExport)
 
   def openConnection(self):
+    PATIENTS_DB_PATH = os.path.abspath(get_db())
     if self.db:
-      self.closeEvent()
+      self.onClose()
     self.db = QSqlDatabase.addDatabase("QSQLITE")
-    self.db.setDatabaseName(PATIENTS_DB)
+    self.db.setDatabaseName(PATIENTS_DB_PATH)
     if not self.db.open():
       return False
 
@@ -136,6 +138,8 @@ class DBViewer(QWidget):
     QMessageBox.information(self, "Success", "Records can be found in "+filename+" .")
 
   def onRefresh(self):
+    self.openConnection()
+    self.initModel()
     limitIndex = (self.currentPage - 1) * self.pageRecordCount
     self.queryRecord(limitIndex)
     self.updateStatus()
@@ -191,11 +195,16 @@ class DBViewer(QWidget):
     else:
       self.nextButton.setEnabled(True)
 
-  def closeEvent(self, event):
+  def onClose(self):
+    PATIENTS_DB_PATH = os.path.abspath(get_db())
     self.db.close()
     del self.db
-    QSqlDatabase.removeDatabase(PATIENTS_DB)
+    QSqlDatabase.removeDatabase(PATIENTS_DB_PATH)
     self.db = None
+
+  def closeEvent(self, event):
+    self.onClose()
+    
 
 if __name__ == "__main__":
   app = QApplication(sys.argv)
