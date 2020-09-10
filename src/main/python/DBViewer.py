@@ -3,17 +3,17 @@ import os
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout,
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
                              QTableView, QLabel, QPushButton, QLineEdit,
                              QHeaderView, QToolBar, QAction, QFileDialog,
                              QMessageBox)
 from xlsxwriter.workbook import Workbook
-from patients_db import get_db
 import re
 
 class DBViewer(QWidget):
-  def __init__(self, parent=None):
-    super(DBViewer, self).__init__(parent)
+  def __init__(self, ctx):
+    super(DBViewer, self).__init__()
+    self.ctx = ctx
 
     self.db = None
     self.layout = QVBoxLayout()
@@ -23,7 +23,7 @@ class DBViewer(QWidget):
     self.tableView = QTableView()
     self.tableView.setModel(self.queryModel)
 
-    self.exportXLS = QAction(QIcon('assets/icons/export.png'), 'Export to Excel')
+    self.exportXLS = QAction(self.ctx.export_icon, 'Export to Excel')
     self.totalPageLabel = QLabel()
     self.currentPageLabel = QLabel()
     self.switchPageLineEdit = QLineEdit()
@@ -81,7 +81,7 @@ class DBViewer(QWidget):
     self.exportXLS.triggered.connect(self.onExport)
 
   def openConnection(self):
-    PATIENTS_DB_PATH = os.path.abspath(get_db())
+    PATIENTS_DB_PATH = self.ctx.patients_database()
     if self.db:
       self.onClose()
     self.db = QSqlDatabase.addDatabase("QSQLITE")
@@ -196,7 +196,7 @@ class DBViewer(QWidget):
       self.nextButton.setEnabled(True)
 
   def onClose(self):
-    PATIENTS_DB_PATH = os.path.abspath(get_db())
+    PATIENTS_DB_PATH = self.ctx.patients_database()
     self.db.close()
     del self.db
     QSqlDatabase.removeDatabase(PATIENTS_DB_PATH)
@@ -206,8 +206,8 @@ class DBViewer(QWidget):
     self.onClose()
     
 
-if __name__ == "__main__":
-  app = QApplication(sys.argv)
-  window = DBViewer()
-  window.show()
-  sys.exit(app.exec_())
+# if __name__ == "__main__":
+#   app = QApplication(sys.argv)
+#   window = DBViewer()
+#   window.show()
+#   sys.exit(app.exec_())

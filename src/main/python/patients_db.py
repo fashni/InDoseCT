@@ -15,9 +15,9 @@ def create_connection(db_file):
     print(e)
   return conn
 
-def create_patients_table():
-  PATIENTS_DB_PATH = get_db()
-  con = create_connection(PATIENTS_DB_PATH)
+def create_patients_table(path):
+  # PATIENTS_DB_PATH = get_db()
+  con = create_connection(path)
   with con:
     try:
       con.execute("""
@@ -42,9 +42,9 @@ def create_patients_table():
       print(e)
   con.close()
 
-def insert_patient(patient_data):
-  PATIENTS_DB_PATH = get_db()
-  con = create_connection(PATIENTS_DB_PATH)
+def insert_patient(patient_data, path):
+  # PATIENTS_DB_PATH = get_db()
+  con = create_connection(path)
   sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIVol, DE_WED, SSDE, DLP, DLPc, Effective_Dose)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
@@ -54,50 +54,50 @@ def insert_patient(patient_data):
   con.close()
   return lastrowid
 
-def remove_patient(id):
-  PATIENTS_DB_PATH = get_db()
-  con = create_connection(PATIENTS_DB_PATH)
+def remove_patient(id, path):
+  # PATIENTS_DB_PATH = get_db()
+  con = create_connection(path)
   sql = "DELETE FROM PATIENTS WHERE id=?"
   cur = con.cursor()
   cur.execute(sql, (id,))
   con.commit()
   con.close()
 
-def remove_all_patients():
-  PATIENTS_DB_PATH = get_db()
-  con = create_connection(PATIENTS_DB_PATH)
+def remove_all_patients(path):
+  # PATIENTS_DB_PATH = get_db()
+  con = create_connection(path)
   sql = "DELETE FROM PATIENTS"
   cur = con.cursor()
   cur.execute(sql)
   con.commit()
   con.close()
 
-def get_records_num():
-  PATIENTS_DB_PATH = get_db()
-  con = create_connection(PATIENTS_DB_PATH)
+def get_records_num(path):
+  # PATIENTS_DB_PATH = get_db()
+  con = create_connection(path)
   cur = con.cursor()
   recs = cur.execute("SELECT * FROM PATIENTS")
   rows = len(recs.fetchall())
   con.close()
   return rows
 
-def print_records():
-  PATIENTS_DB_PATH = get_db()
-  con = create_connection(PATIENTS_DB_PATH)
+def print_records(path):
+  # PATIENTS_DB_PATH = get_db()
+  con = create_connection(path)
   with con:
     for row in con.execute("SELECT * FROM PATIENTS"):
       print(row)
   con.close()
 
 
-def main():
-  create_patients_table()
+# def main():
+#   create_patients_table()
 
-  patient1 = ('MACHRUP, TN', None, 'HEAD', '20150128', 72, 1, 'M', 7.0, 17.290882261324896, None, 70.0, None, None)
-  patient2 = ('XXXXXX-001', None, None, '20170209', None, None, None, 6.0, 15.613011979837614, None, 138.0, None, None)
-  patient_id1 = insert_patient(patient1)
-  patient_id2 = insert_patient(patient2)
+#   patient1 = ('MACHRUP, TN', None, 'HEAD', '20150128', 72, 1, 'M', 7.0, 17.290882261324896, None, 70.0, None, None)
+#   patient2 = ('XXXXXX-001', None, None, '20170209', None, None, None, 6.0, 15.613011979837614, None, 138.0, None, None)
+#   patient_id1 = insert_patient(patient1)
+#   patient_id2 = insert_patient(patient2)
 
-if __name__ == '__main__':
-  main()
-  print_records()
+# if __name__ == '__main__':
+#   main()
+#   print_records()

@@ -1,3 +1,4 @@
+from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_property
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressBar, QMessageBox)
@@ -5,6 +6,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import numpy as np
 import sys
+import os
+import json
 from IndoseCT_funcs import get_image, get_reference
 from plt_axes import Axes
 from patient_info import InfoPanel
@@ -13,14 +16,15 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
-from patients_db import insert_patient, get_records_num
+from patients_db import insert_patient, get_records_num, create_patients_table
 from DBViewer import DBViewer
 from AppConfig import AppConfig
 import time
 
 class MainWindow(QMainWindow):
-  def __init__(self):
+  def __init__(self, ctx):
     super(MainWindow, self).__init__()
+    self.ctx = ctx
     self.initVar()
     self.initUI()
 
@@ -31,7 +35,7 @@ class MainWindow(QMainWindow):
     self.first_info = None
     self.last_info = None
     self.rec_viewer = None
-    self.configs = AppConfig()
+    self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field))) 
 
@@ -55,7 +59,7 @@ class MainWindow(QMainWindow):
 
     self.setToolbar()
     self.setTabs()
-    self.info_panel = InfoPanel(self)
+    self.info_panel = InfoPanel(self.ctx, parent=self)
     self.setLayout()
     self.setCentralWidget(self.main_widget)
 
@@ -76,11 +80,11 @@ class MainWindow(QMainWindow):
     toolbar = QToolBar('Main Toolbar')
     self.addToolBar(toolbar)
 
-    self.open_btn = QAction(QIcon('assets/icons/open.png'), 'Open DICOM', self)
+    self.open_btn = QAction(self.ctx.open_icon, 'Open DICOM', self)
     self.open_btn.setShortcut('Ctrl+O')
     self.open_btn.setStatusTip('Open DICOM Files')
 
-    self.settings_btn = QAction(QIcon('assets/icons/setting.png'), 'Settings', self)
+    self.settings_btn = QAction(self.ctx.setting_icon, 'Settings', self)
     self.settings_btn.setStatusTip('Application Settings')
 
     toolbar.addAction(self.open_btn)
@@ -89,11 +93,11 @@ class MainWindow(QMainWindow):
     rec_ctrl = QToolBar('Records Control')
     self.addToolBar(rec_ctrl)
 
-    self.save_btn = QAction(QIcon('assets/icons/save.png'), 'Save Record', self)
+    self.save_btn = QAction(self.ctx.save_icon, 'Save Record', self)
     self.save_btn.setShortcut('Ctrl+S')
     self.save_btn.setStatusTip('Save Record to Database')
     
-    self.openrec_btn = QAction(QIcon('assets/icons/launch.png'), 'Open Records', self)
+    self.openrec_btn = QAction(self.ctx.launch_icon, 'Open Records', self)
     self.openrec_btn.setStatusTip('Open Patients Record')
     rec_ctrl.addAction(self.save_btn)
     rec_ctrl.addAction(self.openrec_btn)
@@ -101,9 +105,9 @@ class MainWindow(QMainWindow):
     img_ctrl = QToolBar('Image Control')
     self.addToolBar(Qt.BottomToolBarArea, img_ctrl)
 
-    self.next_btn = QAction(QIcon('assets/icons/navigate_next.png'), 'Next Slice', self)
+    self.next_btn = QAction(self.ctx.next_icon, 'Next Slice', self)
     self.next_btn.setStatusTip('Next Slice')
-    self.prev_btn = QAction(QIcon('assets/icons/navigate_before.png'), 'Previous Slice', self)
+    self.prev_btn = QAction(self.ctx.prev_icon, 'Previous Slice', self)
     self.prev_btn.setStatusTip('Previous Slice')
     self.current_lbl = QLabel('0')
     self.total_lbl = QLabel('0')
@@ -187,7 +191,7 @@ class MainWindow(QMainWindow):
 
   def open_viewer(self):
     if self.rec_viewer is None:
-      self.rec_viewer = DBViewer()
+      self.rec_viewer = DBViewer(self.ctx)
     else:
       self.rec_viewer.openConnection()
     self.rec_viewer.show()
@@ -195,7 +199,7 @@ class MainWindow(QMainWindow):
   def open_config(self):
     accepted = self.configs.exec()
     if accepted:
-      self.info_panel.no_edit.setText(str(get_records_num()+1))
+      self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database())+1))
 
   def save_db(self):
     btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
@@ -225,23 +229,87 @@ class MainWindow(QMainWindow):
     else:
         recs[5] = None
     print(recs)
-    insert_patient(recs)
+    insert_patient(recs, self.ctx.patients_database())
     QMessageBox.information(self, "Success", "Record has been saved in database.")
-    self.info_panel.no_edit.setText(str(get_records_num()+1))
+    self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database())+1))
 
 
+class AppContext(ApplicationContext):
+  def run(self):
+    self.checkFiles()
+    self.main_window.show()
+    return self.app.exec_()
 
-def main():
-  t = time.time()
-  app = QApplication(sys.argv)
-  t2 = time.time()
-  print(t2-t)
-  window = MainWindow()
-  t3 = time.time()
-  print(t3-t2)
-  window.show()
-  print(time.time()-t3)
-  sys.exit(app.exec())
+  def checkFiles(self):
+    if not os.path.isfile(self.config_file()):
+      configs = {
+        'patients_db': self.default_patients_database,
+      }
+      with open(self.config_file(), 'w') as f:
+        json.dump(configs, f, sort_keys=True, indent=4)
+
+    if not os.path.isfile(self.default_patients_database):
+      if self.patients_database() == self.default_patients_database:
+        create_patients_table(self.default_patients_database)
+    
+    if not os.path.isfile(self.patients_database()):
+      QMessageBox.warning(None, "Database Error", "Database file is corrupt or missing.\nAn empty database will be created.")
+      create_patients_table(self.patients_database())
+
+
+  @cached_property
+  def main_window(self):
+    return MainWindow(self)
+
+  @cached_property
+  def open_icon(self):
+    return QIcon(self.get_resource("icons/open.png"))
+
+  @cached_property
+  def save_icon(self):
+    return QIcon(self.get_resource("icons/save.png"))
+
+  @cached_property
+  def launch_icon(self):
+    return QIcon(self.get_resource("icons/launch.png"))
+  
+  @cached_property
+  def setting_icon(self):
+    return QIcon(self.get_resource("icons/setting.png"))
+
+  @cached_property
+  def next_icon(self):
+    return QIcon(self.get_resource("icons/navigate_next.png"))
+
+  @cached_property
+  def prev_icon(self):
+    return QIcon(self.get_resource("icons/navigate_before.png"))
+
+  @cached_property
+  def export_icon(self):
+    return QIcon(self.get_resource("icons/export.png"))
+
+  @cached_property
+  def default_patients_database(self):
+    return os.path.join(self.get_resource(""), "db", "patient_data.db")
+
+  def config_file(self):
+    try:
+      path = self.get_resource("settings/config.json")
+    except:
+      path = os.path.join(self.get_resource(""), "settings", "config.json")
+    return path
+
+  def patients_database(self):
+    with open(self.config_file(), 'r') as f:
+      js = json.load(f)
+      path = os.path.abspath(js['patients_db'])
+    return path
+
+
 
 if __name__ == "__main__":
-  main()
+  print('fbs')
+  appctxt = AppContext()
+  exit_code = appctxt.run()
+  sys.exit(exit_code)

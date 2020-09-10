@@ -4,8 +4,9 @@ from tab_CTDIvol import GetMainWindowProps
 from patients_db import get_records_num
 
 class InfoPanel(QWidget):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, ctx, *args, **kwargs):
     super(InfoPanel, self).__init__(*args, **kwargs)
+    self.ctx = ctx
     self.first_run = True
     self.initUI()
 
@@ -17,7 +18,7 @@ class InfoPanel(QWidget):
     age_label = QLabel('Age')
     sex_label = QLabel('Sex')
     
-    self.no_edit = QLineEdit(str(get_records_num()+1))
+    self.no_edit = QLineEdit(str(get_records_num(self.ctx.patients_database())+1))
     self.name_edit = QLineEdit()
     self.protocol_edit = QLineEdit()
     self.exam_date_edit = QLineEdit()
