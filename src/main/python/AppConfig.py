@@ -72,7 +72,7 @@ class AppConfig(QDialog):
 
   def _set_default(self):
     self.configs = {
-      'patients_db': os.path.join(self.ctx.get_resource(""), "db", "patient_data.db"),
+      'patients_db': self.ctx.default_patients_database,
     }
     self._set_config()
     self.patients_db.setText(os.path.abspath(self.configs['patients_db']))
@@ -86,7 +86,8 @@ class AppConfig(QDialog):
     self.accept()
 
   def on_open(self):
-    filename, _ = QFileDialog.getSaveFileName(self, "Select Database File", "", "Database (*.db)")
+    filename, _ = QFileDialog.getSaveFileName(self, "Select Database File", os.path.join(self.configs['patients_db'], os.pardir), "Database (*.db)")
+    print(filename)
     if not filename:
       return
     self.patients_db.setText(os.path.abspath(filename))

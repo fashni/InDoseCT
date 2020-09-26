@@ -110,12 +110,12 @@ class DBViewer(QWidget):
     self.queryModel.setQuery(sql, self.db)
     self.totalRecordCount = self.queryModel.rowCount()
     if self.totalRecordCount % self.pageRecordCount == 0:
-      self.totalPage = self.totalRecordCount / self.pageRecordCount
+      self.totalPage = int(self.totalRecordCount / self.pageRecordCount)
     else:
       self.totalPage = int(self.totalRecordCount / self.pageRecordCount) + 1
 
     # Show first page
-    sql = "SELECT * FROM PATIENTS LIMIT %d,%d" % (0, self.pageRecordCount)
+    sql = f"SELECT * FROM PATIENTS LIMIT {0},{self.pageRecordCount:#d}"
     self.queryModel.setQuery(sql, self.db)
 
   def onExport(self):
@@ -140,6 +140,8 @@ class DBViewer(QWidget):
   def onRefresh(self):
     self.openConnection()
     self.initModel()
+    if self.totalPage < self.currentPage:
+      self.currentPage = 1
     limitIndex = (self.currentPage - 1) * self.pageRecordCount
     self.queryRecord(limitIndex)
     self.updateStatus()
@@ -178,7 +180,7 @@ class DBViewer(QWidget):
 
   # Query records based on paging
   def queryRecord(self, limitIndex):
-    sql = "SELECT * FROM PATIENTS LIMIT %d,%d" % (limitIndex, self.pageRecordCount)
+    sql = f"SELECT * FROM PATIENTS LIMIT {limitIndex:#d},{self.pageRecordCount:#d}"
     self.queryModel.setQuery(sql)
 
   # Update buttons

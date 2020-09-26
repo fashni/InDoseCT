@@ -193,7 +193,7 @@ class MainWindow(QMainWindow):
     if self.rec_viewer is None:
       self.rec_viewer = DBViewer(self.ctx)
     else:
-      self.rec_viewer.openConnection()
+      self.rec_viewer.onRefresh()
     self.rec_viewer.show()
 
   def open_config(self):
@@ -236,7 +236,9 @@ class MainWindow(QMainWindow):
 
 class AppContext(ApplicationContext):
   def run(self):
-    self.checkFiles()
+    check = self.checkFiles()
+    if not check:
+      return
     self.main_window.show()
     return self.app.exec_()
 
@@ -245,17 +247,38 @@ class AppContext(ApplicationContext):
       configs = {
         'patients_db': self.default_patients_database,
       }
-      with open(self.config_file(), 'w') as f:
-        json.dump(configs, f, sort_keys=True, indent=4)
+      try:
+        cfg_dir = self.app_data_dir()
+        if not os.path.exists(cfg_dir):
+          os.makedirs(cfg_dir, exist_ok=True)
+        with open(self.config_file(), 'w') as f:
+          json.dump(configs, f, sort_keys=True, indent=4)
+      except:
+        self.ioError()
+        return False
 
     if not os.path.isfile(self.default_patients_database):
       if self.patients_database() == self.default_patients_database:
-        create_patients_table(self.default_patients_database)
+        db_dir = os.path.join(self.app_data_dir(), 'Database')
+        if not os.path.exists(db_dir):
+          os.makedirs(db_dir, exist_ok=True)
+        try:
+          create_patients_table(self.default_patients_database)
+        except:
+          self.ioError()
+          return False
     
     if not os.path.isfile(self.patients_database()):
       QMessageBox.warning(None, "Database Error", "Database file is corrupt or missing.\nAn empty database will be created.")
-      create_patients_table(self.patients_database())
+      try:
+        create_patients_table(self.patients_database())
+      except:
+        self.ioError()
+        return False
+    return True
 
+  def ioError(self):
+    QMessageBox.critical(None, "I/O Error", "Failed to create config files.\nTry running as administrator.")
 
   @cached_property
   def main_window(self):
@@ -291,19 +314,19 @@ class AppContext(ApplicationContext):
 
   @cached_property
   def default_patients_database(self):
-    return os.path.join(self.get_resource(""), "db", "patient_data.db")
+    return os.path.join(self.app_data_dir(), 'Database', 'patient_data.db')
 
   def config_file(self):
-    try:
-      path = self.get_resource("settings/config.json")
-    except:
-      path = os.path.join(self.get_resource(""), "settings", "config.json")
-    return path
+    return os.path.join(self.app_data_dir(), 'config.json')
+
+  def app_data_dir(self):
+    return os.path.join(os.environ['USERPROFILE'], 'Documents', 'IndoseCT')
 
   def patients_database(self):
     with open(self.config_file(), 'r') as f:
       js = json.load(f)
-      path = os.path.abspath(js['patients_db'])
+      # path = os.path.abspath(js['patients_db'])
+      path = js['patients_db']
     return path
 
 
