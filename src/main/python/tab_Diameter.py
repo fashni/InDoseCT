@@ -1,20 +1,25 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox,
+                             QLineEdit, QPushButton, QScrollArea, QRadioButton,
+                             QButtonGroup, QCheckBox, QProgressDialog, QSpinBox)
 from PyQt5.QtCore import Qt
-from tab_CTDIvol import GetMainWindowProps
+from PyQt5.QtGui import QDoubleValidator
 from IndoseCT_funcs import get_dw_value, get_deff_value, get_label
 from custom_widgets import VSeparator
 import sip
 import numpy as np
 
 class DiameterTab(QWidget):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, ctx, *args, **kwargs):
     super(DiameterTab, self).__init__(*args, **kwargs)
+    self.ctx = ctx
+    self.slices = None
     self.initVar()
     self.initUI()
 
   def initVar(self):
     self.d_val = 0
-    self.def_auto_method = 'area'
+    self._def_auto_method = 'area'
+    self._def_manual_method = 'deff'
     self._3d_method = 'slice step'
     self.is_truncated = False
     self.src_method = {
@@ -54,6 +59,8 @@ class DiameterTab(QWidget):
     unit = QLabel('cm')
     self.d_out = QLineEdit('0')
     self.d_out.setMaximumWidth(50)
+    self.d_out.setValidator(QDoubleValidator())
+    self.d_out.textChanged.connect(self._d_changed)
 
     out = QHBoxLayout()
     out.addWidget(self.calc_btn)
@@ -113,7 +120,9 @@ class DiameterTab(QWidget):
     opt.stateChanged.connect(self._is_truncated)
     opt1 = QRadioButton('Slice Step')
     opt2 = QRadioButton('Slice Number')
-    self.slices = QLineEdit('1')
+    self.slices = QSpinBox()
+    self.slices.setMinimum(1)
+    self.slices.setMaximum(self.ctx.total_img)
     self.slices.setMaximumWidth(50)
     self.btn_grp = QButtonGroup()
     self.btn_grp.addButton(opt1)
@@ -167,7 +176,9 @@ class DiameterTab(QWidget):
     base3 = QRadioButton('Max')
     _3d1 = QRadioButton('Slice Step')
     _3d2 = QRadioButton('Slice Number')
-    self.slices = QLineEdit('1')
+    self.slices = QSpinBox()
+    self.slices.setMinimum(1)
+    self.slices.setMaximum(self.ctx.total_img)
     self.slices.setMaximumWidth(50)
     self.base_grp = QButtonGroup()
     self._3d_grp = QButtonGroup()
@@ -208,26 +219,35 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_def_manual(self):
-    opt1 = QRadioButton('Deff')
-    opt1.setChecked(True)
-    opt2 = QRadioButton('AP')
-    opt3 = QRadioButton('LAT')
-    opt4 = QRadioButton('AP+LAT')
-    opt5 = QRadioButton('AGE')
-    btn_grp = QButtonGroup()
-    btn_grp.addButton(opt1)
-    btn_grp.addButton(opt2)
-    btn_grp.addButton(opt3)
-    btn_grp.addButton(opt4)
-    btn_grp.addButton(opt5)
+    opts_cb = QComboBox()
+    opts_cb.tag = 'def_manual'
+    opts_cb.addItems(['Deff', 'AP', 'LAT', 'AP+LAT', 'AGE'])
+    opts_cb.activated[str].connect(self._def_manual_switch)
+    opts_cb.setCurrentIndex(0)
+    self.def_man_opt1 = QLineEdit()
+    self.def_man_opt1.setMaximumWidth(50)
+    self.def_man_opt1.setPlaceholderText('Deff')
+    self.def_man_opt1.setValidator(QDoubleValidator())
+    self.def_man_opt2 = QLineEdit()
+    self.def_man_opt2.setMaximumWidth(50)
+    self.def_man_opt2.setPlaceholderText('LAT')
+    self.def_man_opt2.setValidator(QDoubleValidator())
+    self.opt1_unit = QLabel('cm')
+    self.opt2_unit = QLabel('cm')
+    h1 = QHBoxLayout()
+    h1.addWidget(self.def_man_opt1)
+    h1.addWidget(self.opt1_unit)
+    h2 = QHBoxLayout()
+    h2.addWidget(self.def_man_opt2)
+    h2.addWidget(self.opt2_unit)
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
-    inner.addWidget(opt1)
-    inner.addWidget(opt2)
-    inner.addWidget(opt3)
-    inner.addWidget(opt4)
-    inner.addWidget(opt5)
+    inner.addWidget(opts_cb)
+    inner.addLayout(h1)
+    inner.addLayout(h2)
     inner.addStretch()
+    self.def_man_opt2.setHidden(True)
+    self.opt2_unit.setHidden(True)
     self.opt.setLayout(inner)
 
   def _delete_layout(self, clayout):
@@ -247,7 +267,6 @@ class DiameterTab(QWidget):
 
     if self.source == 1 and (self.sender().tag is 'source' or self.sender().tag is 'based'):
       if self.based_on == 0:
-        print('deff')
         self._ui_def_manual()
     elif self.source == 0:
       if self.based_on == 0:
@@ -277,11 +296,31 @@ class DiameterTab(QWidget):
       print(self._3d_method)
     self.d_out.setText('0')
 
+  def _def_manual_switch(self, sel):
+    self.def_man_opt1.clear()
+    self.def_man_opt1.clear()
+    if sel.lower() == 'ap+lat':
+      self.def_man_opt1.setPlaceholderText('AP')
+      self.def_man_opt2.setPlaceholderText('LAT')
+      self.def_man_opt2.setHidden(False)
+      self.opt2_unit.setHidden(False)
+    else:
+      self.def_man_opt1.setPlaceholderText(sel)
+      self.def_man_opt2.setHidden(True)
+      self.opt2_unit.setHidden(True)
+    if sel.lower() == 'age':
+      self.opt1_unit.setText('year(s)')
+    else:
+      self.opt1_unit.setText('cm')
+    self._def_manual_method = sel.lower()
+    print(self._def_manual_method)
+    self.d_out.setText('0')
+
   def _def_auto_switch(self):
     sel = self.sender()
     if sel.isChecked():
-      self.def_auto_method = sel.text().lower()
-      print(self.def_auto_method)
+      self._def_auto_method = sel.text().lower()
+      print(self._def_auto_method)
     self.d_out.setText('0')
 
   def _calculate(self):
@@ -298,62 +337,84 @@ class DiameterTab(QWidget):
 
   def _auto(self):
     try:
-      with GetMainWindowProps(self, 5) as par:
-        info = par.first_info
-        img = par.imgs[par.current_img-1]
-        img_label = get_label(img)
-        par.axes.clear()
-        par.axes.imshow(img, img_label)
+      info = self.ctx.first_info
+      img = self.ctx.imgs[self.ctx.current_img-1]
+      img_label = get_label(img)
+      self.ctx.axes.clear()
+      self.ctx.axes.imshow(img, img_label)
     except:
       return
     if self.based_on == 0: # deff
-      self.d_val, x, y = get_deff_value(img, info, self.def_auto_method)
+      dval, x, y = get_deff_value(img, info, self._def_auto_method)
     elif self.based_on == 1:
-      self.d_val = get_dw_value(img, info, self.is_truncated)
-    self.d_out.setText(f'{self.d_val:#.2f}')
+      dval = get_dw_value(img, info, self.is_truncated)
+    self.d_out.setText(f'{dval:#.2f}')
+    self.d_val = dval
     
   def _auto_3d(self):
+    nslice = self.slices.value()
     try:
-      nslice = int(self.slices.text())
-    except:
-      return
-
-    try:
-      with GetMainWindowProps(self, 5) as par:
-        info = par.first_info
-        imgs = par.imgs
-        dval = 0
-        print(self._3d_method == 'slice number')
-        if self._3d_method == 'slice step':
-          n = len(imgs[::nslice])
-          print(n)
-          for idx, img in enumerate(imgs[::nslice]):
-            if self.based_on == 0:
-              d, _, _ = get_deff_value(img, info, self.def_auto_method)
-            else:
-              d = get_dw_value(img, info, self.is_truncated)
-            dval += d
-            par.progress.setValue((idx+1)*100/n)
-        elif self._3d_method == 'slice number':
-          tmps = np.array_split(np.arange(len(imgs)), nslice)
-          idxs = [tmp[int(len(tmp)/2)] for tmp in tmps]
-          n = len(idxs)
-          print(n)
-          for i, idx in enumerate(idxs):
-            if self.based_on == 0:
-              d, _, _ = get_deff_value(imgs[idx], info, self.def_auto_method)
-            else:
-              d = get_dw_value(imgs[idx], info, self.is_truncated)
-            dval += d
-            par.progress.setValue((i+1)*100/n)
-        self.d_val = dval/n
-        self.d_out.setText(f'{self.d_val:#.2f}')
+      info = self.ctx.first_info
+      imgs = self.ctx.imgs
+      dval = 0
+      print(self._3d_method == 'slice number')
+      if self._3d_method == 'slice step':
+        n = len(imgs[::nslice])
+        print(n)
+        progress = QProgressDialog("Calculating diameter...", "Abort", 0, n, self)
+        progress.setWindowModality(Qt.WindowModal)
+        for idx, img in enumerate(imgs[::nslice]):
+          if self.based_on == 0:
+            d, _, _ = get_deff_value(img, info, self._def_auto_method)
+          else:
+            d = get_dw_value(img, info, self.is_truncated)
+          dval += d
+          progress.setValue(idx)
+          if progress.wasCanceled():
+            n = idx
+            break
+        progress.setValue(n)
+      elif self._3d_method == 'slice number':
+        tmps = np.array_split(np.arange(len(imgs)), nslice)
+        idxs = [tmp[int(len(tmp)/2)] for tmp in tmps]
+        n = len(idxs)
+        progress = QProgressDialog("Calculating diameter...", "Abort", 0, n, self)
+        progress.setWindowModality(Qt.WindowModal)
+        print(n)
+        for i, idx in enumerate(idxs):
+          if self.based_on == 0:
+            d, _, _ = get_deff_value(imgs[idx], info, self._def_auto_method)
+          else:
+            d = get_dw_value(imgs[idx], info, self.is_truncated)
+          dval += d
+          progress.setValue(idx)
+          if progress.wasCanceled():
+            n = idx
+            break
+        progress.setValue(n)
+      self.d_out.setText(f'{dval/n:#.2f}')
+      self.d_val = dval/n
     except Exception as e:
       print(e)
       return
+
+  def _d_changed(self, text):
+    try:
+      self.d_val = float(text)
+    except:
+      self.d_val = 0
+    print(self.d_val)
 
   def _img_manual(self):
     pass
 
   def _input_manual(self):
-    pass
+    if self.based_on == 0: # deff
+      if self._def_manual_method == 'deff':
+        self.d_out.setText(self.def_man_opt1.text())
+      elif self._def_manual_method == 'age':
+        pass
+      else:
+        pass
+    else:
+      pass

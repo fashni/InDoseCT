@@ -1,7 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
 from PyQt5.QtCore import Qt
-from tab_CTDIvol import GetMainWindowProps
-from custom_widgets import HSeparator, VSeparator
+from custom_widgets import HSeparator, VSeparator, GetMainWindowProps
 
 class SSDETab(QWidget):
   def __init__(self, *args, **kwargs):

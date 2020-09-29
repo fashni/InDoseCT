@@ -1,7 +1,7 @@
 from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_property
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
-                             QTabWidget, QSplitter, QProgressBar, QMessageBox)
+                             QTabWidget, QSplitter, QProgressDialog, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import numpy as np
@@ -29,11 +29,11 @@ class MainWindow(QMainWindow):
     self.initUI()
 
   def initVar(self):
-    self.imgs = []
-    self.current_img = None
-    self.total_img = None
-    self.first_info = None
-    self.last_info = None
+    self.ctx.imgs = []
+    self.ctx.current_img = 0
+    self.ctx.total_img = 0
+    self.ctx.first_info = None
+    self.ctx.last_info = None
     self.rec_viewer = None
     self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
@@ -53,9 +53,9 @@ class MainWindow(QMainWindow):
     self.setGeometry(self.top, self.left, self.width, self.height)
 
     self.main_widget = QWidget()
-    self.axes = Axes(self, width=5, height=5)
-    self.axes.setMinimumSize(200, 200)
-    self.progress = QProgressBar(self)
+    self.ctx.axes = Axes(self, width=5, height=5)
+    self.ctx.axes.setMinimumSize(200, 200)
+    # self.progress = QProgressBar(self)
 
     self.setToolbar()
     self.setTabs()
@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
     self.setLayout()
     self.setCentralWidget(self.main_widget)
 
-    self.statusBar().addPermanentWidget(self.progress)
+    # self.statusBar().addPermanentWidget(self.progress)
     self.statusBar().showMessage('READY')
     self.setUpConnect()
 
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
   def setLayout(self):
     hbox = QHBoxLayout()
     splitter = QSplitter(Qt.Horizontal)
-    splitter.addWidget(self.axes)
+    splitter.addWidget(self.ctx.axes)
     splitter.addWidget(self.tabs)
     hbox.addWidget(splitter)
 
@@ -135,9 +135,9 @@ class MainWindow(QMainWindow):
 
   def setTabs(self):
     self.tabs = QTabWidget()
-    self.tab1 = CTDIVolTab(parent=self)
+    self.tab1 = CTDIVolTab(self.ctx, parent=self)
     self.tabs.addTab(self.tab1, 'CTDIVol')
-    self.tab2 = DiameterTab()
+    self.tab2 = DiameterTab(self.ctx)
     self.tabs.addTab(self.tab2, 'Diameter')
     self.tab3 = SSDETab()
     self.tabs.addTab(self.tab3, 'SSDE')
@@ -151,43 +151,51 @@ class MainWindow(QMainWindow):
     filenames, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if filenames:
       self.initVar()
-      self.first_info, self.patient_info = get_reference(filenames[0])
-      self.last_info, _ = get_reference(filenames[-1])
+      self.ctx.first_info, self.patient_info = get_reference(filenames[0])
+      self.ctx.last_info, _ = get_reference(filenames[-1])
 
+      progress = QProgressDialog("Loading images...", "Abort", 0, len(filenames), self)
+      progress.setWindowModality(Qt.WindowModal)
       for idx, filename in enumerate(filenames):
-        img = get_image(filename, self.first_info)
-        self.imgs.append(img)
-        self.progress.setValue((idx+1)*100/len(filenames))
-      self.imgs = np.array(self.imgs)
+        img = get_image(filename, self.ctx.first_info)
+        self.ctx.imgs.append(img)
+        # progress.setValue((idx+1)*100/len(filenames))
+        progress.setValue(idx)
+        if progress.wasCanceled():
+          break
+      self.ctx.imgs = np.array(self.ctx.imgs)
+      progress.setValue(len(filenames))
 
-      self.current_img = 1
-      self.current_lbl.setText(str(self.current_img))
+      self.ctx.current_img = 1
+      self.current_lbl.setText(str(self.ctx.current_img))
       self.current_lbl.adjustSize()
-      self.total_img = len(self.imgs)
-      self.total_lbl.setText(str(self.total_img))
+      self.ctx.total_img = len(self.ctx.imgs)
+      self.total_lbl.setText(str(self.ctx.total_img))
       self.total_lbl.adjustSize()
 
-      self.axes.clear()
-      self.axes.imshow(self.imgs[self.current_img-1])
+      self.ctx.axes.clear()
+      self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
       self.info_panel.setInfo(self.patient_info)
+      if self.tab2.slices:
+        self.tab2.slices.setMaximum(self.ctx.total_img)
   
   def next_img(self):
-    if not self.total_img or self.current_img == self.total_img:
+    if not self.ctx.total_img or self.ctx.current_img == self.ctx.total_img:
       return
-    self.current_img += 1
-    self.current_lbl.setText(str(self.current_img))
+    self.ctx.current_img += 1
+    self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
-    self.axes.clear()
-    self.axes.imshow(self.imgs[self.current_img-1])
+    self.ctx.axes.clear()
+    self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
 
   def prev_img(self):
-    if not self.total_img or self.current_img == 1:
+    if not self.ctx.total_img or self.ctx.current_img == 1:
       return
-    self.current_img -= 1
-    self.current_lbl.setText(str(self.current_img))
+    self.ctx.current_img -= 1
+    self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
-    self.axes.clear()
-    self.axes.imshow(self.imgs[self.current_img-1])
+    self.ctx.axes.clear()
+    self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
 
   def open_viewer(self):
     if self.rec_viewer is None:
@@ -239,6 +247,12 @@ class AppContext(ApplicationContext):
     check = self.checkFiles()
     if not check:
       return
+    self.imgs = []
+    self.current_img = 0
+    self.total_img = 0
+    self.first_info = None
+    self.last_info = None
+    self.axes = None
     self.main_window.show()
     return self.app.exec_()
 
@@ -325,14 +339,12 @@ class AppContext(ApplicationContext):
   def patients_database(self):
     with open(self.config_file(), 'r') as f:
       js = json.load(f)
-      # path = os.path.abspath(js['patients_db'])
       path = js['patients_db']
     return path
 
 
 
 if __name__ == "__main__":
-  print('fbs')
   appctxt = AppContext()
   exit_code = appctxt.run()
   sys.exit(exit_code)

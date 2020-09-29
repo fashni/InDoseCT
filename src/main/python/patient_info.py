@@ -1,6 +1,5 @@
 from PyQt5.QtWidgets import QRadioButton, QGridLayout, QHBoxLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox
-from custom_widgets import VSeparator
-from tab_CTDIvol import GetMainWindowProps
+from custom_widgets import VSeparator, GetMainWindowProps
 from patients_db import get_records_num
 
 class InfoPanel(QWidget):

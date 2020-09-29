@@ -3,8 +3,9 @@ from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QP
 from custom_widgets import HSeparator, VSeparator
 
 class CTDIVolTab(QWidget):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, ctx, *args, **kwargs):
     super(CTDIVolTab, self).__init__(*args, **kwargs)
+    self.ctx = ctx
     self.initVar()
     self.initUI()
 
@@ -164,10 +165,9 @@ class CTDIVolTab(QWidget):
   
   def get_from_dicom(self):
     try:
-      with GetMainWindowProps(self, 5) as par:
-        self.ctdi_val = par.first_info['CTDI']
-        first = par.first_info['slice_pos']
-        last = par.last_info['slice_pos']
+      self.ctdi_val = self.ctx.first_info['CTDI']
+      first = self.ctx.first_info['slice_pos']
+      last = self.ctx.last_info['slice_pos']
     except:
       self.ctdi_val = 0
       first = 0
@@ -182,20 +182,4 @@ class CTDIVolTab(QWidget):
     pass
 
   def get_tcm(self):
-    pass
-
-
-class GetMainWindowProps(object):
-  def __init__(self, obj, level):
-    self.obj = obj
-    self.level = level
-
-  def __enter__(self):
-    # self.par = self.obj.parent().parent().parent().parent().parent()
-    self.par = self.obj
-    for i in range(self.level):
-      self.par = self.par.parent()
-    return self.par
-  
-  def __exit__(self, *args):
     pass
