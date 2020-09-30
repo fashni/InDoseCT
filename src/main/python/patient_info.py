@@ -30,7 +30,7 @@ class InfoPanel(QWidget):
     age_label = QLabel('Age')
     sex_label = QLabel('Sex')
     
-    self.no_edit = QLineEdit(str(get_records_num(self.ctx.patients_database())+1))
+    self.no_edit = QLineEdit(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
     self.name_edit = QLineEdit()
     self.protocol_edit = QLineEdit()
     self.exam_date_edit = QLineEdit()

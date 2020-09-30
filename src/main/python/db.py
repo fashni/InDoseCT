@@ -16,7 +16,6 @@ def create_connection(db_file):
   return conn
 
 def create_patients_table(path):
-  # PATIENTS_DB_PATH = get_db()
   con = create_connection(path)
   with con:
     try:
@@ -43,7 +42,6 @@ def create_patients_table(path):
   con.close()
 
 def insert_patient(patient_data, path):
-  # PATIENTS_DB_PATH = get_db()
   con = create_connection(path)
   sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIVol, DE_WED, SSDE, DLP, DLPc, Effective_Dose)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
@@ -54,35 +52,31 @@ def insert_patient(patient_data, path):
   con.close()
   return lastrowid
 
-def remove_patient(id, path):
-  # PATIENTS_DB_PATH = get_db()
+def remove_record(path, table, id):
   con = create_connection(path)
-  sql = "DELETE FROM PATIENTS WHERE id=?"
-  cur = con.cursor()
-  cur.execute(sql, (id,))
-  con.commit()
-  con.close()
-
-def remove_all_patients(path):
-  # PATIENTS_DB_PATH = get_db()
-  con = create_connection(path)
-  sql = "DELETE FROM PATIENTS"
+  sql = f"DELETE FROM {table} WHERE id={id}"
   cur = con.cursor()
   cur.execute(sql)
   con.commit()
   con.close()
 
-def get_records_num(path):
-  # PATIENTS_DB_PATH = get_db()
+def remove_all_records(path, table):
+  con = create_connection(path)
+  sql = f"DELETE FROM {table}"
+  cur = con.cursor()
+  cur.execute(sql)
+  con.commit()
+  con.close()
+
+def get_records_num(path, table):
   con = create_connection(path)
   cur = con.cursor()
-  recs = cur.execute("SELECT * FROM PATIENTS")
+  recs = cur.execute(f"SELECT * FROM {table}")
   rows = len(recs.fetchall())
   con.close()
   return rows
 
 def print_records(path, table):
-  # PATIENTS_DB_PATH = get_db()
   con = create_connection(path)
   with con:
     for row in con.execute(f"SELECT * FROM {table}"):

@@ -206,10 +206,10 @@ class MainWindow(QMainWindow):
     self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
 
   def on_phantom_update(self):
-    sender = self.sender().text().lower()
+    self.ctx.phantom = self.sender().text().lower()
     self.tab3.protocol.clear()
     self.tab4.protocol.clear()
-    if sender == 'body':
+    if self.ctx.phantom == 'body':
       self.tab3.protocol.addItems(self.body_protocol)
       self.tab4.protocol.addItems(self.body_protocol)
     else:
@@ -226,7 +226,7 @@ class MainWindow(QMainWindow):
   def open_config(self):
     accepted = self.configs.exec()
     if accepted:
-      self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database())+1))
+      self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
 
   def save_db(self):
     btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
@@ -259,7 +259,7 @@ class MainWindow(QMainWindow):
     print(recs)
     insert_patient(recs, self.ctx.patients_database())
     QMessageBox.information(self, "Success", "Record has been saved in database.")
-    self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database())+1))
+    self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
 
 
 class AppContext(ApplicationContext):
@@ -267,14 +267,18 @@ class AppContext(ApplicationContext):
     check = self.checkFiles()
     if not check:
       return
+    self.initVar()
+    self.main_window.show()
+    return self.app.exec_()
+
+  def initVar(self):
     self.imgs = []
     self.current_img = 0
     self.total_img = 0
     self.first_info = None
     self.last_info = None
     self.axes = None
-    self.main_window.show()
-    return self.app.exec_()
+    self.phantom = 'body'
 
   def checkFiles(self):
     if not os.path.isfile(self.config_file()):

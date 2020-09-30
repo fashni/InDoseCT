@@ -25,12 +25,33 @@ class DiameterTab(QWidget):
     self._def_manual_method = 'deff'
     self._3d_method = 'slice step'
     self.is_truncated = False
-    self.age_data = np.array(get_records(self.ctx.aapm_db, 'Age'))
-    self.age_interp = interpolate.splrep(self.age_data[:,0], self.age_data[:,1])
     self.src_method = {
       'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
       'Input Manually': ['Manual'],
     }
+    self.initData()
+
+  def initData(self):
+    self.age_data = np.array(get_records(self.ctx.aapm_db, 'Age'))
+    self.age_interp = interpolate.splrep(self.age_data[:,0], self.age_data[:,1])
+
+    self.head_ap_data = np.array(get_records(self.ctx.aapm_db, 'HeadAP'))
+    self.head_ap_interp = interpolate.splrep(self.head_ap_data[:,0], self.head_ap_data[:,1])
+
+    self.head_lat_data = np.array(get_records(self.ctx.aapm_db, 'HeadLAT'))
+    self.head_lat_interp = interpolate.splrep(self.head_lat_data[:,0], self.head_lat_data[:,1])
+
+    self.head_latap_data = np.array(get_records(self.ctx.aapm_db, 'HeadLATAP'))
+    self.head_latap_interp = interpolate.splrep(self.head_latap_data[:,0], self.head_latap_data[:,1])
+    
+    self.thorax_ap_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxAP'))
+    self.thorax_ap_interp = interpolate.splrep(self.thorax_ap_data[:,0], self.thorax_ap_data[:,1])
+
+    self.thorax_lat_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxLAT'))
+    self.thorax_lat_interp = interpolate.splrep(self.thorax_lat_data[:,0], self.thorax_lat_data[:,1])
+
+    self.thorax_latap_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxLATAP'))
+    self.thorax_latap_interp = interpolate.splrep(self.thorax_latap_data[:,0], self.thorax_latap_data[:,1])
 
   def initUI(self):
     based_ons = ['Effective Diameter (Deff)', 'Water Equivalent Diameter (Dw)']
@@ -66,8 +87,6 @@ class DiameterTab(QWidget):
     self.d_out.setMaximumWidth(50)
     self.d_out.setValidator(QDoubleValidator())
     self.d_out.textChanged.connect(self._d_changed)
-    print(self.d_out.height())
-    print(self.d_out.width())
 
     out = QHBoxLayout()
     out.addWidget(self.calc_btn)
@@ -326,7 +345,7 @@ class DiameterTab(QWidget):
 
   def _def_manual_switch(self, sel):
     self.def_man_opt1.clear()
-    self.def_man_opt1.clear()
+    self.def_man_opt2.clear()
     if sel.lower() != 'ap+lat' and sel.lower() != 'age':
       self.def_man_stack1.setCurrentIndex(0)
       self.def_man_stack2.setCurrentIndex(0)
@@ -458,7 +477,20 @@ class DiameterTab(QWidget):
         print(age)
         dval = float(interpolate.splev(age, self.age_interp))
       else:
-        pass
+        try:
+          val1 = float(self.def_man_opt1.text())
+          val2 = float(self.def_man_opt2.text())
+        except:
+          val1 = 0
+          val2 = 0
+        if self._def_manual_method == 'ap+lat':
+          val1 += val2
+          interp = self.head_latap_interp if self.ctx.phantom == 'head' else self.thorax_latap_interp
+        elif self._def_manual_method == 'ap':
+          interp = self.head_ap_interp if self.ctx.phantom == 'head' else self.thorax_ap_interp
+        elif self._def_manual_method == 'lat':
+          interp = self.head_lat_interp if self.ctx.phantom == 'head' else self.thorax_lat_interp
+        dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.d_val = dval
     else:
