@@ -37,7 +37,12 @@ class MainWindow(QMainWindow):
     self.rec_viewer = None
     self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
-    self.patient_info = dict(zip(pat_field, [None]*len(pat_field))) 
+    self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
+    self.body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
+                          'Abdomen', 'Adrenal', 'Kidney', 
+                          'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
+                          'Kidney to Bladder', 'Pelvis']
+    self.head_protocol = ['Head', 'Head & Neck', 'Neck']
 
   def initUI(self):
     self.title = 'InDoseCT'
@@ -68,6 +73,9 @@ class MainWindow(QMainWindow):
     self.setUpConnect()
 
   def setUpConnect(self):
+    self.info_panel.body_btn.toggled.connect(self.on_phantom_update)
+    self.info_panel.head_btn.toggled.connect(self.on_phantom_update)
+    self.info_panel.body_btn.setChecked(True)
     self.open_btn.triggered.connect(self.open_files)
     self.settings_btn.triggered.connect(self.open_config)
     self.save_btn.triggered.connect(self.save_db)
@@ -197,6 +205,17 @@ class MainWindow(QMainWindow):
     self.ctx.axes.clear()
     self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
 
+  def on_phantom_update(self):
+    sender = self.sender().text().lower()
+    self.tab3.protocol.clear()
+    self.tab4.protocol.clear()
+    if sender == 'body':
+      self.tab3.protocol.addItems(self.body_protocol)
+      self.tab4.protocol.addItems(self.body_protocol)
+    else:
+      self.tab3.protocol.addItems(self.head_protocol)
+      self.tab4.protocol.addItems(self.head_protocol)
+
   def open_viewer(self):
     if self.rec_viewer is None:
       self.rec_viewer = DBViewer(self.ctx)
@@ -213,6 +232,7 @@ class MainWindow(QMainWindow):
     btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
     if btn_reply == QMessageBox.No:
       return
+    self.patient_info = self.info_panel.getInfo()
     recs = [
       self.patient_info['name'],    # 'name'
       None,   # 'protocol_num'

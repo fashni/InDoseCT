@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
 from PyQt5.QtCore import Qt
-from custom_widgets import HSeparator, VSeparator, Edit, Label, GetMainWindowProps
+from custom_widgets import HSeparator, VSeparator, Edit, Label
 
 class OrganTab(QWidget):
   def __init__(self, *args, **kwargs):

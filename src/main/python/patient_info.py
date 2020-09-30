@@ -6,8 +6,21 @@ class InfoPanel(QWidget):
   def __init__(self, ctx, *args, **kwargs):
     super(InfoPanel, self).__init__(*args, **kwargs)
     self.ctx = ctx
-    self.first_run = True
+    self.id = None
+    self.name = None
+    self.protocol = None
+    self.date = None
+    self.age = None
+    self.sex = None
     self.initUI()
+    self.setUpConnect()
+  
+  def setUpConnect(self):
+    self.name_edit.textChanged.connect(self.on_name_changed)
+    self.protocol_edit.textChanged.connect(self.on_protocol_changed)
+    self.exam_date_edit.textChanged.connect(self.on_date_changed)
+    self.age_edit.textChanged.connect(self.on_age_changed)
+    self.sex_edit.textChanged.connect(self.on_sex_changed)
 
   def initUI(self):
     no_label = QLabel('No')
@@ -42,58 +55,54 @@ class InfoPanel(QWidget):
     grid.addWidget(self.sex_edit, 2, 3)
 
     phantom_lbl = QLabel('Phantom:')
-    body_btn = QRadioButton('Body')
-    head_btn = QRadioButton('Head')
-    body_btn.toggled.connect(self._phantom_switch)
-    head_btn.toggled.connect(self._phantom_switch)
-    body_btn.setChecked(True)
+    self.body_btn = QRadioButton('Body')
+    self.head_btn = QRadioButton('Head')
 
     phantom_layout = QVBoxLayout()
     phantom_layout.addWidget(phantom_lbl)
-    phantom_layout.addWidget(body_btn)
-    phantom_layout.addWidget(head_btn)
-    # phantom_widget = QWidget()
-    # phantom_widget.setLayout(phantom_layout)
-    # phantom_widget.setMinimumWidth(75)
+    phantom_layout.addWidget(self.body_btn)
+    phantom_layout.addWidget(self.head_btn)
 
     main_layout = QHBoxLayout()
     main_layout.addLayout(grid)
     main_layout.addWidget(VSeparator())
-    # main_layout.addStretch()
     main_layout.addLayout(phantom_layout)
-    # main_layout.addStretch()
 
     self.setLayout(main_layout)
     self.setMaximumHeight(75)
 
   def setInfo(self, pat_info):
-    name = pat_info['name'] if pat_info['name'] is not None else ''
-    age = pat_info['age'][:3] if pat_info['age'] is not None else ''
-    sex = pat_info['sex'] if pat_info['sex'] is not None else ''
-    protocol = pat_info['protocol'] if pat_info['protocol'] is not None else ''
-    date = pat_info['date'] if pat_info['date'] is not None else ''
-    self.name_edit.setText(name)
-    self.age_edit.setText(age)
-    self.sex_edit.setText(sex)
-    self.protocol_edit.setText(protocol)
-    self.exam_date_edit.setText(date)
+    self.name = pat_info['name'] if pat_info['name'] is not None else ''
+    self.age = pat_info['age'][:3] if pat_info['age'] is not None else ''
+    self.sex = pat_info['sex'] if pat_info['sex'] is not None else ''
+    self.protocol = pat_info['protocol'] if pat_info['protocol'] is not None else ''
+    self.date = pat_info['date'] if pat_info['date'] is not None else ''
+    self.name_edit.setText(self.name)
+    self.age_edit.setText(self.age)
+    self.sex_edit.setText(self.sex)
+    self.protocol_edit.setText(self.protocol)
+    self.exam_date_edit.setText(self.date)
 
-  def _phantom_switch(self):
-    body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
-                    'Abdomen', 'Adrenal', 'Kidney', 
-                    'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
-                    'Kidney to Bladder', 'Pelvis']
-    head_protocol = ['Head', 'Head & Neck', 'Neck']
-    sel = self.sender()
-    level = 1 if self.first_run else 2
-    self.first_run = False
-    if sel.isChecked():
-      with GetMainWindowProps(self, level) as par:
-        par.tab3.protocol.clear()
-        par.tab4.protocol.clear()
-        if sel.text().lower() == 'body':
-          par.tab3.protocol.addItems(body_protocol)
-          par.tab4.protocol.addItems(body_protocol)
-        else:
-          par.tab3.protocol.addItems(head_protocol)
-          par.tab4.protocol.addItems(head_protocol)
+  def getInfo(self):
+    info = {'name': self.name if self.name else None,
+            'sex': self.sex if self.sex else None,
+            'age': self.age if self.age else None,
+            'protocol': self.protocol if self.protocol else None,
+            'date': self.date if self.date else None,
+            }
+    return info
+
+  def on_name_changed(self):
+    self.name = self.name_edit.text()
+
+  def on_date_changed(self):
+    self.date = self.exam_date_edit.text()
+
+  def on_age_changed(self):
+    self.age = self.age_edit.text()
+  
+  def on_sex_changed(self):
+    self.sex = self.sex_edit.text()
+  
+  def on_protocol_changed(self):
+    self.protocol = self.protocol_edit.text()

@@ -1,8 +1,6 @@
 import sqlite3 as sl
 import os
 import json
-import numpy as np
-from scipy import interpolate
 
 def get_db():
   with open('config.json', 'r') as f:
@@ -99,14 +97,6 @@ def get_records(path, table):
       data.append(row[1:])
   con.close()
   return data
-
-# path = r'D:\Undip\Project\InDoseCT\src\main\resources\base\db\aapm.db'
-# data = np.array(get_records(path, 'Age'))
-# # print(data)
-
-# tck = interpolate.splrep(data[:,0], data[:,1])
-# y = interpolate.splev(2.3, tck)
-# print(y)
 
 # def main():
 #   create_patients_table()
