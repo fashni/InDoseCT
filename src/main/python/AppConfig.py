@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
                              QLabel, QPushButton, QLineEdit, QFileDialog,
                              QMessageBox, QTabWidget, QDialog, QDialogButtonBox,
                             )
-from patients_db import create_patients_table
+from db import create_patients_table
 
 class AppConfig(QDialog):
   def __init__(self, ctx):

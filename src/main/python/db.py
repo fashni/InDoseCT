@@ -1,6 +1,8 @@
 import sqlite3 as sl
 import os
 import json
+import numpy as np
+from scipy import interpolate
 
 def get_db():
   with open('config.json', 'r') as f:
@@ -81,14 +83,30 @@ def get_records_num(path):
   con.close()
   return rows
 
-def print_records(path):
+def print_records(path, table):
   # PATIENTS_DB_PATH = get_db()
   con = create_connection(path)
   with con:
-    for row in con.execute("SELECT * FROM PATIENTS"):
+    for row in con.execute(f"SELECT * FROM {table}"):
       print(row)
   con.close()
 
+def get_records(path, table):
+  con = create_connection(path)
+  data = []
+  with con:
+    for row in con.execute(f"SELECT * FROM {table}"):
+      data.append(row[1:])
+  con.close()
+  return data
+
+# path = r'D:\Undip\Project\InDoseCT\src\main\resources\base\db\aapm.db'
+# data = np.array(get_records(path, 'Age'))
+# # print(data)
+
+# tck = interpolate.splrep(data[:,0], data[:,1])
+# y = interpolate.splev(2.3, tck)
+# print(y)
 
 # def main():
 #   create_patients_table()

@@ -1,10 +1,13 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox,
                              QLineEdit, QPushButton, QScrollArea, QRadioButton,
-                             QButtonGroup, QCheckBox, QProgressDialog, QSpinBox)
+                             QButtonGroup, QCheckBox, QProgressDialog, QSpinBox,
+                             QStackedWidget)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
-from IndoseCT_funcs import get_dw_value, get_deff_value, get_label
+from diameters import get_dw_value, get_deff_value, get_label
+from db import get_records
 from custom_widgets import VSeparator
+from scipy import interpolate
 import sip
 import numpy as np
 
@@ -22,6 +25,8 @@ class DiameterTab(QWidget):
     self._def_manual_method = 'deff'
     self._3d_method = 'slice step'
     self.is_truncated = False
+    self.age_data = np.array(get_records(self.ctx.aapm_db, 'Age'))
+    self.age_interp = interpolate.splrep(self.age_data[:,0], self.age_data[:,1])
     self.src_method = {
       'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
       'Input Manually': ['Manual'],
@@ -61,6 +66,8 @@ class DiameterTab(QWidget):
     self.d_out.setMaximumWidth(50)
     self.d_out.setValidator(QDoubleValidator())
     self.d_out.textChanged.connect(self._d_changed)
+    print(self.d_out.height())
+    print(self.d_out.width())
 
     out = QHBoxLayout()
     out.addWidget(self.calc_btn)
@@ -224,21 +231,35 @@ class DiameterTab(QWidget):
     opts_cb.addItems(['Deff', 'AP', 'LAT', 'AP+LAT', 'AGE'])
     opts_cb.activated[str].connect(self._def_manual_switch)
     opts_cb.setCurrentIndex(0)
+    self.year_sb = QSpinBox()
+    self.year_sb.setRange(0, self.age_data[-1,0])
+    self.year_sb.valueChanged.connect(self._check_age)
+    self.month_sb = QSpinBox()
+    self.month_sb.setRange(0, 11)
+    self.month_sb.setWrapping(True)
     self.def_man_opt1 = QLineEdit()
-    self.def_man_opt1.setMaximumWidth(50)
     self.def_man_opt1.setPlaceholderText('Deff')
     self.def_man_opt1.setValidator(QDoubleValidator())
     self.def_man_opt2 = QLineEdit()
-    self.def_man_opt2.setMaximumWidth(50)
     self.def_man_opt2.setPlaceholderText('LAT')
     self.def_man_opt2.setValidator(QDoubleValidator())
     self.opt1_unit = QLabel('cm')
     self.opt2_unit = QLabel('cm')
+    self.def_man_stack1 = QStackedWidget()
+    self.def_man_stack1.setMaximumWidth(50)
+    self.def_man_stack1.setMaximumHeight(25)
+    self.def_man_stack1.addWidget(self.def_man_opt1)
+    self.def_man_stack1.addWidget(self.year_sb)
+    self.def_man_stack2 = QStackedWidget()
+    self.def_man_stack2.setMaximumWidth(50)
+    self.def_man_stack2.setMaximumHeight(25)
+    self.def_man_stack2.addWidget(self.def_man_opt2)
+    self.def_man_stack2.addWidget(self.month_sb)
     h1 = QHBoxLayout()
-    h1.addWidget(self.def_man_opt1)
+    h1.addWidget(self.def_man_stack1)
     h1.addWidget(self.opt1_unit)
     h2 = QHBoxLayout()
-    h2.addWidget(self.def_man_opt2)
+    h2.addWidget(self.def_man_stack2)
     h2.addWidget(self.opt2_unit)
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
@@ -246,9 +267,16 @@ class DiameterTab(QWidget):
     inner.addLayout(h1)
     inner.addLayout(h2)
     inner.addStretch()
-    self.def_man_opt2.setHidden(True)
+    # self.def_man_opt2.setHidden(True)
+    self.def_man_stack2.setHidden(True)
     self.opt2_unit.setHidden(True)
     self.opt.setLayout(inner)
+
+  def _check_age(self, val):
+    if val==self.age_data[-1,0]:
+      self.month_sb.setMaximum(0)
+    else:
+      self.month_sb.setMaximum(11)
 
   def _delete_layout(self, clayout):
     if clayout is not None:
@@ -299,19 +327,28 @@ class DiameterTab(QWidget):
   def _def_manual_switch(self, sel):
     self.def_man_opt1.clear()
     self.def_man_opt1.clear()
-    if sel.lower() == 'ap+lat':
-      self.def_man_opt1.setPlaceholderText('AP')
-      self.def_man_opt2.setPlaceholderText('LAT')
-      self.def_man_opt2.setHidden(False)
-      self.opt2_unit.setHidden(False)
-    else:
+    if sel.lower() != 'ap+lat' and sel.lower() != 'age':
+      self.def_man_stack1.setCurrentIndex(0)
+      self.def_man_stack2.setCurrentIndex(0)
       self.def_man_opt1.setPlaceholderText(sel)
-      self.def_man_opt2.setHidden(True)
-      self.opt2_unit.setHidden(True)
-    if sel.lower() == 'age':
-      self.opt1_unit.setText('year(s)')
-    else:
       self.opt1_unit.setText('cm')
+      self.def_man_stack2.setHidden(True)
+      self.opt2_unit.setHidden(True)
+    else:
+      self.def_man_stack2.setHidden(False)
+      self.opt2_unit.setHidden(False)
+      if sel.lower() == 'age':
+        self.def_man_stack1.setCurrentIndex(1)
+        self.def_man_stack2.setCurrentIndex(1)
+        self.opt1_unit.setText('year(s)')
+        self.opt2_unit.setText('month(s)')
+      else:
+        self.def_man_stack1.setCurrentIndex(0)
+        self.def_man_stack2.setCurrentIndex(0)
+        self.def_man_opt1.setPlaceholderText('AP')
+        self.def_man_opt2.setPlaceholderText('LAT')
+        self.opt1_unit.setText('cm')
+        self.opt2_unit.setText('cm')
     self._def_manual_method = sel.lower()
     print(self._def_manual_method)
     self.d_out.setText('0')
@@ -403,7 +440,6 @@ class DiameterTab(QWidget):
       self.d_val = float(text)
     except:
       self.d_val = 0
-    print(self.d_val)
 
   def _img_manual(self):
     pass
@@ -411,10 +447,19 @@ class DiameterTab(QWidget):
   def _input_manual(self):
     if self.based_on == 0: # deff
       if self._def_manual_method == 'deff':
-        self.d_out.setText(self.def_man_opt1.text())
+        try:
+          dval = float(self.def_man_opt1.text())
+        except:
+          dval = 0
       elif self._def_manual_method == 'age':
-        pass
+        year = self.year_sb.value()
+        month = self.month_sb.value()
+        age = year + month/12
+        print(age)
+        dval = float(interpolate.splev(age, self.age_interp))
       else:
         pass
+      self.d_out.setText(f'{dval:#.2f}')
+      self.d_val = dval
     else:
       pass

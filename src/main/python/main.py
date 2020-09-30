@@ -8,7 +8,7 @@ import numpy as np
 import sys
 import os
 import json
-from IndoseCT_funcs import get_image, get_reference
+from diameters import get_image, get_reference
 from plt_axes import Axes
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
@@ -16,7 +16,7 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
-from patients_db import insert_patient, get_records_num, create_patients_table
+from db import insert_patient, get_records_num, create_patients_table
 from DBViewer import DBViewer
 from AppConfig import AppConfig
 import time
@@ -325,6 +325,10 @@ class AppContext(ApplicationContext):
   @cached_property
   def export_icon(self):
     return QIcon(self.get_resource("icons/export.png"))
+
+  @cached_property
+  def aapm_db(self):
+    return self.get_resource("db/aapm.db")
 
   @cached_property
   def default_patients_database(self):

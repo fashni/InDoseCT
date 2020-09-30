@@ -1,6 +1,6 @@
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from IndoseCT_funcs import get_label_pos
+from diameters import get_label_pos
 
 class Axes(FigureCanvas):
   def __init__(self, parent = None, width = 5, height = 5, dpi = 100):
