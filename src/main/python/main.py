@@ -9,7 +9,7 @@ import sys
 import os
 import json
 from diameters import get_image, get_reference
-from plt_axes import Axes
+from Plot import Axes
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
 from tab_Diameter import DiameterTab
@@ -56,11 +56,7 @@ class MainWindow(QMainWindow):
   def setUIComponents(self):
     self.setWindowTitle(self.title)
     self.setGeometry(self.top, self.left, self.width, self.height)
-
     self.main_widget = QWidget()
-    self.ctx.axes = Axes(self, width=5, height=5)
-    self.ctx.axes.setMinimumSize(200, 200)
-    # self.progress = QProgressBar(self)
 
     self.setToolbar()
     self.setTabs()
@@ -68,7 +64,6 @@ class MainWindow(QMainWindow):
     self.setLayout()
     self.setCentralWidget(self.main_widget)
 
-    # self.statusBar().addPermanentWidget(self.progress)
     self.statusBar().showMessage('READY')
     self.setUpConnect()
 
@@ -82,7 +77,6 @@ class MainWindow(QMainWindow):
     self.openrec_btn.triggered.connect(self.open_viewer)
     self.next_btn.triggered.connect(self.next_img)
     self.prev_btn.triggered.connect(self.prev_img)
-    
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
@@ -181,8 +175,9 @@ class MainWindow(QMainWindow):
       self.total_lbl.setText(str(self.ctx.total_img))
       self.total_lbl.adjustSize()
 
-      self.ctx.axes.clear()
+      self.ctx.axes.clearAll()
       self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+      self.ctx.axes.autoRange()
       self.info_panel.setInfo(self.patient_info)
       if self.tab2.slices:
         self.tab2.slices.setMaximum(self.ctx.total_img)
@@ -193,8 +188,9 @@ class MainWindow(QMainWindow):
     self.ctx.current_img += 1
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
-    self.ctx.axes.clear()
+    self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+    self.ctx.axes.autoRange()
 
   def prev_img(self):
     if not self.ctx.total_img or self.ctx.current_img == 1:
@@ -202,8 +198,9 @@ class MainWindow(QMainWindow):
     self.ctx.current_img -= 1
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
-    self.ctx.axes.clear()
+    self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+    self.ctx.axes.autoRange()
 
   def on_phantom_update(self):
     self.ctx.phantom = self.sender().text().lower()
@@ -279,6 +276,7 @@ class AppContext(ApplicationContext):
     self.last_info = None
     self.axes = None
     self.phantom = 'body'
+    self.axes = Axes(self)
 
   def checkFiles(self):
     if not os.path.isfile(self.config_file()):

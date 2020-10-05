@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox
                              QStackedWidget)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
-from diameters import get_dw_value, get_deff_value, get_label
+from diameters import get_dw_value, get_deff_value, get_label, get_label_pos
 from db import get_records
 from custom_widgets import VSeparator
 from scipy import interpolate
@@ -395,9 +395,10 @@ class DiameterTab(QWidget):
     try:
       info = self.ctx.first_info
       img = self.ctx.imgs[self.ctx.current_img-1]
-      img_label = get_label(img)
-      self.ctx.axes.clear()
-      self.ctx.axes.imshow(img, img_label)
+      pos = get_label_pos(get_label(img))
+      self.ctx.axes.clearGraph()
+      self.ctx.axes.scatter(pos[:,1], pos[:,0])
+      self.ctx.axes.autoRange()
     except:
       return
     if self.based_on == 0: # deff
