@@ -21,6 +21,8 @@ class DiameterTab(QWidget):
 
   def initVar(self):
     self.d_val = 0
+    self.lineLAT = 0
+    self.lineAP = 0
     self._def_auto_method = 'area'
     self._def_manual_method = 'deff'
     self._3d_method = 'slice step'
@@ -234,13 +236,27 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_def_img_manual(self):
+    self.def_img_man_lbl1 = QLabel('0 cm')
+    self.def_img_man_lbl2 = QLabel('0 cm')
     opt1 = QPushButton('LAT')
-    opt1.setChecked(True)
     opt2 = QPushButton('AP')
+    opt3 = QPushButton('Clear')
+    opt1.clicked.connect(self._addLAT)
+    opt2.clicked.connect(self._addAP)
+    opt3.clicked.connect(self._clearLines)
+    h1 = QHBoxLayout()
+    h1.addWidget(opt1)
+    h1.addWidget(self.def_img_man_lbl1)
+    h1.addStretch()
+    h2 = QHBoxLayout()
+    h2.addWidget(opt2)
+    h2.addWidget(self.def_img_man_lbl2)
+    h2.addStretch()
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
-    inner.addWidget(opt1)
-    inner.addWidget(opt2)
+    inner.addLayout(h1)
+    inner.addLayout(h2)
+    inner.addWidget(opt3)
     inner.addStretch()
     self.opt.setLayout(inner)
 
@@ -462,7 +478,14 @@ class DiameterTab(QWidget):
       self.d_val = 0
 
   def _img_manual(self):
-    pass
+    if self.based_on == 0:
+      val = self.lineAP + self.lineLAT
+      interp = self.head_latap_interp if self.ctx.phantom == 'head' else self.thorax_latap_interp
+      dval = float(interpolate.splev(val, interp))
+      self.d_out.setText(f'{dval:#.2f}')
+      self.d_val = dval
+    else:
+      pass
 
   def _input_manual(self):
     if self.based_on == 0: # deff
@@ -496,3 +519,35 @@ class DiameterTab(QWidget):
       self.d_val = dval
     else:
       pass
+
+  def _clearLines(self):
+    self.ctx.axes.clearLines()
+    self.def_img_man_lbl1.setText('0 cm')
+    self.def_img_man_lbl2.setText('0 cm')
+    self.lineLAT = 0
+    self.lineAP = 0
+
+  def _get_dist(self, pts):
+    col,row = self.ctx.imgs[self.ctx.current_img-1].shape
+    rd = self.ctx.first_info['reconst_diameter']
+    x1, y1 = pts[0].pos().x(), pts[0].pos().y()
+    x2, y2 = pts[1].pos().x(), pts[1].pos().y()
+    return (0.1*rd/col)*np.sqrt((x2-x1)**2+(y2-y1)**2)
+
+  def _addLAT(self):
+    self.ctx.axes.addLAT()
+    self.ctx.axes.lineLAT.sigRegionChangeFinished.connect(self._getLATfromLine)
+
+  def _addAP(self):
+    self.ctx.axes.addAP()
+    self.ctx.axes.lineAP.sigRegionChangeFinished.connect(self._getAPfromLine)
+
+  def _getLATfromLine(self, roi):
+    pts = roi.getHandles()
+    self.lineLAT = self._get_dist(pts)
+    self.def_img_man_lbl1.setText(f'{self.lineLAT:#.2f} cm')
+
+  def _getAPfromLine(self, roi):
+    pts = roi.getHandles()
+    self.lineAP = self._get_dist(pts)
+    self.def_img_man_lbl2.setText(f'{self.lineAP:#.2f} cm')

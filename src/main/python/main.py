@@ -177,7 +177,6 @@ class MainWindow(QMainWindow):
 
       self.ctx.axes.clearAll()
       self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
-      self.ctx.axes.autoRange()
       self.info_panel.setInfo(self.patient_info)
       if self.tab2.slices:
         self.tab2.slices.setMaximum(self.ctx.total_img)
@@ -190,7 +189,6 @@ class MainWindow(QMainWindow):
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
-    self.ctx.axes.autoRange()
 
   def prev_img(self):
     if not self.ctx.total_img or self.ctx.current_img == 1:
@@ -200,7 +198,6 @@ class MainWindow(QMainWindow):
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
-    self.ctx.axes.autoRange()
 
   def on_phantom_update(self):
     self.ctx.phantom = self.sender().text().lower()
