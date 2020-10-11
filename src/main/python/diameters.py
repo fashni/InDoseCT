@@ -68,8 +68,7 @@ def get_avg_intensity(roi):
 def get_roi(img, label):
   return regionprops(label.astype(int), intensity_image=img)
 
-def get_dw_value(img, ref, is_truncated):
-  label = get_label(img)
+def get_dw_value(img, label, ref, is_truncated=False):
   rd = ref["reconst_diameter"]
   roi = get_roi(img, label)
   px_area = get_px_area(roi)
@@ -173,7 +172,7 @@ if __name__ == "__main__":
   area, _, _ = get_deff_value(dicom_pixels[0], ref, 'area')
   center, _, _ = get_deff_value(dicom_pixels[0], ref, 'center')
   _max, _, _ = get_deff_value(dicom_pixels[0], ref, 'max')
-  dw = get_dw_value(dicom_pixels[0], ref)
+  dw = get_dw_value(dicom_pixels[0], get_label(dicom_pixels[0]), ref)
   print(f'deff area = {area: #.2f} cm')
   print(f'deff center = {center: #.2f} cm')
   print(f'deff max = {_max: #.2f} cm')

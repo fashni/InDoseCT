@@ -130,16 +130,16 @@ class DiameterTab(QWidget):
     self.method = self.method_cb.currentIndex()
 
   def _ui_dw_img_manual(self):
-    opt1 = QRadioButton('Polygon')
-    opt1.setChecked(True)
-    opt2 = QRadioButton('Ellipse')
-    self.btn_grp = QButtonGroup()
-    self.btn_grp.addButton(opt1)
-    self.btn_grp.addButton(opt2)
+    opt1 = QPushButton('Polygon')
+    opt2 = QPushButton('Ellipse')
+    opt3 = QPushButton('Clear')
+    opt2.clicked.connect(self._addEllipse)
+    opt3.clicked.connect(self._clearROIs)
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
     inner.addWidget(opt1)
     inner.addWidget(opt2)
+    inner.addWidget(opt3)
     inner.addStretch()
     self.opt.setLayout(inner)
 
@@ -236,14 +236,14 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_def_img_manual(self):
-    self.def_img_man_lbl1 = QLabel('0 cm')
-    self.def_img_man_lbl2 = QLabel('0 cm')
+    self.def_img_man_lbl1 = QLabel(f'{self.lineLAT:#.2f} cm') if self.lineLAT else QLabel('0 cm')
+    self.def_img_man_lbl2 = QLabel(f'{self.lineAP:#.2f} cm') if self.lineLAT else QLabel('0 cm')
     opt1 = QPushButton('LAT')
     opt2 = QPushButton('AP')
     opt3 = QPushButton('Clear')
     opt1.clicked.connect(self._addLAT)
     opt2.clicked.connect(self._addAP)
-    opt3.clicked.connect(self._clearLines)
+    opt3.clicked.connect(self._clearROIs)
     h1 = QHBoxLayout()
     h1.addWidget(opt1)
     h1.addWidget(self.def_img_man_lbl1)
@@ -327,6 +327,7 @@ class DiameterTab(QWidget):
   def _set_options(self):
     self._params()
     self._delete_layout(self.opt.layout())
+    self._clearROIs()
 
     if self.source == 1 and (self.sender().tag is 'source' or self.sender().tag is 'based'):
       if self.based_on == 0:
@@ -396,7 +397,6 @@ class DiameterTab(QWidget):
     self.d_out.setText('0')
 
   def _calculate(self):
-    self._params
     if self.source == 0: # from img
       if self.method == 0: # auto
         self._auto()
@@ -420,7 +420,7 @@ class DiameterTab(QWidget):
     if self.based_on == 0: # deff
       dval, x, y = get_deff_value(img, info, self._def_auto_method)
     elif self.based_on == 1:
-      dval = get_dw_value(img, info, self.is_truncated)
+      dval = get_dw_value(img, get_label(img), info, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
     self.d_val = dval
     
@@ -440,7 +440,7 @@ class DiameterTab(QWidget):
           if self.based_on == 0:
             d, _, _ = get_deff_value(img, info, self._def_auto_method)
           else:
-            d = get_dw_value(img, info, self.is_truncated)
+            d = get_dw_value(img, get_label(img), info, self.is_truncated)
           dval += d
           progress.setValue(idx)
           if progress.wasCanceled():
@@ -458,7 +458,7 @@ class DiameterTab(QWidget):
           if self.based_on == 0:
             d, _, _ = get_deff_value(imgs[idx], info, self._def_auto_method)
           else:
-            d = get_dw_value(imgs[idx], info, self.is_truncated)
+            d = get_dw_value(imgs[idx], get_label(imgs[idx]), info, self.is_truncated)
           dval += d
           progress.setValue(idx)
           if progress.wasCanceled():
@@ -478,14 +478,7 @@ class DiameterTab(QWidget):
       self.d_val = 0
 
   def _img_manual(self):
-    if self.based_on == 0:
-      val = self.lineAP + self.lineLAT
-      interp = self.head_latap_interp if self.ctx.phantom == 'head' else self.thorax_latap_interp
-      dval = float(interpolate.splev(val, interp))
-      self.d_out.setText(f'{dval:#.2f}')
-      self.d_val = dval
-    else:
-      pass
+    pass
 
   def _input_manual(self):
     if self.based_on == 0: # deff
@@ -520,12 +513,21 @@ class DiameterTab(QWidget):
     else:
       pass
 
-  def _clearLines(self):
-    self.ctx.axes.clearLines()
-    self.def_img_man_lbl1.setText('0 cm')
-    self.def_img_man_lbl2.setText('0 cm')
+  def _clearROIs(self):
+    if len(self.ctx.axes.rois) == 0:
+      return
+    print(self.ctx.axes.rois)
+    self.ctx.axes.clearAll()
+    self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+    try:
+      self.def_img_man_lbl1.setText('0 cm')
+      self.def_img_man_lbl2.setText('0 cm')
+    except:
+      pass
+    self.d_out.setText('0')
     self.lineLAT = 0
     self.lineAP = 0
+    self.d_val = 0
 
   def _get_dist(self, pts):
     col,row = self.ctx.imgs[self.ctx.current_img-1].shape
@@ -535,19 +537,47 @@ class DiameterTab(QWidget):
     return (0.1*rd/col)*np.sqrt((x2-x1)**2+(y2-y1)**2)
 
   def _addLAT(self):
-    self.ctx.axes.addLAT()
-    self.ctx.axes.lineLAT.sigRegionChangeFinished.connect(self._getLATfromLine)
+    if self.ctx.current_img:
+      self.ctx.axes.addLAT()
+      self.ctx.axes.lineLAT.sigRegionChanged.connect(self._getLATfromLine)
+      self.lineLAT = self._get_dist(self.ctx.axes.lineLAT.getHandles())
+      self.def_img_man_lbl1.setText(f'{self.lineLAT:#.2f} cm')
+      self._getImgManDeff()
 
   def _addAP(self):
-    self.ctx.axes.addAP()
-    self.ctx.axes.lineAP.sigRegionChangeFinished.connect(self._getAPfromLine)
+    if self.ctx.current_img:
+      self.ctx.axes.addAP()
+      self.ctx.axes.lineAP.sigRegionChanged.connect(self._getAPfromLine)
+      self.lineAP = self._get_dist(self.ctx.axes.lineAP.getHandles())
+      self.def_img_man_lbl2.setText(f'{self.lineAP:#.2f} cm')
+      self._getImgManDeff()
+
+  def _addEllipse(self):
+    if self.ctx.current_img:
+      self.ctx.axes.addEllipse()
+      self.ctx.axes.ellipse.sigRegionChangeFinished.connect(self._getEllipseDw)
+      self._getEllipseDw(self.ctx.axes.ellipse)
 
   def _getLATfromLine(self, roi):
     pts = roi.getHandles()
     self.lineLAT = self._get_dist(pts)
     self.def_img_man_lbl1.setText(f'{self.lineLAT:#.2f} cm')
+    self._getImgManDeff()
 
   def _getAPfromLine(self, roi):
     pts = roi.getHandles()
     self.lineAP = self._get_dist(pts)
     self.def_img_man_lbl2.setText(f'{self.lineAP:#.2f} cm')
+    self._getImgManDeff()
+
+  def _getImgManDeff(self):
+    dval = np.sqrt(self.lineAP * self.lineLAT)
+    self.d_out.setText(f'{dval:#.2f}')
+    self.d_val = dval
+
+  def _getEllipseDw(self, roi):
+    img = roi.getArrayRegion(self.ctx.imgs[self.ctx.current_img-1], self.ctx.axes.image, returnMappedCoords=False)
+    mask = roi.renderShapeMask(img.shape[0],img.shape[1])
+    dval = get_dw_value(img, mask, self.ctx.first_info)
+    self.d_out.setText(f'{dval:#.2f}')
+    self.d_val = dval
