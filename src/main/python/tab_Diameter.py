@@ -16,6 +16,7 @@ class DiameterTab(QWidget):
     super(DiameterTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
     self.slices = None
+    self.slices2 = None
     self.initVar()
     self.initUI()
 
@@ -144,20 +145,33 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_dw_img_3d(self):
+    self.to_lbl = QLabel(' to ')
     opt = QCheckBox('Truncated Image')
     opt.stateChanged.connect(self._is_truncated)
     opt1 = QRadioButton('Slice Step')
     opt2 = QRadioButton('Slice Number')
+    opt3 = QRadioButton('Regional')
     self.slices = QSpinBox()
     self.slices.setMinimum(1)
     self.slices.setMaximum(self.ctx.total_img)
     self.slices.setMaximumWidth(50)
+    self.slices2 = QSpinBox()
+    self.slices2.setMinimum(1)
+    self.slices2.setMaximum(self.ctx.total_img)
+    self.slices2.setMaximumWidth(50)
     self.btn_grp = QButtonGroup()
     self.btn_grp.addButton(opt1)
     self.btn_grp.addButton(opt2)
+    self.btn_grp.addButton(opt3)
     opt1.toggled.connect(self._3d_switch)
     opt2.toggled.connect(self._3d_switch)
+    opt3.toggled.connect(self._3d_switch)
     opt1.setChecked(True)
+    hbox = QHBoxLayout()
+    hbox.addWidget(self.slices)
+    hbox.addWidget(self.to_lbl)
+    hbox.addWidget(self.slices2)
+    hbox.addStretch()
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
     inner.addWidget(opt)
@@ -165,7 +179,8 @@ class DiameterTab(QWidget):
     inner.addWidget(QLabel('3D Options:'))
     inner.addWidget(opt1)
     inner.addWidget(opt2)
-    inner.addWidget(self.slices)
+    inner.addWidget(opt3)
+    inner.addLayout(hbox)
     inner.addStretch()
     self.opt.setLayout(inner)
 
@@ -199,15 +214,21 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_def_img_3d(self):
+    self.to_lbl = QLabel(' to ')
     base1 = QRadioButton('Area')
     base2 = QRadioButton('Center')
     base3 = QRadioButton('Max')
     _3d1 = QRadioButton('Slice Step')
     _3d2 = QRadioButton('Slice Number')
+    _3d3 = QRadioButton('Regional')
     self.slices = QSpinBox()
     self.slices.setMinimum(1)
     self.slices.setMaximum(self.ctx.total_img)
     self.slices.setMaximumWidth(50)
+    self.slices2 = QSpinBox()
+    self.slices2.setMinimum(1)
+    self.slices2.setMaximum(self.ctx.total_img)
+    self.slices2.setMaximumWidth(50)
     self.base_grp = QButtonGroup()
     self._3d_grp = QButtonGroup()
     self.base_grp.addButton(base1)
@@ -215,13 +236,20 @@ class DiameterTab(QWidget):
     self.base_grp.addButton(base3)
     self._3d_grp.addButton(_3d1)
     self._3d_grp.addButton(_3d2)
+    self._3d_grp.addButton(_3d3)
     _3d1.toggled.connect(self._3d_switch)
     _3d2.toggled.connect(self._3d_switch)
+    _3d3.toggled.connect(self._3d_switch)
     base1.toggled.connect(self._def_auto_switch)
     base2.toggled.connect(self._def_auto_switch)
     base3.toggled.connect(self._def_auto_switch)
     base1.setChecked(True)
     _3d1.setChecked(True)
+    hbox = QHBoxLayout()
+    hbox.addWidget(self.slices)
+    hbox.addWidget(self.to_lbl)
+    hbox.addWidget(self.slices2)
+    hbox.addStretch()
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
     inner.addWidget(base1)
@@ -231,7 +259,8 @@ class DiameterTab(QWidget):
     inner.addWidget(QLabel('3D Options:'))
     inner.addWidget(_3d1)
     inner.addWidget(_3d2)
-    inner.addWidget(self.slices)
+    inner.addWidget(_3d3)
+    inner.addLayout(hbox)
     inner.addStretch()
     self.opt.setLayout(inner)
 
@@ -359,7 +388,12 @@ class DiameterTab(QWidget):
     sel = self.sender()
     if sel.isChecked():
       self._3d_method = sel.text().lower()
-      print(self._3d_method)
+      if self._3d_method == 'regional':
+        self.to_lbl.setHidden(False)
+        self.slices2.setHidden(False)
+      else:
+        self.to_lbl.setHidden(True)
+        self.slices2.setHidden(True)
     self.d_out.setText('0')
 
   def _def_manual_switch(self, sel):
@@ -469,6 +503,29 @@ class DiameterTab(QWidget):
           progress.setValue(i)
           if progress.wasCanceled():
             n = i
+            break
+        progress.setValue(n)
+      elif self._3d_method == 'regional':
+        nslice2 = self.slices2.value()
+        n = abs(nslice-nslice2)+1
+        if nslice<=nslice2:
+          first = nslice
+          last = nslice2
+        else:
+          first = nslice2
+          last = nslice
+        progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
+        progress.setWindowModality(Qt.WindowModal)
+        for idx, dcm in enumerate(dcms[first-1:last]):
+          img = get_image(dcm)
+          if self.based_on == 0:
+            d, _, _ = get_deff_value(img, dims, rd, self._def_auto_method)
+          else:
+            d = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
+          dval += d
+          progress.setValue(idx)
+          if progress.wasCanceled():
+            n = idx
             break
         progress.setValue(n)
       self.d_out.setText(f'{dval/n:#.2f}')

@@ -184,12 +184,16 @@ class MainWindow(QMainWindow):
         break
     progress.setValue(n)
 
-    self.ctx.current_img = 1
-    self.current_lbl.setText(str(self.ctx.current_img))
-    self.current_lbl.adjustSize()
+    if not self.ctx.dicoms:
+      QMessageBox.information(None, "Info", "No DICOM files in directory.")
+      return
+
     self.ctx.total_img = len(self.ctx.dicoms)
     self.total_lbl.setText(str(self.ctx.total_img))
     self.total_lbl.adjustSize()
+    self.ctx.current_img = 1
+    self.current_lbl.setText(str(self.ctx.current_img))
+    self.current_lbl.adjustSize()
     self.ctx.img_dims = (int(self.ctx.dicoms[0].Rows), int(self.ctx.dicoms[0].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[0].ReconstructionDiameter)
 
@@ -198,6 +202,8 @@ class MainWindow(QMainWindow):
     self.get_patient_info()
     self.info_panel.setInfo(self.patient_info)
     if self.tab2.slices:
+      self.tab2.slices.setMaximum(self.ctx.total_img)
+    if self.tab2.slices2:
       self.tab2.slices.setMaximum(self.ctx.total_img)
     self.ctx.isImage = True
 
@@ -212,18 +218,24 @@ class MainWindow(QMainWindow):
     }
 
   def next_img(self):
-    if not self.ctx.total_img or self.ctx.current_img == self.ctx.total_img:
+    if not self.ctx.total_img:
       return
-    self.ctx.current_img += 1
+    if self.ctx.current_img == self.ctx.total_img:
+      self.ctx.current_img = 1
+    else:
+      self.ctx.current_img += 1
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.getImg())
 
   def prev_img(self):
-    if not self.ctx.total_img or self.ctx.current_img == 1:
+    if not self.ctx.total_img:
       return
-    self.ctx.current_img -= 1
+    if self.ctx.current_img == 1:
+      self.ctx.current_img = self.ctx.total_img
+    else:
+      self.ctx.current_img -= 1
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
