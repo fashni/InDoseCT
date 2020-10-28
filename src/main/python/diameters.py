@@ -18,8 +18,11 @@ def get_images(filelist, ref=False):
     return imgs, refr, info
   return imgs
 
-def get_image(filename, ref):
-  return pydicom.dcmread(filename).pixel_array*ref['slope'] + ref['intercept']
+def get_image(ds):
+  return np.array(ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept)
+
+def get_dicom(filename):
+  return pydicom.dcmread(filename)
 
 def get_reference(file):
   ref = pydicom.dcmread(file)
@@ -68,11 +71,11 @@ def get_avg_intensity(roi):
 def get_roi(img, label):
   return regionprops(label.astype(int), intensity_image=img)
 
-def get_dw_value(img, label, ref, is_truncated=False):
-  rd = ref["reconst_diameter"]
+def get_dw_value(img, label, dims, rd, is_truncated=False):
+  r,c = dims
   roi = get_roi(img, label)
   px_area = get_px_area(roi)
-  area = px_area*(rd**2)/(len(img)**2)
+  area = px_area*(rd**2)/(r*c)
   avg = get_avg_intensity(roi)
   dw = 0.1*2*np.sqrt(((avg/1000)+1)*(area/np.pi))
   if is_truncated:
@@ -81,13 +84,13 @@ def get_dw_value(img, label, ref, is_truncated=False):
     dw *= correction
   return dw
 
-def get_deff_value(img, ref, method):
+def get_deff_value(img, dims, rd, method):
   label = get_label(img)
-  rd = ref["reconst_diameter"]
+  r,c = dims
   roi = get_roi(img, label)
   px_area = get_px_area(roi)
   if method == 'area':
-    area = px_area*(rd**2)/(len(img)**2)
+    area = px_area*(rd**2)/(r*c)
     deff = 2*0.1*np.sqrt(area/np.pi)
     cen_row = None
     cen_col = None
@@ -135,11 +138,11 @@ def truncation(label):
   if 0 in uniq_col:
     idx = np.where(uniq_col==0)
     n += int(count_col[idx])
-  if row in uniq_row:
-    idx = np.where(uniq_row==row)
+  if row-1 in uniq_row:
+    idx = np.where(uniq_row==row-1)
     n += int(count_row[idx])
-  if col in uniq_col:
-    idx = np.where(uniq_col==col)
+  if col-1 in uniq_col:
+    idx = np.where(uniq_col==col-1)
     n += int(count_col[idx])
   m = len(pos)
   return (n/m) * 100

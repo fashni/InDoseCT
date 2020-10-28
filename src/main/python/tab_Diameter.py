@@ -1,10 +1,10 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox,
                              QLineEdit, QPushButton, QScrollArea, QRadioButton,
                              QButtonGroup, QCheckBox, QProgressDialog, QSpinBox,
-                             QStackedWidget)
+                             QStackedWidget, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
-from diameters import get_dw_value, get_deff_value, get_label, get_label_pos
+from diameters import get_dw_value, get_deff_value, get_label, get_label_pos, get_image
 from db import get_records
 from custom_widgets import VSeparator
 from scipy import interpolate
@@ -347,6 +347,8 @@ class DiameterTab(QWidget):
           self._ui_dw_img_3d()
         elif self.method == 2:
           self._ui_dw_img_manual()
+      if not self.ctx.isImage:
+        QMessageBox.warning(None, "Warning", "Open DICOM files first.")
     self.d_out.setText('0')
 
   def _is_truncated(self, state):
@@ -409,8 +411,9 @@ class DiameterTab(QWidget):
 
   def _auto(self):
     try:
-      info = self.ctx.first_info
-      img = self.ctx.imgs[self.ctx.current_img-1]
+      dims = self.ctx.img_dims
+      rd = self.ctx.recons_dim
+      img = self.ctx.getImg()
       pos = get_label_pos(get_label(img))
       self.ctx.axes.clearGraph()
       self.ctx.axes.scatter(pos[:,1], pos[:,0])
@@ -418,29 +421,31 @@ class DiameterTab(QWidget):
     except:
       return
     if self.based_on == 0: # deff
-      dval, x, y = get_deff_value(img, info, self._def_auto_method)
+      dval, x, y = get_deff_value(img, dims, rd, self._def_auto_method)
     elif self.based_on == 1:
-      dval = get_dw_value(img, get_label(img), info, self.is_truncated)
+      dval = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
     self.d_val = dval
     
   def _auto_3d(self):
     nslice = self.slices.value()
     try:
-      info = self.ctx.first_info
-      imgs = self.ctx.imgs
+      dims = self.ctx.img_dims
+      rd = self.ctx.recons_dim
+      dcms = self.ctx.dicoms
       dval = 0
       print(self._3d_method == 'slice number')
       if self._3d_method == 'slice step':
-        n = len(imgs[::nslice])
+        n = len(dcms[::nslice])
         print(n)
-        progress = QProgressDialog("Calculating diameter...", "Abort", 0, n, self)
+        progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
         progress.setWindowModality(Qt.WindowModal)
-        for idx, img in enumerate(imgs[::nslice]):
+        for idx, dcm in enumerate(dcms[::nslice]):
+          img = get_image(dcm)
           if self.based_on == 0:
-            d, _, _ = get_deff_value(img, info, self._def_auto_method)
+            d, _, _ = get_deff_value(img, dims, rd, self._def_auto_method)
           else:
-            d = get_dw_value(img, get_label(img), info, self.is_truncated)
+            d = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
           dval += d
           progress.setValue(idx)
           if progress.wasCanceled():
@@ -448,21 +453,22 @@ class DiameterTab(QWidget):
             break
         progress.setValue(n)
       elif self._3d_method == 'slice number':
-        tmps = np.array_split(np.arange(len(imgs)), nslice)
+        tmps = np.array_split(np.arange(len(dcms)), nslice)
         idxs = [tmp[int(len(tmp)/2)] for tmp in tmps]
         n = len(idxs)
-        progress = QProgressDialog("Calculating diameter...", "Abort", 0, n, self)
+        progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
         progress.setWindowModality(Qt.WindowModal)
         print(n)
         for i, idx in enumerate(idxs):
+          img = get_image(dcms[idx])
           if self.based_on == 0:
-            d, _, _ = get_deff_value(imgs[idx], info, self._def_auto_method)
+            d, _, _ = get_deff_value(img, dims, rd, self._def_auto_method)
           else:
-            d = get_dw_value(imgs[idx], get_label(imgs[idx]), info, self.is_truncated)
+            d = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
           dval += d
-          progress.setValue(idx)
+          progress.setValue(i)
           if progress.wasCanceled():
-            n = idx
+            n = i
             break
         progress.setValue(n)
       self.d_out.setText(f'{dval/n:#.2f}')
@@ -518,7 +524,7 @@ class DiameterTab(QWidget):
       return
     print(self.ctx.axes.rois)
     self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+    self.ctx.axes.imshow(self.ctx.getImg())
     try:
       self.def_img_man_lbl1.setText('0 cm')
       self.def_img_man_lbl2.setText('0 cm')
@@ -530,8 +536,8 @@ class DiameterTab(QWidget):
     self.d_val = 0
 
   def _get_dist(self, pts):
-    col,row = self.ctx.imgs[self.ctx.current_img-1].shape
-    rd = self.ctx.first_info['reconst_diameter']
+    col,row = self.ctx.getImg().shape
+    rd = self.ctx.recons_dim
     x1, y1 = pts[0].pos().x(), pts[0].pos().y()
     x2, y2 = pts[1].pos().x(), pts[1].pos().y()
     return (0.1*rd/col)*np.sqrt((x2-x1)**2+(y2-y1)**2)
@@ -576,8 +582,10 @@ class DiameterTab(QWidget):
     self.d_val = dval
 
   def _getEllipseDw(self, roi):
-    img = roi.getArrayRegion(self.ctx.imgs[self.ctx.current_img-1], self.ctx.axes.image, returnMappedCoords=False)
+    dims = self.ctx.img_dims
+    rd = self.ctx.recons_dim
+    img = roi.getArrayRegion(self.ctx.getImg(), self.ctx.axes.image, returnMappedCoords=False)
     mask = roi.renderShapeMask(img.shape[0],img.shape[1])
-    dval = get_dw_value(img, mask, self.ctx.first_info)
+    dval = get_dw_value(img, mask, dims, rd)
     self.d_out.setText(f'{dval:#.2f}')
     self.d_val = dval

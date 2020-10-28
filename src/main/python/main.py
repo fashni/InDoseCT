@@ -8,7 +8,8 @@ import numpy as np
 import sys
 import os
 import json
-from diameters import get_image, get_reference
+import dicomtree
+from diameters import get_image, get_dicom
 from Plot import Axes
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
@@ -29,11 +30,7 @@ class MainWindow(QMainWindow):
     self.initUI()
 
   def initVar(self):
-    self.ctx.imgs = []
-    self.ctx.current_img = 0
-    self.ctx.total_img = 0
-    self.ctx.first_info = None
-    self.ctx.last_info = None
+    self.ctx.initVar()
     self.rec_viewer = None
     self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
@@ -72,6 +69,8 @@ class MainWindow(QMainWindow):
     self.info_panel.head_btn.toggled.connect(self.on_phantom_update)
     self.info_panel.body_btn.setChecked(True)
     self.open_btn.triggered.connect(self.open_files)
+    self.open_folder_btn.triggered.connect(self.open_folder)
+    self.dcmtree_btn.triggered.connect(self.dcmtree)
     self.settings_btn.triggered.connect(self.open_config)
     self.save_btn.triggered.connect(self.save_db)
     self.openrec_btn.triggered.connect(self.open_viewer)
@@ -86,10 +85,18 @@ class MainWindow(QMainWindow):
     self.open_btn.setShortcut('Ctrl+O')
     self.open_btn.setStatusTip('Open DICOM Files')
 
+    self.open_folder_btn = QAction(self.ctx.folder_icon, 'Open Folder', self)
+    self.open_folder_btn.setStatusTip('Open Folder')
+
+    self.dcmtree_btn = QAction(self.ctx.tree_icon, 'DICOM Info', self)
+    self.dcmtree_btn.setStatusTip('DICOM Info')
+
     self.settings_btn = QAction(self.ctx.setting_icon, 'Settings', self)
     self.settings_btn.setStatusTip('Application Settings')
 
     toolbar.addAction(self.open_btn)
+    toolbar.addAction(self.open_folder_btn)
+    toolbar.addAction(self.dcmtree_btn)
     toolbar.addAction(self.settings_btn)
 
     rec_ctrl = QToolBar('Records Control')
@@ -101,6 +108,7 @@ class MainWindow(QMainWindow):
     
     self.openrec_btn = QAction(self.ctx.launch_icon, 'Open Records', self)
     self.openrec_btn.setStatusTip('Open Patients Record')
+
     rec_ctrl.addAction(self.save_btn)
     rec_ctrl.addAction(self.openrec_btn)
 
@@ -147,40 +155,62 @@ class MainWindow(QMainWindow):
     self.tabs.addTab(self.tab4, 'Organ')
     self.tab5 = AnalyzeTab()
     self.tabs.addTab(self.tab5, 'Analyze')
-  
+
+  def open_folder(self):
+    dir = QFileDialog.getExistingDirectory(self,"Open Folder", "")
+    if dir:
+      filenames = [os.path.join(dir, f) for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+      self._load_files(filenames)
+
   def open_files(self):
-    self.statusBar().showMessage('Loading Images')
     filenames, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if filenames:
-      self.initVar()
-      self.ctx.first_info, self.patient_info = get_reference(filenames[0])
-      self.ctx.last_info, _ = get_reference(filenames[-1])
+      self._load_files(filenames)
 
-      progress = QProgressDialog("Loading images...", "Abort", 0, len(filenames), self)
-      progress.setWindowModality(Qt.WindowModal)
-      for idx, filename in enumerate(filenames):
-        img = get_image(filename, self.ctx.first_info)
-        self.ctx.imgs.append(img)
-        # progress.setValue((idx+1)*100/len(filenames))
-        progress.setValue(idx)
-        if progress.wasCanceled():
-          break
-      self.ctx.imgs = np.array(self.ctx.imgs)
-      progress.setValue(len(filenames))
+  def _load_files(self, fnames):
+    self.statusBar().showMessage('Loading Images')
+    self.initVar()
+    n = len(fnames)
+    progress = QProgressDialog(f"Loading {n} images...", "Abort", 0, n, self)
+    progress.setWindowModality(Qt.WindowModal)
+    for idx, filename in enumerate(fnames):
+      try:
+        dcm = get_dicom(filename)
+      except:
+        continue
+      self.ctx.dicoms.append(dcm)
+      progress.setValue(idx)
+      if progress.wasCanceled():
+        break
+    progress.setValue(n)
 
-      self.ctx.current_img = 1
-      self.current_lbl.setText(str(self.ctx.current_img))
-      self.current_lbl.adjustSize()
-      self.ctx.total_img = len(self.ctx.imgs)
-      self.total_lbl.setText(str(self.ctx.total_img))
-      self.total_lbl.adjustSize()
+    self.ctx.current_img = 1
+    self.current_lbl.setText(str(self.ctx.current_img))
+    self.current_lbl.adjustSize()
+    self.ctx.total_img = len(self.ctx.dicoms)
+    self.total_lbl.setText(str(self.ctx.total_img))
+    self.total_lbl.adjustSize()
+    self.ctx.img_dims = (int(self.ctx.dicoms[0].Rows), int(self.ctx.dicoms[0].Columns))
+    self.ctx.recons_dim = float(self.ctx.dicoms[0].ReconstructionDiameter)
 
-      self.ctx.axes.clearAll()
-      self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
-      self.info_panel.setInfo(self.patient_info)
-      if self.tab2.slices:
-        self.tab2.slices.setMaximum(self.ctx.total_img)
-  
+    self.ctx.axes.clearAll()
+    self.ctx.axes.imshow(self.ctx.getImg())
+    self.get_patient_info()
+    self.info_panel.setInfo(self.patient_info)
+    if self.tab2.slices:
+      self.tab2.slices.setMaximum(self.ctx.total_img)
+    self.ctx.isImage = True
+
+  def get_patient_info(self):
+    ref = self.ctx.dicoms[0]
+    self.patient_info = {
+      'name': str(ref.PatientName) if 'PatientName' in ref else None,
+      'sex': str(ref.PatientSex) if 'PatientSex' in ref else None,
+      'age': str(ref.PatientAge) if 'PatientAge' in ref else None,
+      'protocol': str(ref.BodyPartExamined) if 'BodyPartExamined' in ref else None,
+      'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None
+    }
+
   def next_img(self):
     if not self.ctx.total_img or self.ctx.current_img == self.ctx.total_img:
       return
@@ -188,7 +218,7 @@ class MainWindow(QMainWindow):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+    self.ctx.axes.imshow(self.ctx.getImg())
 
   def prev_img(self):
     if not self.ctx.total_img or self.ctx.current_img == 1:
@@ -197,7 +227,13 @@ class MainWindow(QMainWindow):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.imgs[self.ctx.current_img-1])
+    self.ctx.axes.imshow(self.ctx.getImg())
+  
+  def dcmtree(self):
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+      return
+    dicomtree.run(self.ctx.dicoms[self.ctx.current_img])
 
   def on_phantom_update(self):
     self.ctx.phantom = self.sender().text().lower()
@@ -262,18 +298,21 @@ class AppContext(ApplicationContext):
     if not check:
       return
     self.initVar()
+    self.axes = Axes(self)
     self.main_window.show()
     return self.app.exec_()
 
   def initVar(self):
-    self.imgs = []
+    self.dicoms = []
+    self.img_dims = (0,0)
+    self.recons_dim = 0
     self.current_img = 0
     self.total_img = 0
-    self.first_info = None
-    self.last_info = None
-    self.axes = None
     self.phantom = 'body'
-    self.axes = Axes(self)
+    self.isImage = False
+
+  def getImg(self):
+    return get_image(self.dicoms[self.current_img-1])
 
   def checkFiles(self):
     if not os.path.isfile(self.config_file()):
@@ -344,6 +383,14 @@ class AppContext(ApplicationContext):
   @cached_property
   def export_icon(self):
     return QIcon(self.get_resource("icons/export.png"))
+
+  @cached_property
+  def tree_icon(self):
+    return QIcon(self.get_resource("icons/tree.png"))
+  
+  @cached_property
+  def folder_icon(self):
+    return QIcon(self.get_resource("icons/open_folder.png"))
 
   @cached_property
   def aapm_db(self):

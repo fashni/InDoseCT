@@ -1,5 +1,5 @@
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox
+from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox, QMessageBox
 from custom_widgets import HSeparator, VSeparator
 
 class CTDIVolTab(QWidget):
@@ -13,6 +13,7 @@ class CTDIVolTab(QWidget):
     self.ctdi_val = 0
     self.scan_len_val = 0
     self.dlp_val = 0
+    self.current = []
 
   def initUI(self):
     self.setInputFields()
@@ -30,6 +31,8 @@ class CTDIVolTab(QWidget):
     ]
     tcm_btn = QPushButton('TCM')
     calc_btn = QPushButton('Calculate')
+    tcm_btn.clicked.connect(self.get_tcm)
+    calc_btn.clicked.connect(self.calculate)
 
     output_lbls = [
       QLabel('mAs'),
@@ -138,6 +141,10 @@ class CTDIVolTab(QWidget):
       param_items[-2].widget().textChanged[str].connect(self.manual_input)
 
     elif sel == 2:
+      if not self.ctx.isImage:
+        QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+        self.opts.setCurrentIndex(0)
+        return
       font.setBold(True)
       [item.widget().setEnabled(False) for item in out_items]
       [item.widget().setEnabled(False) for item in param_items]
@@ -165,21 +172,30 @@ class CTDIVolTab(QWidget):
   
   def get_from_dicom(self):
     try:
-      self.ctdi_val = self.ctx.first_info['CTDI']
-      first = self.ctx.first_info['slice_pos']
-      last = self.ctx.last_info['slice_pos']
+      self.ctdi_val = float(self.ctx.dicoms[0].CTDIvol)
     except:
+      QMessageBox.warning(None, "Warning", "The DICOM doesn't contain value for CTDIvol.\nTry different method.")
       self.ctdi_val = 0
-      first = 0
-      last = 0
-    self.scan_len_val = abs(0.1*(last-first))
+    self.get_tcm()
     self.dlp_val = self.scan_len_val * self.ctdi_val
     self.out_edits[-1].setText(f'{self.dlp_val:#.2f}')
     self.out_edits[-2].setText(f'{self.ctdi_val:#.2f}')
-    self.scan_length.setText(f'{self.scan_len_val:#.2f}')
 
-  def calculation(self):
+  def calculate(self):
     pass
 
   def get_tcm(self):
-    pass
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first, or input manually")
+      self.opts.setCurrentIndex(0)
+      return
+    self.current = []
+    for dcm in self.ctx.dicoms:
+      self.current.append(float(dcm.XRayTubeCurrent))
+    self.current_val = sum(self.current)/self.ctx.total_img
+    self.tube_current.setText(f'{self.current_val:#.2f}')
+
+    first = float(self.ctx.dicoms[0].SliceLocation)
+    last = float(self.ctx.dicoms[-1].SliceLocation)
+    self.scan_len_val = abs(0.1*(last-first))
+    self.scan_length.setText(f'{self.scan_len_val:#.2f}')

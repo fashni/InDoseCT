@@ -83,29 +83,33 @@ class Axes(pg.PlotWidget):
         return
     pos = event.pos()
     i, j = pos.y(), pos.x()
-    i = int(np.clip(i, 0, self.ctx.imgs[self.ctx.current_img-1].shape[0] - 1))
-    j = int(np.clip(j, 0, self.ctx.imgs[self.ctx.current_img-1].shape[1] - 1))
-    val = self.ctx.imgs[self.ctx.current_img-1][i, j]
+    i = int(np.clip(i, 0, self.ctx.getImg().shape[0] - 1))
+    j = int(np.clip(j, 0, self.ctx.getImg().shape[1] - 1))
+    val = self.ctx.getImg()[i, j]
     self.setTitle(f"pixel: ({i:#d}, {j:#d})  value: {val:#g}")
 
   def addLAT(self):
     if self.lineLAT==None and self.ctx.current_img:
-      x,y = self.ctx.imgs[self.ctx.current_img-1].shape
+      x,y = self.ctx.img_dims
       self.lineLAT = pg.LineSegmentROI([((x/2)-0.25*x, y/2), ((x/2)+0.25*x, y/2)])
       self.addItem(self.lineLAT)
       self.rois.append(self.lineLAT)
 
   def addAP(self):
     if self.lineAP==None and self.ctx.current_img:
-      x,y = self.ctx.imgs[self.ctx.current_img-1].shape
+      x,y = self.ctx.img_dims
       self.lineAP = pg.LineSegmentROI([((x/2), (y/2)-0.25*y), ((x/2), (y/2)+0.25*y)])
       self.addItem(self.lineAP)
       self.rois.append(self.lineAP)
 
   def addEllipse(self):
     if self.ellipse==None and self.ctx.current_img:
-      x,y = self.ctx.imgs[self.ctx.current_img-1].shape
+      x,y = self.ctx.img_dims
       unit = np.sqrt(x*y)/4
       self.ellipse = pg.EllipseROI(pos=[(x/2)-unit, (y/2)-unit*1.5],size=[unit*2,unit*3])
       self.addItem(self.ellipse)
       self.rois.append(self.ellipse)
+
+  def addPoly(self):
+    if self.poly==None and self.ctx.current_img:
+      pass
