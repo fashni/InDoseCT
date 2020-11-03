@@ -9,7 +9,7 @@ Icons used is this repo are from [Material Design](https://material.io).
   * Make sure Python 3.6+ is installed.
   * Run `pip install -r requirements.txt` from the root directory of this repo.
   
-# Usage
-  * From the root directory, run this command
+# Running
+  From the root directory, run this command
   
   ```fbs run```
