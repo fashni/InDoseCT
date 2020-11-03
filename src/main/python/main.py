@@ -10,8 +10,8 @@ import sys
 import os
 import json
 import dicomtree
+import Plot as plt
 from diameters import get_image, get_dicom
-from Plot import Axes
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
 from tab_Diameter import DiameterTab
@@ -347,7 +347,8 @@ class AppContext(ApplicationContext):
     if not check:
       return
     self.initVar()
-    self.axes = Axes(self)
+    self.axes = plt.Axes(self, lock_aspect=True)
+    self.plt_dialog = plt.PlotDialog(self)
     self.main_window.show()
     return self.app.exec_()
 

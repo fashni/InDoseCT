@@ -1,13 +1,17 @@
 import pyqtgraph as pg
 import numpy as np
+import pyqtgraph.exporters
+import sys
+from PyQt5.QtWidgets import QDialog, QApplication, QFileDialog, QDialogButtonBox, QVBoxLayout
 
 class Axes(pg.PlotWidget):
   pg.setConfigOptions(imageAxisOrder='row-major')
-  def __init__(self, ctx, *args, **kwargs):
+  def __init__(self, ctx, lock_aspect=False, *args, **kwargs):
     super(Axes, self).__init__(*args, **kwargs)
     self.ctx = ctx
     self.initUI()
     self.setupConnect()
+    self.setAspectLocked(lock_aspect)
   
   def initUI(self):
     self.setTitle("")
@@ -19,7 +23,6 @@ class Axes(pg.PlotWidget):
     self.poly = None
     self.addItem(self.image)
     self.addItem(self.graph)
-    self.setAspectLocked(True)
     self.rois = []
 
   def setupConnect(self):
@@ -30,10 +33,13 @@ class Axes(pg.PlotWidget):
     self.image.setImage(data)
     self.autoRange()
 
-  def scatter(self, x, y):
-    self.graph.setData(x, y, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
+  def scatter(self, *args, **kwargs):
+    self.graph.setData(*args, **kwargs)
     self.autoRange()
     self.rois.append(self.graph)
+  
+  def plot(self, *args, **kwargs):
+    self.graph.setData(*args, **kwargs)
 
   def clearImage(self):
     self.invertY(False)
@@ -113,3 +119,66 @@ class Axes(pg.PlotWidget):
   def addPoly(self):
     if self.poly==None and self.ctx.current_img:
       pass
+
+
+class PlotDialog(QDialog):
+  def __init__(self, ctx):
+    super(PlotDialog, self).__init__()
+    # x = list(range(10))
+    # y = list(range(10))
+    self.ctx = ctx
+    self.initUI()
+    self.sigConnect()
+    # self.plot(x,y,pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+
+  def initUI(self):
+    self.setWindowTitle('Plot')
+    self.layout = QVBoxLayout()
+    self.axes = Axes(self.ctx)
+
+    btns = QDialogButtonBox.Save | QDialogButtonBox.Close
+    self.buttons = QDialogButtonBox(btns)
+    self.buttons.button(QDialogButtonBox.Save).setText('Save Plot')
+
+    self.layout.addWidget(self.axes)
+    self.layout.addWidget(self.buttons)
+    self.setLayout(self.layout)
+    self.resize(640, 480)
+
+  def sigConnect(self):
+    self.buttons.rejected.connect(self.reject)
+    self.buttons.accepted.connect(self.on_save)
+
+  def plot(self, *args, **kwargs):
+    self.axes.plot(*args, **kwargs)
+  
+  def setLabels(self, xlabel, ylabel, x_unit=None, y_unit=None, x_prefix=None, y_prefix=None):
+    self.axes.setLabel('bottom', xlabel, x_unit, x_prefix)
+    self.axes.setLabel('left', ylabel, y_unit, y_prefix)
+  
+  def on_save(self):
+    accepted_format = """
+      PNG (*.png);;
+      TIFF (*.tif;*.tiff);;
+      JPEG (*.jpg;*.jpeg;*.jpe;*.jfif);;
+      Bitmap (*.bmp);;
+      Scalable Vector Graphics (*.svg);;
+      Comma-Separated Value (*.csv)
+    """
+    filename, _ = QFileDialog.getSaveFileName(self, "Save plot as image...", "", accepted_format)
+    if not filename:
+      return
+    if not filename.lower().endswith(('.csv', '.svg')):
+      exporter = pg.exporters.ImageExporter(self.axes.plotItem)
+      exporter.parameters()['width'] *= 2
+    elif filename.lower().endswith('.csv'):
+      exporter = pg.exporters.CSVExporter(self.axes.plotItem)
+    elif filename.lower().endswith('.svg'):
+      exporter = pg.exporters.SVGExporter(self.axes.plotItem)
+    exporter.export(filename)
+    self.accept()
+
+if __name__ == '__main__':
+  app = QApplication(sys.argv)
+  dialog = PlotDialog(None)
+  sys.exit(dialog.exec_())

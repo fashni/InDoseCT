@@ -450,9 +450,9 @@ class DiameterTab(QWidget):
       dims = self.ctx.img_dims
       rd = self.ctx.recons_dim
       img = self.ctx.getImg()
-      pos = get_label_pos(get_label(img))
+      pos = get_label_pos(get_label(img))+0.5
       self.ctx.axes.clearGraph()
-      self.ctx.axes.scatter(pos[:,1], pos[:,0])
+      self.ctx.axes.scatter(pos[:,1], pos[:,0], pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
       self.ctx.axes.autoRange()
     except:
       return
@@ -558,6 +558,10 @@ class DiameterTab(QWidget):
         age = year + month/12
         print(age)
         dval = float(interpolate.splev(age, self.age_interp))
+        self.ctx.plt_dialog.plot(self.age_data)
+        self.ctx.plt_dialog.axes.showGrid(True,True)
+        self.ctx.plt_dialog.setLabels('Age','Diameter','year','cm')
+        self.ctx.plt_dialog.exec()
       else:
         try:
           val1 = float(self.def_man_opt1.text())
