@@ -1,9 +1,6 @@
-import glob
-import os
+import sys
 import pydicom
-import json
 import numpy as np
-import matplotlib.pyplot as plt
 from skimage.measure import label, regionprops
 from skimage.feature import canny
 from skimage.morphology import square, closing
@@ -152,26 +149,14 @@ def get_label_pos(label):
   pos = get_coord(edges, True)
   return pos
 
-def show_imgs(img, label=None):
-  plt.imshow(img, cmap='bone')
-  if label is not None:
-    coords = get_label_pos(label)
-    plt.scatter(coords[:,1], coords[:,0], s=3, c='red', marker='s')
-  plt.show()
-
 def get_patient_info():
   pass
 
 
 if __name__ == "__main__":
-  import tkinter as tk
-  from tkinter import filedialog
-
-  root = tk.Tk()
-  root.withdraw()
-  filelist = np.array(filedialog.askopenfilenames())
-  dicom_pixels, ref, pat_info = get_images(filelist, True)
-  root.destroy()
+  if len(sys.argv) != 2:
+    sys.exit(-1)
+  dicom_pixels, ref, pat_info = get_images(sys.argv[1], True)
   area, _, _ = get_deff_value(dicom_pixels[0], ref, 'area')
   center, _, _ = get_deff_value(dicom_pixels[0], ref, 'center')
   _max, _, _ = get_deff_value(dicom_pixels[0], ref, 'max')
@@ -180,6 +165,3 @@ if __name__ == "__main__":
   print(f'deff center = {center: #.2f} cm')
   print(f'deff max = {_max: #.2f} cm')
   print(f'dw = {dw: #.2f} cm')
-
-  # citra = dicom_pixels[0]
-  # show_imgs(citra, get_label(citra))

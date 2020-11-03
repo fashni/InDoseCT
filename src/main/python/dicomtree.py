@@ -12,7 +12,7 @@ def RunTree(w, ds):
   tree.pack(expand=1, fill=tkinter_tix.BOTH, padx=10, pady=10,
             side=tkinter_tix.LEFT)
   # print(tree.hlist.keys())   # use to see the available configure() options
-  tree.hlist.configure(bg='white', font='Courier 10', indent=30)
+  tree.hlist.configure(bg='white', font='Courier 8', indent=30)
   tree.hlist.configure(selectbackground='light yellow', gap=150)
 
   box = tkinter_tix.ButtonBox(w, orientation=tkinter_tix.HORIZONTAL)
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     print(usage)
     sys.exit(-1)
   root = tkinter_tix.Tk()
-  root.geometry("{0:d}x{1:d}+{2:d}+{3:d}".format(1200, 900, 0, 0))
+  root.geometry("{0:d}x{1:d}+{2:d}+{3:d}".format(640, 480, 0, 0))
   root.title("DICOM tree viewer - " + sys.argv[1])
   ds = pydicom.dcmread(sys.argv[1])
 

@@ -3,8 +3,9 @@ from PyQt5.QtCore import Qt
 from custom_widgets import HSeparator, VSeparator, Edit, Label
 
 class OrganTab(QWidget):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, ctx, *args, **kwargs):
     super(OrganTab, self).__init__(*args, **kwargs)
+    self.ctx = ctx
     self.initVar()
     self.initUI()
 
@@ -14,6 +15,7 @@ class OrganTab(QWidget):
   def initUI(self):
     prot_lbl = QLabel('Protocol:')
     self.protocol = QComboBox()
+    self.protocol.addItems(self.ctx.head_protocol)
     self.calc_btn = QPushButton('Calculate')
 
     self.organs_edit = [QLineEdit('0') for i in range(28)]

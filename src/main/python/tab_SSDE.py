@@ -3,8 +3,9 @@ from PyQt5.QtCore import Qt
 from custom_widgets import HSeparator, VSeparator
 
 class SSDETab(QWidget):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, ctx, *args, **kwargs):
     super(SSDETab, self).__init__(*args, **kwargs)
+    self.ctx = ctx
     self.initVar()
     self.initUI()
 
@@ -16,6 +17,7 @@ class SSDETab(QWidget):
 
   def initUI(self):
     self.protocol = QComboBox()
+    self.protocol.addItems(self.ctx.head_protocol)
     self.calc_btn = QPushButton('Calculate')
 
     self.ctdivol_edit = QLineEdit('0')

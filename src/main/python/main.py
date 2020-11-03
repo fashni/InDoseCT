@@ -1,7 +1,8 @@
 from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_property
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
-                             QTabWidget, QSplitter, QProgressDialog, QMessageBox)
+                             QTabWidget, QSplitter, QProgressDialog, QMessageBox,
+                             QComboBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import numpy as np
@@ -35,14 +36,9 @@ class MainWindow(QMainWindow):
     self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
-    self.body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
-                          'Abdomen', 'Adrenal', 'Kidney', 
-                          'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
-                          'Kidney to Bladder', 'Pelvis']
-    self.head_protocol = ['Head', 'Head & Neck', 'Neck']
 
   def initUI(self):
-    self.title = 'InDoseCT'
+    self.title = 'IndoseCT'
     self.icon = None
     self.top = 100
     self.left = 100
@@ -65,9 +61,8 @@ class MainWindow(QMainWindow):
     self.setUpConnect()
 
   def setUpConnect(self):
-    self.info_panel.body_btn.toggled.connect(self.on_phantom_update)
-    self.info_panel.head_btn.toggled.connect(self.on_phantom_update)
-    self.info_panel.body_btn.setChecked(True)
+    self.phantom_cb.activated[str].connect(self.on_phantom_update)
+    self.phantom_cb.setCurrentIndex(0)
     self.open_btn.triggered.connect(self.open_files)
     self.open_folder_btn.triggered.connect(self.open_folder)
     self.dcmtree_btn.triggered.connect(self.dcmtree)
@@ -76,6 +71,7 @@ class MainWindow(QMainWindow):
     self.openrec_btn.triggered.connect(self.open_viewer)
     self.next_btn.triggered.connect(self.next_img)
     self.prev_btn.triggered.connect(self.prev_img)
+    self.close_img_btn.triggered.connect(self.close_image)
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
@@ -90,6 +86,7 @@ class MainWindow(QMainWindow):
 
     self.dcmtree_btn = QAction(self.ctx.tree_icon, 'DICOM Info', self)
     self.dcmtree_btn.setStatusTip('DICOM Info')
+    self.dcmtree_btn.setEnabled(False)
 
     self.settings_btn = QAction(self.ctx.setting_icon, 'Settings', self)
     self.settings_btn.setStatusTip('Application Settings')
@@ -119,16 +116,41 @@ class MainWindow(QMainWindow):
     self.next_btn.setStatusTip('Next Slice')
     self.prev_btn = QAction(self.ctx.prev_icon, 'Previous Slice', self)
     self.prev_btn.setStatusTip('Previous Slice')
+    self.close_img_btn = QAction(self.ctx.close_img_icon, 'Close Images', self)
+    self.close_img_btn.setStatusTip('Close all images')
+    self.close_img_btn.setEnabled(False)
     self.current_lbl = QLabel('0')
     self.total_lbl = QLabel('0')
 
+    opts = QToolBar('Options')
+    self.addToolBar(opts)
+
+    self.phantom_cb = QComboBox()
+    self.phantom_cb.tag = 'phantom'
+    self.phantom_cb.addItems(['HEAD', 'BODY'])
+    self.phantom_cb.activated[str].connect(self._set_windowing)
+    self.phantom_cb.setPlaceholderText('Phantom')
+    self.phantom_cb.setCurrentIndex(-1)
+    
+    self.windowing_cb = QComboBox()
+    self.windowing_cb.tag = 'wd'
+    # self.windowing_cb.addItems()
+    self.windowing_cb.activated[str].connect(self._set_windowing)
+    self.windowing_cb.setPlaceholderText('Windowing')
+    self.windowing_cb.setCurrentIndex(-1)
+
     img_ctrl.addAction(self.prev_btn)
-    # img_ctrl.addWidget(QLabel(' '))
     img_ctrl.addWidget(self.current_lbl)
     img_ctrl.addWidget(QLabel('/'))
     img_ctrl.addWidget(self.total_lbl)
-    # img_ctrl.addWidget(QLabel(' '))
     img_ctrl.addAction(self.next_btn)
+    img_ctrl.addAction(self.close_img_btn)
+
+    opts.addWidget(QLabel('Phantom: '))
+    opts.addWidget(self.phantom_cb)
+    opts.addSeparator()
+    opts.addWidget(QLabel('Windowing: '))
+    opts.addWidget(self.windowing_cb)
 
   def setLayout(self):
     hbox = QHBoxLayout()
@@ -146,12 +168,12 @@ class MainWindow(QMainWindow):
   def setTabs(self):
     self.tabs = QTabWidget()
     self.tab1 = CTDIVolTab(self.ctx, parent=self)
-    self.tabs.addTab(self.tab1, 'CTDIVol')
+    self.tabs.addTab(self.tab1, 'CTDIvol')
     self.tab2 = DiameterTab(self.ctx)
     self.tabs.addTab(self.tab2, 'Diameter')
-    self.tab3 = SSDETab()
+    self.tab3 = SSDETab(self.ctx)
     self.tabs.addTab(self.tab3, 'SSDE')
-    self.tab4 = OrganTab()
+    self.tab4 = OrganTab(self.ctx)
     self.tabs.addTab(self.tab4, 'Organ')
     self.tab5 = AnalyzeTab()
     self.tabs.addTab(self.tab5, 'Analyze')
@@ -186,6 +208,7 @@ class MainWindow(QMainWindow):
 
     if not self.ctx.dicoms:
       QMessageBox.information(None, "Info", "No DICOM files in directory.")
+      progress.cancel()
       return
 
     self.ctx.total_img = len(self.ctx.dicoms)
@@ -206,6 +229,8 @@ class MainWindow(QMainWindow):
     if self.tab2.slices2:
       self.tab2.slices.setMaximum(self.ctx.total_img)
     self.ctx.isImage = True
+    self.dcmtree_btn.setEnabled(True)
+    self.close_img_btn.setEnabled(True)
 
   def get_patient_info(self):
     ref = self.ctx.dicoms[0]
@@ -240,6 +265,18 @@ class MainWindow(QMainWindow):
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.getImg())
+
+  def close_image(self):
+    self.initVar()
+    self.current_lbl.setText(str(self.ctx.current_img))
+    self.total_lbl.setText(str(self.ctx.total_img))
+    self.info_panel.setInfo(self.patient_info)
+    self.ctx.axes.clearAll()
+    self.dcmtree_btn.setEnabled(False)
+    self.close_img_btn.setEnabled(False)
+
+  def _set_windowing(self, sel):
+    pass
   
   def dcmtree(self):
     if not self.ctx.isImage:
@@ -247,16 +284,16 @@ class MainWindow(QMainWindow):
       return
     dicomtree.run(self.ctx.dicoms[self.ctx.current_img])
 
-  def on_phantom_update(self):
-    self.ctx.phantom = self.sender().text().lower()
+  def on_phantom_update(self, sel):
+    self.ctx.phantom = sel.lower()
     self.tab3.protocol.clear()
     self.tab4.protocol.clear()
     if self.ctx.phantom == 'body':
-      self.tab3.protocol.addItems(self.body_protocol)
-      self.tab4.protocol.addItems(self.body_protocol)
+      self.tab3.protocol.addItems(self.ctx.body_protocol)
+      self.tab4.protocol.addItems(self.ctx.body_protocol)
     else:
-      self.tab3.protocol.addItems(self.head_protocol)
-      self.tab4.protocol.addItems(self.head_protocol)
+      self.tab3.protocol.addItems(self.ctx.head_protocol)
+      self.tab4.protocol.addItems(self.ctx.head_protocol)
 
   def open_viewer(self):
     if self.rec_viewer is None:
@@ -322,6 +359,11 @@ class AppContext(ApplicationContext):
     self.total_img = 0
     self.phantom = 'body'
     self.isImage = False
+    self.body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
+                          'Abdomen', 'Adrenal', 'Kidney', 
+                          'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
+                          'Kidney to Bladder', 'Pelvis']
+    self.head_protocol = ['Head', 'Head & Neck', 'Neck']
 
   def getImg(self):
     return get_image(self.dicoms[self.current_img-1])
@@ -403,6 +445,10 @@ class AppContext(ApplicationContext):
   @cached_property
   def folder_icon(self):
     return QIcon(self.get_resource("icons/open_folder.png"))
+
+  @cached_property
+  def close_img_icon(self):
+    return QIcon(self.get_resource("icons/close_image.png"))
 
   @cached_property
   def aapm_db(self):

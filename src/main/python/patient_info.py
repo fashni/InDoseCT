@@ -1,5 +1,4 @@
 from PyQt5.QtWidgets import QRadioButton, QGridLayout, QHBoxLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox
-from custom_widgets import VSeparator, GetMainWindowProps
 from db import get_records_num
 
 class InfoPanel(QWidget):
@@ -54,19 +53,8 @@ class InfoPanel(QWidget):
     grid.addWidget(sex_label, 2, 2)
     grid.addWidget(self.sex_edit, 2, 3)
 
-    phantom_lbl = QLabel('Phantom:')
-    self.body_btn = QRadioButton('Body')
-    self.head_btn = QRadioButton('Head')
-
-    phantom_layout = QVBoxLayout()
-    phantom_layout.addWidget(phantom_lbl)
-    phantom_layout.addWidget(self.body_btn)
-    phantom_layout.addWidget(self.head_btn)
-
     main_layout = QHBoxLayout()
     main_layout.addLayout(grid)
-    main_layout.addWidget(VSeparator())
-    main_layout.addLayout(phantom_layout)
 
     self.setLayout(main_layout)
     self.setMaximumHeight(75)
