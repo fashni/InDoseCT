@@ -5,6 +5,7 @@ Icons used is this repo are from [Material Design](https://material.io).
 
 # Installation
   * Clone or download this repo.
+  * Extract it if you download the zip file.
   * Make sure Python 3.6+ is installed.
   * Run `pip install -r requirements.txt` from the root directory of this repo.
   
