@@ -16,13 +16,15 @@ class Axes(pg.PlotWidget):
   def initUI(self):
     self.setTitle("")
     self.image = pg.ImageItem()
-    self.graph = pg.PlotDataItem()
+    self.linePlot = pg.PlotDataItem()
+    self.scatterPlot = pg.PlotDataItem()
     self.lineLAT = None
     self.lineAP = None
     self.ellipse = None
     self.poly = None
     self.addItem(self.image)
-    self.addItem(self.graph)
+    self.addItem(self.linePlot)
+    self.addItem(self.scatterPlot)
     self.rois = []
 
   def setupConnect(self):
@@ -34,21 +36,26 @@ class Axes(pg.PlotWidget):
     self.autoRange()
 
   def scatter(self, *args, **kwargs):
-    self.graph.setData(*args, **kwargs)
-    self.autoRange()
-    self.rois.append(self.graph)
+    self.scatterPlot.setData(*args, **kwargs)
   
   def plot(self, *args, **kwargs):
-    self.graph.setData(*args, **kwargs)
+    self.linePlot.setData(*args, **kwargs)
+
+  def immarker(self, *args, **kwargs):
+    self.scatter(*args, **kwargs)
+    self.autoRange()
+    self.rois.append(self.scatterPlot)
 
   def clearImage(self):
     self.invertY(False)
     self.image.clear()
 
   def clearGraph(self):
-    self.graph.clear()
+    self.linePlot.clear()
+    self.scatterPlot.clear()
     try:
-      self.rois.remove(self.graph)
+      self.rois.remove(self.linePlot)
+      self.rois.remove(self.scatterPlot)
     except:
       pass
 
@@ -124,17 +131,15 @@ class Axes(pg.PlotWidget):
 class PlotDialog(QDialog):
   def __init__(self, ctx):
     super(PlotDialog, self).__init__()
-    # x = list(range(10))
-    # y = list(range(10))
     self.ctx = ctx
     self.initUI()
     self.sigConnect()
-    # self.plot(x,y,pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
 
   def initUI(self):
     self.setWindowTitle('Plot')
     self.layout = QVBoxLayout()
     self.axes = Axes(self.ctx)
+    self.txt = None
 
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
@@ -144,18 +149,42 @@ class PlotDialog(QDialog):
     self.layout.addWidget(self.buttons)
     self.setLayout(self.layout)
     self.resize(640, 480)
+    self.crosshair()
 
   def sigConnect(self):
-    self.buttons.rejected.connect(self.reject)
+    self.buttons.rejected.connect(self.on_close)
     self.buttons.accepted.connect(self.on_save)
+    # self.proxy = pg.SignalProxy(self.axes.linePlot.scene().sigMouseMoved, rateLimit=60, slot=self.mouseMoved)
 
   def plot(self, *args, **kwargs):
     self.axes.plot(*args, **kwargs)
-  
+
+  def scatter(self, *args, **kwargs):
+    self.axes.scatter(*args, **kwargs)
+
+  def annotate(self, pos=(0,0), *args, **kwargs):
+    self.txt = pg.TextItem(*args, **kwargs)
+    self.txt.setPos(pos[0], pos[1])
+    self.axes.addItem(self.txt)
+
+  def clear_annotation(self):
+    if self.txt:
+      self.axes.removeItem(self.txt)
+      self.txt = None
+
   def setLabels(self, xlabel, ylabel, x_unit=None, y_unit=None, x_prefix=None, y_prefix=None):
     self.axes.setLabel('bottom', xlabel, x_unit, x_prefix)
     self.axes.setLabel('left', ylabel, y_unit, y_prefix)
-  
+
+  def setTitle(self, title):
+    self.setWindowTitle('Graph of '+title)
+    self.axes.setTitle(title)
+
+  def on_close(self):
+    self.resize(640, 480)
+    self.clear_annotation()
+    self.reject()
+
   def on_save(self):
     accepted_format = """
       PNG (*.png);;
@@ -165,7 +194,7 @@ class PlotDialog(QDialog):
       Scalable Vector Graphics (*.svg);;
       Comma-Separated Value (*.csv)
     """
-    filename, _ = QFileDialog.getSaveFileName(self, "Save plot as image...", "", accepted_format)
+    filename, _ = QFileDialog.getSaveFileName(self, "Save plot as image...", self.windowTitle(), accepted_format)
     if not filename:
       return
     if not filename.lower().endswith(('.csv', '.svg')):
@@ -177,6 +206,22 @@ class PlotDialog(QDialog):
       exporter = pg.exporters.SVGExporter(self.axes.plotItem)
     exporter.export(filename)
     self.accept()
+
+  def crosshair(self):
+    self.vLine = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
+    self.hLine = pg.InfiniteLine(angle=0, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
+    self.axes.addItem(self.vLine, ignoreBounds=True)
+    self.axes.addItem(self.hLine, ignoreBounds=True)
+
+  def mouseMoved(self, evt):
+    pos = evt[0]  ## using signal proxy turns original arguments into a tuple
+    if self.axes.sceneBoundingRect().contains(pos):
+      mousePoint = self.axes.plotItem.vb.mapSceneToView(pos)
+      index = int(mousePoint.x())
+      # if index > 0 and index < len(data1):
+      self.axes.setTitle("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y=%0.1f</span>" % (mousePoint.x(), mousePoint.y()))
+      self.vLine.setPos(mousePoint.x())
+      self.hLine.setPos(mousePoint.y())
 
 if __name__ == '__main__':
   app = QApplication(sys.argv)

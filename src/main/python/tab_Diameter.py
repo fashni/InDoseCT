@@ -358,8 +358,8 @@ class DiameterTab(QWidget):
     self._delete_layout(self.opt.layout())
     self._clearROIs()
 
-    if self.source == 1 and (self.sender().tag is 'source' or self.sender().tag is 'based'):
-      if self.based_on == 0:
+    if self.source == 1:# and (self.sender().tag is 'source' or self.sender().tag is 'based'):
+      if self.based_on == 0 and self.method == 0:
         self._ui_def_manual()
     elif self.source == 0:
       if self.based_on == 0:
@@ -452,7 +452,7 @@ class DiameterTab(QWidget):
       img = self.ctx.getImg()
       pos = get_label_pos(get_label(img))+0.5
       self.ctx.axes.clearGraph()
-      self.ctx.axes.scatter(pos[:,1], pos[:,0], pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
+      self.ctx.axes.immarker(pos[:,1], pos[:,0], pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
       self.ctx.axes.autoRange()
     except:
       return
@@ -553,32 +553,58 @@ class DiameterTab(QWidget):
         except:
           dval = 0
       elif self._def_manual_method == 'age':
+        label = 'Age'
+        unit = 'year'
         year = self.year_sb.value()
         month = self.month_sb.value()
-        age = year + month/12
-        print(age)
-        dval = float(interpolate.splev(age, self.age_interp))
-        self.ctx.plt_dialog.plot(self.age_data)
-        self.ctx.plt_dialog.axes.showGrid(True,True)
-        self.ctx.plt_dialog.setLabels('Age','Diameter','year','cm')
-        self.ctx.plt_dialog.exec()
+        val1 = year + month/12
+        data = self.age_data
+        dval = float(interpolate.splev(val1, self.age_interp))
       else:
+        unit = 'cm'
         try:
           val1 = float(self.def_man_opt1.text())
-          val2 = float(self.def_man_opt2.text())
         except:
           val1 = 0
+        try:
+          val2 = float(self.def_man_opt2.text())
+        except:
           val2 = 0
         if self._def_manual_method == 'ap+lat':
+          label = 'AP+LAT'
           val1 += val2
-          interp = self.head_latap_interp if self.ctx.phantom == 'head' else self.thorax_latap_interp
+          if self.ctx.phantom == 'head':
+            interp = self.head_latap_interp
+            data = self.head_latap_data
+          else:
+            interp = self.thorax_latap_interp
+            data = self.thorax_latap_data
         elif self._def_manual_method == 'ap':
-          interp = self.head_ap_interp if self.ctx.phantom == 'head' else self.thorax_ap_interp
+          label = 'AP'
+          if self.ctx.phantom == 'head':
+            interp = self.head_ap_interp
+            data = self.head_ap_data
+          else:
+            interp = self.thorax_ap_interp
+            data = self.thorax_ap_data
         elif self._def_manual_method == 'lat':
-          interp = self.head_lat_interp if self.ctx.phantom == 'head' else self.thorax_lat_interp
+          label = 'LAT'
+          if self.ctx.phantom == 'head':
+            interp = self.head_lat_interp
+            data = self.head_lat_data
+          else:
+            interp = self.thorax_lat_interp
+            data = self.thorax_lat_data
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.d_val = dval
+      self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2})
+      self.ctx.plt_dialog.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+      self.ctx.plt_dialog.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nDeff: {dval:#.2f} cm')
+      self.ctx.plt_dialog.axes.showGrid(True,True)
+      self.ctx.plt_dialog.setLabels(label,'Diameter Effective',unit,'cm')
+      self.ctx.plt_dialog.setTitle(f'{label} - Deff')
+      self.ctx.plt_dialog.show()
     else:
       pass
 
