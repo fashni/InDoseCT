@@ -21,6 +21,8 @@ class DiameterTab(QWidget):
     self.initUI()
 
   def initVar(self):
+    self.idxs = []
+    self.d_vals = []
     self.d_val = 0
     self.lineLAT = 0
     self.lineAP = 0
@@ -462,79 +464,68 @@ class DiameterTab(QWidget):
       dval = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
     self.d_val = dval
-    
+
+  def get_avg_diameter(self, imgs, idxs):
+    dval = 0
+    n = len(imgs)
+    progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
+    progress.setWindowModality(Qt.WindowModal)
+    for idx, dcm in enumerate(imgs):
+      img = get_image(dcm)
+      if self.based_on == 0:
+        d, _, _ = get_deff_value(img, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
+      else:
+        d = get_dw_value(img, get_label(img), self.ctx.img_dims, self.ctx.recons_dim, self.is_truncated)
+      self.d_vals.append(d)
+      dval += d
+      progress.setValue(idx)
+      if progress.wasCanceled():
+        idxs = idxs[:idx+1]
+        break
+    progress.setValue(n)
+    return dval/n
+
   def _auto_3d(self):
+    self.d_vals = []
+    self.idxs = []
     nslice = self.slices.value()
-    try:
-      dims = self.ctx.img_dims
-      rd = self.ctx.recons_dim
-      dcms = self.ctx.dicoms
-      dval = 0
-      print(self._3d_method == 'slice number')
-      if self._3d_method == 'slice step':
-        n = len(dcms[::nslice])
-        print(n)
-        progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
-        progress.setWindowModality(Qt.WindowModal)
-        for idx, dcm in enumerate(dcms[::nslice]):
-          img = get_image(dcm)
-          if self.based_on == 0:
-            d, _, _ = get_deff_value(img, dims, rd, self._def_auto_method)
-          else:
-            d = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
-          dval += d
-          progress.setValue(idx)
-          if progress.wasCanceled():
-            n = idx
-            break
-        progress.setValue(n)
-      elif self._3d_method == 'slice number':
-        tmps = np.array_split(np.arange(len(dcms)), nslice)
-        idxs = [tmp[int(len(tmp)/2)] for tmp in tmps]
-        n = len(idxs)
-        progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
-        progress.setWindowModality(Qt.WindowModal)
-        print(n)
-        for i, idx in enumerate(idxs):
-          img = get_image(dcms[idx])
-          if self.based_on == 0:
-            d, _, _ = get_deff_value(img, dims, rd, self._def_auto_method)
-          else:
-            d = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
-          dval += d
-          progress.setValue(i)
-          if progress.wasCanceled():
-            n = i
-            break
-        progress.setValue(n)
-      elif self._3d_method == 'regional':
-        nslice2 = self.slices2.value()
-        n = abs(nslice-nslice2)+1
-        if nslice<=nslice2:
-          first = nslice
-          last = nslice2
-        else:
-          first = nslice2
-          last = nslice
-        progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
-        progress.setWindowModality(Qt.WindowModal)
-        for idx, dcm in enumerate(dcms[first-1:last]):
-          img = get_image(dcm)
-          if self.based_on == 0:
-            d, _, _ = get_deff_value(img, dims, rd, self._def_auto_method)
-          else:
-            d = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
-          dval += d
-          progress.setValue(idx)
-          if progress.wasCanceled():
-            n = idx
-            break
-        progress.setValue(n)
-      self.d_out.setText(f'{dval/n:#.2f}')
-      self.d_val = dval/n
-    except Exception as e:
-      print(e)
-      return
+    dcms = np.array(self.ctx.dicoms)
+    index = list(range(len(dcms)))
+
+    if self._3d_method == 'slice step':
+      idxs = index[::nslice]
+      imgs = dcms[::nslice]
+    elif self._3d_method == 'slice number':
+      tmps = np.array_split(np.arange(len(dcms)), nslice)
+      idxs = [tmp[int(len(tmp)/2)] for tmp in tmps]
+      imgs = dcms[idxs]
+    elif self._3d_method == 'regional':
+      nslice2 = self.slices2.value()
+      if nslice<=nslice2:
+        first = nslice
+        last = nslice2
+      else:
+        first = nslice2
+        last = nslice
+      idxs = index[first-1:last]
+      imgs = dcms[first-1:last]
+
+    avg_dval = self.get_avg_diameter(imgs, idxs)
+    self.d_out.setText(f'{avg_dval:#.2f}')
+    self.d_val = avg_dval
+    self.idxs = [i+1 for i in idxs]
+    self.plot_3d_auto()
+
+  def plot_3d_auto(self)
+    xlabel = 'Dw' if self.based_on else 'Deff'
+    title = 'Water Equivalent Diameter' if self.based_on else 'Effective Diameter'
+    self.ctx.plt_dialog.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+    self.ctx.plt_dialog.avgLine(self.d_val)
+    self.ctx.plt_dialog.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.d_val), text=f'Avg {xlabel}: {self.d_val:#.2f} cm')
+    self.ctx.plt_dialog.axes.showGrid(True,True)
+    self.ctx.plt_dialog.setLabels('slice',xlabel,None,'cm')
+    self.ctx.plt_dialog.setTitle(f'Slice - {title}')
+    self.ctx.plt_dialog.show()
 
   def _d_changed(self, text):
     try:
@@ -598,11 +589,11 @@ class DiameterTab(QWidget):
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.d_val = dval
-      self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2})
+      self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
       self.ctx.plt_dialog.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
       self.ctx.plt_dialog.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nDeff: {dval:#.2f} cm')
       self.ctx.plt_dialog.axes.showGrid(True,True)
-      self.ctx.plt_dialog.setLabels(label,'Diameter Effective',unit,'cm')
+      self.ctx.plt_dialog.setLabels(label,'Effective Diameter',unit,'cm')
       self.ctx.plt_dialog.setTitle(f'{label} - Deff')
       self.ctx.plt_dialog.show()
     else:

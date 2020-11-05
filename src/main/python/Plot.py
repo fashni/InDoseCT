@@ -37,14 +37,15 @@ class Axes(pg.PlotWidget):
 
   def scatter(self, *args, **kwargs):
     self.scatterPlot.setData(*args, **kwargs)
+    self.autoRange()
   
   def plot(self, *args, **kwargs):
     self.linePlot.setData(*args, **kwargs)
+    self.autoRange()
 
   def immarker(self, *args, **kwargs):
     self.scatter(*args, **kwargs)
-    self.autoRange()
-    self.rois.append(self.scatterPlot)
+    self.rois.append('marker')
 
   def clearImage(self):
     self.invertY(False)
@@ -54,8 +55,7 @@ class Axes(pg.PlotWidget):
     self.linePlot.clear()
     self.scatterPlot.clear()
     try:
-      self.rois.remove(self.linePlot)
-      self.rois.remove(self.scatterPlot)
+      self.rois.remove('marker')
     except:
       pass
 
@@ -69,8 +69,8 @@ class Axes(pg.PlotWidget):
     try:
       self.removeItem(self.lineLAT)
       self.removeItem(self.lineAP)
-      self.rois.remove(self.lineLAT)
-      self.rois.remove(self.lineAP)
+      self.rois.remove('lineLAT')
+      self.rois.remove('lineAP')
       self.lineLAT = None
       self.lineAP = None
     except:
@@ -79,12 +79,12 @@ class Axes(pg.PlotWidget):
   def clearShapes(self):
     try:
       self.removeItem(self.ellipse)
-      self.rois.remove(self.ellipse)
+      self.rois.remove('ellipse')
     except:
       pass
     try:
       self.removeItem(self.poly)
-      self.rois.remove(self.poly)
+      self.rois.remove('poly')
     except:
       pass
     self.ellipse = None
@@ -106,14 +106,14 @@ class Axes(pg.PlotWidget):
       x,y = self.ctx.img_dims
       self.lineLAT = pg.LineSegmentROI([((x/2)-0.25*x, y/2), ((x/2)+0.25*x, y/2)])
       self.addItem(self.lineLAT)
-      self.rois.append(self.lineLAT)
+      self.rois.append('lineLAT')
 
   def addAP(self):
     if self.lineAP==None and self.ctx.current_img:
       x,y = self.ctx.img_dims
       self.lineAP = pg.LineSegmentROI([((x/2), (y/2)-0.25*y), ((x/2), (y/2)+0.25*y)])
       self.addItem(self.lineAP)
-      self.rois.append(self.lineAP)
+      self.rois.append('lineAP')
 
   def addEllipse(self):
     if self.ellipse==None and self.ctx.current_img:
@@ -121,7 +121,7 @@ class Axes(pg.PlotWidget):
       unit = np.sqrt(x*y)/4
       self.ellipse = pg.EllipseROI(pos=[(x/2)-unit, (y/2)-unit*1.5],size=[unit*2,unit*3])
       self.addItem(self.ellipse)
-      self.rois.append(self.ellipse)
+      self.rois.append('ellipse')
 
   def addPoly(self):
     if self.poly==None and self.ctx.current_img:
@@ -140,6 +140,7 @@ class PlotDialog(QDialog):
     self.layout = QVBoxLayout()
     self.axes = Axes(self.ctx)
     self.txt = None
+    self.mean = None
 
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
@@ -157,9 +158,13 @@ class PlotDialog(QDialog):
     # self.proxy = pg.SignalProxy(self.axes.linePlot.scene().sigMouseMoved, rateLimit=60, slot=self.mouseMoved)
 
   def plot(self, *args, **kwargs):
+    self.clear()
+    self.axes.linePlot.clear()
     self.axes.plot(*args, **kwargs)
 
   def scatter(self, *args, **kwargs):
+    self.clear()
+    self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
 
   def annotate(self, pos=(0,0), *args, **kwargs):
@@ -167,7 +172,7 @@ class PlotDialog(QDialog):
     self.txt.setPos(pos[0], pos[1])
     self.axes.addItem(self.txt)
 
-  def clear_annotation(self):
+  def clearAnnotation(self):
     if self.txt:
       self.axes.removeItem(self.txt)
       self.txt = None
@@ -180,9 +185,13 @@ class PlotDialog(QDialog):
     self.setWindowTitle('Graph of '+title)
     self.axes.setTitle(title)
 
+  def clear(self):
+    self.clearAnnotation()
+    self.clearAvgLine()
+
   def on_close(self):
     self.resize(640, 480)
-    self.clear_annotation()
+    self.clear()
     self.reject()
 
   def on_save(self):
@@ -206,6 +215,16 @@ class PlotDialog(QDialog):
       exporter = pg.exporters.SVGExporter(self.axes.plotItem)
     exporter.export(filename)
     self.accept()
+
+  def avgLine(self, value):
+    self.mean = pg.InfiniteLine(angle=0, movable=False, pen={'color': "00FFFF", 'width': 1})
+    self.axes.addItem(self.mean)
+    self.mean.setPos(value)
+
+  def clearAvgLine(self):
+    if self.mean:
+      self.axes.removeItem(self.mean)
+      self.mean = None
 
   def crosshair(self):
     self.vLine = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
