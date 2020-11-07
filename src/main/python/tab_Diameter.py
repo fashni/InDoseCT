@@ -48,7 +48,7 @@ class DiameterTab(QWidget):
 
     self.head_latap_data = np.array(get_records(self.ctx.aapm_db, 'HeadLATAP'))
     self.head_latap_interp = interpolate.splrep(self.head_latap_data[:,0], self.head_latap_data[:,1])
-    
+
     self.thorax_ap_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxAP'))
     self.thorax_ap_interp = interpolate.splrep(self.thorax_ap_data[:,0], self.thorax_ap_data[:,1])
 
@@ -516,7 +516,7 @@ class DiameterTab(QWidget):
     self.idxs = [i+1 for i in idxs]
     self.plot_3d_auto()
 
-  def plot_3d_auto(self)
+  def plot_3d_auto(self):
     xlabel = 'Dw' if self.based_on else 'Deff'
     title = 'Water Equivalent Diameter' if self.based_on else 'Effective Diameter'
     self.ctx.plt_dialog.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))

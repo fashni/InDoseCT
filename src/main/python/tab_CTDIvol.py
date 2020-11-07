@@ -1,5 +1,6 @@
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox, QMessageBox
+from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
 from custom_widgets import HSeparator, VSeparator
 
 class CTDIVolTab(QWidget):
@@ -7,13 +8,61 @@ class CTDIVolTab(QWidget):
     super(CTDIVolTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
     self.initVar()
+    self.initDB()
+    self.initModel()
     self.initUI()
+    self.sigConnect()
+    print(self.CTDI)
+    print(self.coll)
 
   def initVar(self):
-    self.ctdi_val = 0
-    self.scan_len_val = 0
-    self.dlp_val = 0
+    self.CTDI = 0
+    self.CTDIv = 0
+    self.CTDIw = 0
+    self.tube_current = 0
+    self.rotation_time = 0
+    self.pitch = 0
+    self.coll = 0
+    self.scan_length = 0
+    self.DLP = 0
     self.current = []
+
+  def initDB(self):
+    self.db = QSqlDatabase.addDatabase("QSQLITE")
+    self.db.setDatabaseName(self.ctx.ctdi_db)
+    if not self.db.open():
+      QMessageBox.warning(None, f"Database Error: {self.db.lastError().text()}")
+      return
+
+  def initModel(self):
+    self.query_model = QSqlQueryModel()
+    self.brand_query = QSqlTableModel(db=self.db)
+    self.scanner_query = QSqlTableModel(db=self.db)
+    self.volt_query = QSqlTableModel(db=self.db)
+    self.coll_query = QSqlTableModel(db=self.db)
+
+    # fill brand combobox
+    self.brand_query.setTable("BRAND")
+    self.brand_query.select()
+    self.brand_id = self.brand_query.record(0).value("ID")
+
+    # fill scanner combobox
+    self.scanner_query.setTable("SCANNER")
+    self.scanner_query.setFilter("BRAND_ID=1")
+    self.scanner_query.select()
+    self.scanner_id = self.scanner_query.record(0).value("ID")
+
+    # fill voltage combobox
+    self.volt_query.setTable("CTDI_DATA")
+    self.volt_query.setFilter("SCANNER_ID=1")
+    self.volt_query.select()
+    self.CTDI = self.volt_query.record(0).value("CTDI_HEAD")
+
+    # fill collimation combobox
+    self.coll_query.setTable("COLLIMATION_DATA")
+    self.coll_query.setFilter("SCANNER_ID=1")
+    self.coll_query.select()
+    self.coll = self.coll_query.record(0).value("COL_VAL")
 
   def initUI(self):
     self.setInputFields()
@@ -51,14 +100,14 @@ class CTDIVolTab(QWidget):
     [self.param_layout.addWidget(param_lbls[row], row, 0)
       for row in range(len(param_lbls))]
     self.param_layout.addWidget(tcm_btn, 3, 1)
-    self.param_layout.addWidget(self.manufacturer, 0, 2)
-    self.param_layout.addWidget(self.scanner, 1, 2)
-    self.param_layout.addWidget(self.voltage, 2, 2)
-    self.param_layout.addWidget(self.tube_current, 3, 2)
-    self.param_layout.addWidget(self.rotation_time, 4, 2)
-    self.param_layout.addWidget(self.pitch, 5, 2)
-    self.param_layout.addWidget(self.collimation, 6, 2)
-    self.param_layout.addWidget(self.scan_length, 7, 2)
+    self.param_layout.addWidget(self.brand_cb, 0, 2)
+    self.param_layout.addWidget(self.scanner_cb, 1, 2)
+    self.param_layout.addWidget(self.volt_cb, 2, 2)
+    self.param_layout.addWidget(self.tube_current_edit, 3, 2)
+    self.param_layout.addWidget(self.rotation_time_edit, 4, 2)
+    self.param_layout.addWidget(self.pitch_edit, 5, 2)
+    self.param_layout.addWidget(self.coll_cb, 6, 2)
+    self.param_layout.addWidget(self.scan_length_edit, 7, 2)
     self.param_layout.addWidget(calc_btn, 8, 0)
 
     self.output_layout = QGridLayout()
@@ -78,33 +127,67 @@ class CTDIVolTab(QWidget):
     main_layout.addWidget(HSeparator())
     main_layout.addLayout(hbox)
     main_layout.addStretch()
-    
+
     self.setLayout(main_layout)
     self.options(0)
+
+  def sigConnect(self):
+    self.opts.activated[int].connect(self.options)
+    self.brand_cb.activated[int].connect(self.on_brand_changed)
+    self.scanner_cb.activated[int].connect(self.on_scanner_changed)
+    self.volt_cb.activated[int].connect(self.on_volt_changed)
+    self.coll_cb.activated[int].connect(self.on_coll_changed)
 
   def setInputFields(self):
     self.opts = QComboBox(self)
     self.opts.addItem('Calculation')
     self.opts.addItem('Input Manually')
     self.opts.addItem('Get from DICOM')
-    self.opts.activated[int].connect(self.options)
 
-    self.manufacturer = QComboBox(self)
-    self.scanner = QComboBox(self)
-    self.voltage = QComboBox(self)
-    self.collimation = QComboBox(self)
+    self.brand_cb = QComboBox(self)
+    self.brand_cb.setModel(self.brand_query)
+    self.brand_cb.setModelColumn(self.brand_query.fieldIndex("NAME"))
+    self.scanner_cb = QComboBox(self)
+    self.scanner_cb.setModel(self.scanner_query)
+    self.scanner_cb.setModelColumn(self.scanner_query.fieldIndex("NAME"))
+    self.volt_cb = QComboBox(self)
+    self.volt_cb.setModel(self.volt_query)
+    self.volt_cb.setModelColumn(self.volt_query.fieldIndex("VOLTAGE"))
+    self.coll_cb = QComboBox(self)
+    self.coll_cb.setModel(self.coll_query)
+    self.coll_cb.setModelColumn(self.coll_query.fieldIndex("COL_OPTS"))
 
-    self.tube_current = QLineEdit('100')
-    self.tube_current.setMaximumWidth(50)
-    self.rotation_time = QLineEdit('1')
-    self.rotation_time.setMaximumWidth(50)
-    self.pitch = QLineEdit('1')
-    self.pitch.setMaximumWidth(50)
-    self.scan_length = QLineEdit('10')
-    self.scan_length.setMaximumWidth(50)
+    self.tube_current_edit = QLineEdit('100')
+    self.tube_current_edit.setMaximumWidth(50)
+    self.rotation_time_edit = QLineEdit('1')
+    self.rotation_time_edit.setMaximumWidth(50)
+    self.pitch_edit = QLineEdit('1')
+    self.pitch_edit.setMaximumWidth(50)
+    self.scan_length_edit = QLineEdit('10')
+    self.scan_length_edit.setMaximumWidth(50)
 
     self.out_edits = [QLineEdit('0') for i in range(5)]
     [out_edit.setMaximumWidth(50) for out_edit in self.out_edits]
+
+  def on_brand_changed(self, sel):
+    self.brand_id = self.brand_query.record(sel).value("ID")
+
+    self.scanner_query.setFilter(f"BRAND_ID={self.brand_id}")
+    self.on_scanner_changed(0)
+
+  def on_scanner_changed(self, sel):
+    self.scanner_id = self.scanner_query.record(sel).value("ID")
+
+    self.volt_query.setFilter(f"SCANNER_ID={self.scanner_id}")
+    self.coll_query.setFilter(f"SCANNER_ID={self.scanner_id}")
+    self.on_volt_changed(0)
+    self.on_coll_changed(0)
+
+  def on_volt_changed(self, sel):
+    self.CTDI = self.volt_query.record(sel).value(f"CTDI_{self.ctx.phantom.upper()}")
+
+  def on_coll_changed(self, sel):
+    self.coll = self.coll_query.record(sel).value("COL_VAL")
 
   def options(self, sel):
     font = QFont()
@@ -158,31 +241,41 @@ class CTDIVolTab(QWidget):
       param_items[7].widget().setFont(font)
       param_items[-2].widget().setFont(font)
       self.get_from_dicom()
-    
+
   def manual_input(self):
-    scan_len = self.scan_length.text()
+    scan_len = self.scan_length_edit.text()
     ctdi = self.out_edits[3].text()
     try:
-      self.scan_len_val = int(scan_len)
-      self.ctdi_val = int(ctdi)
+      self.scan_length = int(scan_len)
+      self.CTDIv = int(ctdi)
     except:
       pass
-    self.dlp_val = self.scan_len_val * self.ctdi_val
-    self.out_edits[-1].setText(str(self.dlp_val))
-  
+    self.DLP = self.scan_length * self.CTDIv
+    self.out_edits[-1].setText(str(self.DLP))
+
   def get_from_dicom(self):
     try:
-      self.ctdi_val = float(self.ctx.dicoms[0].CTDIvol)
+      self.CTDIv = float(self.ctx.dicoms[0].CTDIvol)
     except:
       QMessageBox.warning(None, "Warning", "The DICOM doesn't contain value for CTDIvol.\nTry different method.")
-      self.ctdi_val = 0
+      self.CTDIv = 0
     self.get_tcm()
-    self.dlp_val = self.scan_len_val * self.ctdi_val
-    self.out_edits[-1].setText(f'{self.dlp_val:#.2f}')
-    self.out_edits[-2].setText(f'{self.ctdi_val:#.2f}')
+    self.DLP = self.scan_length * self.CTDIv
+    self.out_edits[-1].setText(f'{self.DLP:#.2f}')
+    self.out_edits[-2].setText(f'{self.CTDIv:#.2f}')
+
+  def printinfo(self):
+    print('Brand_id: ', self.brand_id)
+    print('Scanner_id: ', self.scanner_id)
+    print('Volt: ', self.volt_query.record(self.volt_cb.currentIndex()).value("VOLTAGE"))
+    print('Phantom: ', self.ctx.phantom)
+    print('CTDI: ', self.CTDI)
+    print('Coll_opt: ', self.coll_query.record(self.coll_cb.currentIndex()).value("COL_OPTS"))
+    print('Coll_val: ', self.coll)
+    print('')
 
   def calculate(self):
-    pass
+    self.printinfo()
 
   def get_tcm(self):
     if not self.ctx.isImage:
@@ -193,9 +286,9 @@ class CTDIVolTab(QWidget):
     for dcm in self.ctx.dicoms:
       self.current.append(float(dcm.XRayTubeCurrent))
     self.current_val = sum(self.current)/self.ctx.total_img
-    self.tube_current.setText(f'{self.current_val:#.2f}')
+    self.tube_current_edit.setText(f'{self.current_val:#.2f}')
 
     first = float(self.ctx.dicoms[0].SliceLocation)
     last = float(self.ctx.dicoms[-1].SliceLocation)
-    self.scan_len_val = abs(0.1*(last-first))
-    self.scan_length.setText(f'{self.scan_len_val:#.2f}')
+    self.scan_length = abs(0.1*(last-first))
+    self.scan_length_edit.setText(f'{self.scan_length:#.2f}')

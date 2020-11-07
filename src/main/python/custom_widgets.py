@@ -34,6 +34,6 @@ class GetMainWindowProps(object):
     for i in range(self.level):
       self.par = self.par.parent()
     return self.par
-  
+
   def __exit__(self, *args):
     pass

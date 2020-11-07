@@ -2,7 +2,7 @@ from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_pro
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressDialog, QMessageBox,
-                             QComboBox)
+                             QComboBox, QDesktopWidget)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import numpy as np
@@ -40,15 +40,18 @@ class MainWindow(QMainWindow):
   def initUI(self):
     self.title = 'IndoseCT'
     self.icon = None
-    self.top = 100
-    self.left = 100
-    self.width = 960
-    self.height = 540
+    self.top = 0
+    self.left = 0
+    self.width = 1024
+    self.height = 576
     self.setUIComponents()
-  
+
   def setUIComponents(self):
     self.setWindowTitle(self.title)
     self.setGeometry(self.top, self.left, self.width, self.height)
+    rect = self.frameGeometry()
+    rect.moveCenter(QDesktopWidget().availableGeometry().center())
+    self.move(rect.topLeft())
     self.main_widget = QWidget()
 
     self.setToolbar()
@@ -102,7 +105,7 @@ class MainWindow(QMainWindow):
     self.save_btn = QAction(self.ctx.save_icon, 'Save Record', self)
     self.save_btn.setShortcut('Ctrl+S')
     self.save_btn.setStatusTip('Save Record to Database')
-    
+
     self.openrec_btn = QAction(self.ctx.launch_icon, 'Open Records', self)
     self.openrec_btn.setStatusTip('Open Patients Record')
 
@@ -131,7 +134,7 @@ class MainWindow(QMainWindow):
     self.phantom_cb.activated[str].connect(self._set_windowing)
     self.phantom_cb.setPlaceholderText('Phantom')
     self.phantom_cb.setCurrentIndex(-1)
-    
+
     self.windowing_cb = QComboBox()
     self.windowing_cb.tag = 'wd'
     # self.windowing_cb.addItems()
@@ -277,7 +280,7 @@ class MainWindow(QMainWindow):
 
   def _set_windowing(self, sel):
     pass
-  
+
   def dcmtree(self):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first.")
@@ -286,6 +289,7 @@ class MainWindow(QMainWindow):
 
   def on_phantom_update(self, sel):
     self.ctx.phantom = sel.lower()
+    self.tab1.on_volt_changed(self.tab1.volt_cb.currentIndex())
     self.tab3.protocol.clear()
     self.tab4.protocol.clear()
     if self.ctx.phantom == 'body':
@@ -320,10 +324,10 @@ class MainWindow(QMainWindow):
       self.patient_info['age'][:3] if self.patient_info['age'] is not None else None,   # 'age'
       1,    # 'sex_id'
       self.patient_info['sex'],   # 'sex'
-      self.tab1.ctdi_val if self.tab1.ctdi_val is not 0 else None,   # 'CTDIVol'
+      self.tab1.CTDIv if self.tab1.CTDIv is not 0 else None,   # 'CTDIVol'
       self.tab2.d_val if self.tab2.d_val is not 0 else None,    # 'DE_WED'
       self.tab3.SSDE_val if self.tab3.SSDE_val is not 0 else None,   # 'SSDE'
-      self.tab1.dlp_val if self.tab1.dlp_val is not 0 else None,    # 'DLP'
+      self.tab1.DLP if self.tab1.DLP is not 0 else None,    # 'DLP'
       self.tab3.DLPc_val if self.tab3.DLPc_val is not 0 else None,   # 'DLPc'
       self.tab3.effdose_val if self.tab3.effdose_val is not 0 else None   # 'Effective_Dose'
     ]
@@ -358,10 +362,10 @@ class AppContext(ApplicationContext):
     self.recons_dim = 0
     self.current_img = 0
     self.total_img = 0
-    self.phantom = 'body'
+    self.phantom = 'head'
     self.isImage = False
     self.body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
-                          'Abdomen', 'Adrenal', 'Kidney', 
+                          'Abdomen', 'Adrenal', 'Kidney',
                           'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
                           'Kidney to Bladder', 'Pelvis']
     self.head_protocol = ['Head', 'Head & Neck', 'Neck']
@@ -394,7 +398,7 @@ class AppContext(ApplicationContext):
         except:
           self.ioError()
           return False
-    
+
     if not os.path.isfile(self.patients_database()):
       QMessageBox.warning(None, "Database Error", "Database file is corrupt or missing.\nAn empty database will be created.")
       try:
@@ -405,7 +409,7 @@ class AppContext(ApplicationContext):
     return True
 
   def ioError(self):
-    QMessageBox.critical(None, "I/O Error", "Failed to create config files.\nTry running as administrator.")
+    QMessageBox.critical(None, "I/O Error", "Failed to write config or database file.\nTry running as administrator.")
 
   @cached_property
   def main_window(self):
@@ -422,7 +426,7 @@ class AppContext(ApplicationContext):
   @cached_property
   def launch_icon(self):
     return QIcon(self.get_resource("icons/launch.png"))
-  
+
   @cached_property
   def setting_icon(self):
     return QIcon(self.get_resource("icons/setting.png"))
@@ -442,7 +446,7 @@ class AppContext(ApplicationContext):
   @cached_property
   def tree_icon(self):
     return QIcon(self.get_resource("icons/tree.png"))
-  
+
   @cached_property
   def folder_icon(self):
     return QIcon(self.get_resource("icons/open_folder.png"))
@@ -454,6 +458,10 @@ class AppContext(ApplicationContext):
   @cached_property
   def aapm_db(self):
     return self.get_resource("db/aapm.db")
+
+  @cached_property
+  def ctdi_db(self):
+    return self.get_resource("db/ctdi.db")
 
   @cached_property
   def default_patients_database(self):

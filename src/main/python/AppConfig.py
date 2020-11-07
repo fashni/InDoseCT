@@ -28,7 +28,7 @@ class AppConfig(QDialog):
 
     self.layout.addWidget(self.tabs)
     self.layout.addWidget(self.buttons)
-    
+
     self.patients_db.setText(os.path.abspath(self.configs['patients_db']))
     self.setLayout(self.layout)
     self.resize(400, 300)
@@ -65,7 +65,7 @@ class AppConfig(QDialog):
   def _get_config(self):
     with open(self.ctx.config_file(), 'r') as f:
       return json.load(f)
-  
+
   def _set_config(self):
     with open(self.ctx.config_file(), 'w') as f:
       json.dump(self.configs, f, sort_keys=True, indent=4)
@@ -105,4 +105,3 @@ class AppConfig(QDialog):
 #   window = AppConfig()
 #   window.show()
 #   sys.exit(app.exec_())
-  

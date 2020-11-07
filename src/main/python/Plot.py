@@ -12,7 +12,7 @@ class Axes(pg.PlotWidget):
     self.initUI()
     self.setupConnect()
     self.setAspectLocked(lock_aspect)
-  
+
   def initUI(self):
     self.setTitle("")
     self.image = pg.ImageItem()
@@ -38,7 +38,7 @@ class Axes(pg.PlotWidget):
   def scatter(self, *args, **kwargs):
     self.scatterPlot.setData(*args, **kwargs)
     self.autoRange()
-  
+
   def plot(self, *args, **kwargs):
     self.linePlot.setData(*args, **kwargs)
     self.autoRange()
@@ -75,7 +75,7 @@ class Axes(pg.PlotWidget):
       self.lineAP = None
     except:
       return
-  
+
   def clearShapes(self):
     try:
       self.removeItem(self.ellipse)

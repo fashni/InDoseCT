@@ -65,7 +65,6 @@ class DBViewer(QWidget):
     hLayout.addWidget(self.totalPageLabel)
     # hLayout.addStretch()
     hLayout.addWidget(self.refreshButton)
-    
 
     self.layout.addLayout(hLayout)
     self.setLayout(self.layout)
@@ -104,7 +103,7 @@ class DBViewer(QWidget):
     self.queryModel.setHeaderData(11, Qt.Horizontal, "DLP")
     self.queryModel.setHeaderData(12, Qt.Horizontal, "DLPc")
     self.queryModel.setHeaderData(13, Qt.Horizontal, "Effective_Dose")
-    
+
     # Query all records
     sql = "SELECT * FROM PATIENTS"
     self.queryModel.setQuery(sql, self.db)
@@ -206,7 +205,7 @@ class DBViewer(QWidget):
 
   def closeEvent(self, event):
     self.onClose()
-    
+
 
 # if __name__ == "__main__":
 #   app = QApplication(sys.argv)

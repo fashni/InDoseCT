@@ -13,7 +13,7 @@ class InfoPanel(QWidget):
     self.sex = None
     self.initUI()
     self.setUpConnect()
-  
+
   def setUpConnect(self):
     self.name_edit.textChanged.connect(self.on_name_changed)
     self.protocol_edit.textChanged.connect(self.on_protocol_changed)
@@ -28,7 +28,7 @@ class InfoPanel(QWidget):
     exam_date_label = QLabel('Exam Date')
     age_label = QLabel('Age')
     sex_label = QLabel('Sex')
-    
+
     self.no_edit = QLineEdit(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
     self.name_edit = QLineEdit()
     self.protocol_edit = QLineEdit()
@@ -88,9 +88,9 @@ class InfoPanel(QWidget):
 
   def on_age_changed(self):
     self.age = self.age_edit.text()
-  
+
   def on_sex_changed(self):
     self.sex = self.sex_edit.text()
-  
+
   def on_protocol_changed(self):
     self.protocol = self.protocol_edit.text()
