@@ -519,6 +519,7 @@ class DiameterTab(QWidget):
   def plot_3d_auto(self):
     xlabel = 'Dw' if self.based_on else 'Deff'
     title = 'Water Equivalent Diameter' if self.based_on else 'Effective Diameter'
+    self.ctx.plt_dialog.axes.scatterPlot.clear()
     self.ctx.plt_dialog.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
     self.ctx.plt_dialog.avgLine(self.d_val)
     self.ctx.plt_dialog.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.d_val), text=f'Avg {xlabel}: {self.d_val:#.2f} cm')
@@ -586,6 +587,9 @@ class DiameterTab(QWidget):
           else:
             interp = self.thorax_lat_interp
             data = self.thorax_lat_data
+        if val1 < data[0,0] or val1 > data[-1,0]:
+          QMessageBox.information(None, "Information",
+            f"The result is an extrapolated value.\nFor the best result, input value between {data[0,0]} and {data[-1,0]}.")
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.d_val = dval

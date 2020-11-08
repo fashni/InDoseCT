@@ -1,4 +1,4 @@
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QDoubleValidator
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox, QMessageBox
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
 from custom_widgets import HSeparator, VSeparator
@@ -12,18 +12,20 @@ class CTDIVolTab(QWidget):
     self.initModel()
     self.initUI()
     self.sigConnect()
-    print(self.CTDI)
-    print(self.coll)
+    self.calculate()
 
   def initVar(self):
+    self.mode = 0
     self.CTDI = 0
-    self.CTDIv = 0
-    self.CTDIw = 0
-    self.tube_current = 0
-    self.rotation_time = 0
-    self.pitch = 0
+    self.tube_current = 100
+    self.rotation_time = 1
+    self.pitch = 1
     self.coll = 0
-    self.scan_length = 0
+    self.scan_length = 10
+    self.mAs = 0
+    self.eff_mAs = 0
+    self.CTDIw = 0
+    self.CTDIv = 0
     self.DLP = 0
     self.current = []
 
@@ -79,9 +81,9 @@ class CTDIVolTab(QWidget):
       QLabel('Scan Length (cm)'),
     ]
     tcm_btn = QPushButton('TCM')
-    calc_btn = QPushButton('Calculate')
+    # calc_btn = QPushButton('Calculate')
     tcm_btn.clicked.connect(self.get_tcm)
-    calc_btn.clicked.connect(self.calculate)
+    # calc_btn.clicked.connect(self.calculate)
 
     output_lbls = [
       QLabel('mAs'),
@@ -108,7 +110,7 @@ class CTDIVolTab(QWidget):
     self.param_layout.addWidget(self.pitch_edit, 5, 2)
     self.param_layout.addWidget(self.coll_cb, 6, 2)
     self.param_layout.addWidget(self.scan_length_edit, 7, 2)
-    self.param_layout.addWidget(calc_btn, 8, 0)
+    # self.param_layout.addWidget(calc_btn, 8, 0)
 
     self.output_layout = QGridLayout()
     for row in range(len(output_lbls)):
@@ -137,6 +139,11 @@ class CTDIVolTab(QWidget):
     self.scanner_cb.activated[int].connect(self.on_scanner_changed)
     self.volt_cb.activated[int].connect(self.on_volt_changed)
     self.coll_cb.activated[int].connect(self.on_coll_changed)
+    self.out_edits[3].textChanged[str].connect(self.on_CTDIv_changed)
+    self.tube_current_edit.textChanged[str].connect(self.on_tube_current_changed)
+    self.rotation_time_edit.textChanged[str].connect(self.on_rotation_time_changed)
+    self.pitch_edit.textChanged[str].connect(self.on_pitch_changed)
+    self.scan_length_edit.textChanged[str].connect(self.on_scan_length_changed)
 
   def setInputFields(self):
     self.opts = QComboBox(self)
@@ -158,15 +165,20 @@ class CTDIVolTab(QWidget):
     self.coll_cb.setModelColumn(self.coll_query.fieldIndex("COL_OPTS"))
 
     self.tube_current_edit = QLineEdit('100')
+    self.tube_current_edit.setValidator(QDoubleValidator())
     self.tube_current_edit.setMaximumWidth(50)
     self.rotation_time_edit = QLineEdit('1')
+    self.rotation_time_edit.setValidator(QDoubleValidator())
     self.rotation_time_edit.setMaximumWidth(50)
     self.pitch_edit = QLineEdit('1')
+    self.pitch_edit.setValidator(QDoubleValidator())
     self.pitch_edit.setMaximumWidth(50)
     self.scan_length_edit = QLineEdit('10')
+    self.scan_length_edit.setValidator(QDoubleValidator())
     self.scan_length_edit.setMaximumWidth(50)
 
     self.out_edits = [QLineEdit('0') for i in range(5)]
+    [out_edit.setValidator(QDoubleValidator()) for out_edit in self.out_edits]
     [out_edit.setMaximumWidth(50) for out_edit in self.out_edits]
 
   def on_brand_changed(self, sel):
@@ -180,16 +192,27 @@ class CTDIVolTab(QWidget):
 
     self.volt_query.setFilter(f"SCANNER_ID={self.scanner_id}")
     self.coll_query.setFilter(f"SCANNER_ID={self.scanner_id}")
+    if self.volt_cb.count() == 0:
+      QMessageBox.warning(None, 'No Data', f'There is no CTDI data for this scanner.')
+    if self.coll_cb.count() == 0:
+      QMessageBox.warning(None, 'No Data', 'There is no collimation data for this scanner.')
     self.on_volt_changed(0)
     self.on_coll_changed(0)
 
   def on_volt_changed(self, sel):
     self.CTDI = self.volt_query.record(sel).value(f"CTDI_{self.ctx.phantom.upper()}")
+    if not self.CTDI and self.volt_cb.count() != 0:
+      QMessageBox.warning(None, 'No Data', f'There is no {self.ctx.phantom.capitalize()} CTDI value for this voltage value.')
+    self.calculate()
 
   def on_coll_changed(self, sel):
     self.coll = self.coll_query.record(sel).value("COL_VAL")
+    if not self.coll and self.coll_cb.count() != 0:
+      QMessageBox.warning(None, 'No Data', 'There is no collimation data for this option.')
+    self.calculate()
 
   def options(self, sel):
+    self.mode = sel
     font = QFont()
     font.setBold(False)
     out_items = [self.output_layout.itemAt(idx) for idx in range(self.output_layout.count())]
@@ -199,15 +222,10 @@ class CTDIVolTab(QWidget):
     [item.widget().setEnabled(True) for item in param_items]
     [item.widget().setFont(font) for item in param_items]
 
-    if sel == 0:
+    if self.mode == 0:
       [item.widget().setEnabled(False) for item in out_items[1::2]]
-      try:
-        out_items[-3].widget().textChanged[str].disconnect()
-        param_items[-2].widget().textChanged[str].disconnect()
-      except:
-        pass
 
-    elif sel == 1:
+    elif self.mode == 1:
       font.setBold(True)
       [item.widget().setEnabled(False) for item in param_items]
       [item.widget().setEnabled(False) for item in out_items[:6]]
@@ -215,18 +233,17 @@ class CTDIVolTab(QWidget):
       out_items[-1].widget().setFont(font)
       out_items[-2].widget().setFont(font)
       out_items[-3].widget().setFont(font)
-      out_items[-3].widget().textChanged[str].connect(self.manual_input)
       out_items[-4].widget().setFont(font)
       param_items[7].widget().setEnabled(True)
       param_items[7].widget().setFont(font)
-      param_items[-2].widget().setEnabled(True)
-      param_items[-2].widget().setFont(font)
-      param_items[-2].widget().textChanged[str].connect(self.manual_input)
+      param_items[-1].widget().setEnabled(True)
+      param_items[-1].widget().setFont(font)
 
-    elif sel == 2:
+    elif self.mode == 2:
       if not self.ctx.isImage:
         QMessageBox.warning(None, "Warning", "Open DICOM files first.")
         self.opts.setCurrentIndex(0)
+        self.options(0)
         return
       font.setBold(True)
       [item.widget().setEnabled(False) for item in out_items]
@@ -239,19 +256,54 @@ class CTDIVolTab(QWidget):
       out_items[-4].widget().setFont(font)
       param_items[7].widget().setEnabled(True)
       param_items[7].widget().setFont(font)
-      param_items[-2].widget().setFont(font)
+      param_items[-1].widget().setFont(font)
       self.get_from_dicom()
 
-  def manual_input(self):
-    scan_len = self.scan_length_edit.text()
-    ctdi = self.out_edits[3].text()
+  def on_CTDIv_changed(self, sel):
+    if self.mode != 1:
+      return
     try:
-      self.scan_length = int(scan_len)
-      self.CTDIv = int(ctdi)
-    except:
-      pass
+      self.CTDIv = float(sel)
+    except ValueError:
+      self.CTDIv = 0
+    self.manual_input()
+
+  def on_scan_length_changed(self, sel):
+    if self.mode != 2:
+      try:
+        self.scan_length = float(sel)
+      except ValueError:
+        self.scan_length = 0
+      if self.mode == 0:
+        self.calculate()
+      else:
+        self.manual_input()
+
+  def on_tube_current_changed(self, sel):
+    if self.mode == 0:
+      try:
+        self.tube_current = float(sel)
+      except ValueError:
+        self.tube_current = 0
+      self.calculate()
+
+  def on_rotation_time_changed(self, sel):
+    try:
+      self.rotation_time = float(sel)
+    except ValueError:
+      self.rotation_time = 1
+    self.calculate()
+
+  def on_pitch_changed(self, sel):
+    try:
+      self.pitch = float(sel)
+    except ValueError:
+      self.pitch = 1
+    self.calculate()
+
+  def manual_input(self):
     self.DLP = self.scan_length * self.CTDIv
-    self.out_edits[-1].setText(str(self.DLP))
+    self.out_edits[-1].setText(f'{self.DLP:#.2f}')
 
   def get_from_dicom(self):
     try:
@@ -264,6 +316,25 @@ class CTDIVolTab(QWidget):
     self.out_edits[-1].setText(f'{self.DLP:#.2f}')
     self.out_edits[-2].setText(f'{self.CTDIv:#.2f}')
 
+  def calculate(self):
+    self.mAs = self.tube_current*self.rotation_time
+    self.eff_mAs = self.tube_current/self.pitch
+    try:
+      self.CTDIw = self.coll*self.CTDI*self.mAs / 100
+    except TypeError:
+      self.CTDIw = 0
+    try:
+      self.CTDIv = self.coll*self.CTDI*self.eff_mAs / 100
+    except TypeError:
+      self.CTDIv = 0
+    self.DLP = self.CTDIv*self.scan_length
+
+    self.out_edits[0].setText(f'{self.mAs:#.2f}')
+    self.out_edits[1].setText(f'{self.eff_mAs:#.2f}')
+    self.out_edits[2].setText(f'{self.CTDIw:#.2f}')
+    self.out_edits[3].setText(f'{self.CTDIv:#.2f}')
+    self.out_edits[4].setText(f'{self.DLP:#.2f}')
+
   def printinfo(self):
     print('Brand_id: ', self.brand_id)
     print('Scanner_id: ', self.scanner_id)
@@ -274,9 +345,6 @@ class CTDIVolTab(QWidget):
     print('Coll_val: ', self.coll)
     print('')
 
-  def calculate(self):
-    self.printinfo()
-
   def get_tcm(self):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first, or input manually")
@@ -285,10 +353,12 @@ class CTDIVolTab(QWidget):
     self.current = []
     for dcm in self.ctx.dicoms:
       self.current.append(float(dcm.XRayTubeCurrent))
-    self.current_val = sum(self.current)/self.ctx.total_img
-    self.tube_current_edit.setText(f'{self.current_val:#.2f}')
+    tube_current = sum(self.current)/self.ctx.total_img
+    self.tube_current_edit.setText(f'{tube_current:#.2f}')
+    self.tube_current = tube_current
 
     first = float(self.ctx.dicoms[0].SliceLocation)
     last = float(self.ctx.dicoms[-1].SliceLocation)
-    self.scan_length = abs(0.1*(last-first))
-    self.scan_length_edit.setText(f'{self.scan_length:#.2f}')
+    scan_length = abs(0.1*(last-first))
+    self.scan_length_edit.setText(f'{scan_length:#.2f}')
+    self.scan_length = scan_length
