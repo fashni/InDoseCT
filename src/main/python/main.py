@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressDialog, QMessageBox,
                              QComboBox, QDesktopWidget)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon
 import numpy as np
 import sys
@@ -21,6 +21,7 @@ from tab_Analyze import AnalyzeTab
 from db import insert_patient, get_records_num, create_patients_table
 from DBViewer import DBViewer
 from AppConfig import AppConfig
+from constants import *
 import time
 
 class MainWindow(QMainWindow):
@@ -38,7 +39,7 @@ class MainWindow(QMainWindow):
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
 
   def initUI(self):
-    self.title = 'IndoseCT'
+    self.title = TITLE
     self.icon = None
     self.top = 0
     self.left = 0
@@ -75,6 +76,7 @@ class MainWindow(QMainWindow):
     self.next_btn.triggered.connect(self.next_img)
     self.prev_btn.triggered.connect(self.prev_img)
     self.close_img_btn.triggered.connect(self.close_image)
+    self.ssde_tab.save_btn.clicked.connect(self.save_db)
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
@@ -130,7 +132,7 @@ class MainWindow(QMainWindow):
 
     self.phantom_cb = QComboBox()
     self.phantom_cb.tag = 'phantom'
-    self.phantom_cb.addItems(['HEAD', 'BODY'])
+    self.phantom_cb.addItems([HEAD.upper(), BODY.upper()])
     self.phantom_cb.activated[str].connect(self._set_windowing)
     self.phantom_cb.setPlaceholderText('Phantom')
     self.phantom_cb.setCurrentIndex(-1)
@@ -170,16 +172,17 @@ class MainWindow(QMainWindow):
 
   def setTabs(self):
     self.tabs = QTabWidget()
-    self.tab1 = CTDIVolTab(self.ctx, parent=self)
-    self.tabs.addTab(self.tab1, 'CTDIvol')
-    self.tab2 = DiameterTab(self.ctx)
-    self.tabs.addTab(self.tab2, 'Diameter')
-    self.tab3 = SSDETab(self.ctx)
-    self.tabs.addTab(self.tab3, 'SSDE')
-    self.tab4 = OrganTab(self.ctx)
-    self.tabs.addTab(self.tab4, 'Organ')
-    self.tab5 = AnalyzeTab()
-    self.tabs.addTab(self.tab5, 'Analyze')
+    self.ctdiv_tab = CTDIVolTab(self.ctx, parent=self)
+    self.diameter_tab = DiameterTab(self.ctx)
+    self.ssde_tab = SSDETab(self.ctx)
+    self.organ_tab = OrganTab(self.ctx)
+    self.analyze_tab = AnalyzeTab()
+  
+    self.tabs.addTab(self.ctdiv_tab, 'CTDIvol')
+    self.tabs.addTab(self.diameter_tab, 'Diameter')
+    self.tabs.addTab(self.ssde_tab, 'SSDE')
+    self.tabs.addTab(self.organ_tab, 'Organ')
+    self.tabs.addTab(self.analyze_tab, 'Analyze')
 
   def open_folder(self):
     dir = QFileDialog.getExistingDirectory(self,"Open Folder", "")
@@ -227,10 +230,10 @@ class MainWindow(QMainWindow):
     self.ctx.axes.imshow(self.ctx.getImg())
     self.get_patient_info()
     self.info_panel.setInfo(self.patient_info)
-    if self.tab2.slices:
-      self.tab2.slices.setMaximum(self.ctx.total_img)
-    if self.tab2.slices2:
-      self.tab2.slices.setMaximum(self.ctx.total_img)
+    if self.diameter_tab.slices:
+      self.diameter_tab.slices.setMaximum(self.ctx.total_img)
+    if self.diameter_tab.slices2:
+      self.diameter_tab.slices.setMaximum(self.ctx.total_img)
     self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
     self.close_img_btn.setEnabled(True)
@@ -289,15 +292,13 @@ class MainWindow(QMainWindow):
 
   def on_phantom_update(self, sel):
     self.ctx.phantom = sel.lower()
-    self.tab1.on_volt_changed(self.tab1.volt_cb.currentIndex())
-    self.tab3.protocol.clear()
-    self.tab4.protocol.clear()
-    if self.ctx.phantom == 'body':
-      self.tab3.protocol.addItems(self.ctx.body_protocol)
-      self.tab4.protocol.addItems(self.ctx.body_protocol)
-    else:
-      self.tab3.protocol.addItems(self.ctx.head_protocol)
-      self.tab4.protocol.addItems(self.ctx.head_protocol)
+    self.ctdiv_tab.on_volt_changed(self.ctdiv_tab.volt_cb.currentIndex())
+    self.ssde_tab.protocol.clear()
+    self.organ_tab.protocol.clear()
+    protocol = BODY_PROTOCOL if self.ctx.phantom==BODY else HEAD_PROTOCOL
+    self.ssde_tab.protocol.addItems(protocol)
+    self.organ_tab.protocol.addItems(protocol)
+    self.ssde_tab.on_protocol_changed(protocol[0])
 
   def open_viewer(self):
     if self.rec_viewer is None:
@@ -324,12 +325,12 @@ class MainWindow(QMainWindow):
       self.patient_info['age'][:3] if self.patient_info['age'] is not None else None,   # 'age'
       1,    # 'sex_id'
       self.patient_info['sex'],   # 'sex'
-      self.tab1.CTDIv if self.tab1.CTDIv is not 0 else None,   # 'CTDIVol'
-      self.tab2.d_val if self.tab2.d_val is not 0 else None,    # 'DE_WED'
-      self.tab3.SSDE_val if self.tab3.SSDE_val is not 0 else None,   # 'SSDE'
-      self.tab1.DLP if self.tab1.DLP is not 0 else None,    # 'DLP'
-      self.tab3.DLPc_val if self.tab3.DLPc_val is not 0 else None,   # 'DLPc'
-      self.tab3.effdose_val if self.tab3.effdose_val is not 0 else None   # 'Effective_Dose'
+      self.ctx.app_data.CTDIv if self.ctx.app_data.CTDIv is not 0 else None,   # 'CTDIVol'
+      self.ctx.app_data.diameter if self.ctx.app_data.diameter is not 0 else None,    # 'DE_WED'
+      self.ctx.app_data.SSDE if self.ctx.app_data.SSDE is not 0 else None,   # 'SSDE'
+      self.ctx.app_data.DLP if self.ctx.app_data.DLP is not 0 else None,    # 'DLP'
+      self.ctx.app_data.DLPc if self.ctx.app_data.DLPc is not 0 else None,   # 'DLPc'
+      self.ctx.app_data.effdose if self.ctx.app_data.effdose is not 0 else None   # 'Effective_Dose'
     ]
     if recs[6] is not None:
       if not recs[6]:
@@ -362,13 +363,9 @@ class AppContext(ApplicationContext):
     self.recons_dim = 0
     self.current_img = 0
     self.total_img = 0
-    self.phantom = 'head'
+    self.phantom = HEAD
     self.isImage = False
-    self.body_protocol = ['Chest', 'Liver', 'Liver to Kidney',
-                          'Abdomen', 'Adrenal', 'Kidney',
-                          'Chest-Abdomen-Pelvis', 'Abdomen-Pelvis',
-                          'Kidney to Bladder', 'Pelvis']
-    self.head_protocol = ['Head', 'Head & Neck', 'Neck']
+    self.app_data = AppData()
 
   def getImg(self):
     return get_image(self.dicoms[self.current_img-1])
@@ -460,6 +457,10 @@ class AppContext(ApplicationContext):
     return self.get_resource("db/aapm.db")
 
   @cached_property
+  def ssde_db(self):
+    return self.get_resource("db/ssde.db")
+
+  @cached_property
   def ctdi_db(self):
     return self.get_resource("db/ctdi.db")
 
@@ -479,6 +480,58 @@ class AppContext(ApplicationContext):
       path = js['patients_db']
     return path
 
+class AppData(QObject):
+  modeValueChanged = pyqtSignal(object)
+  diameterValueChanged = pyqtSignal(object)
+  CTDIValueChanged = pyqtSignal(object)
+  DLPValueChanged = pyqtSignal(object)
+
+  def __init__(self, parent=None):
+    super(AppData, self).__init__(parent)
+    self._mode = DW
+    self._diameter = 0
+    self._CTDIv = 0
+    self._DLP = 0
+    self.DLPc = 0
+    self.SSDE = 0
+    self.effdose = 0
+    self.convf = 0
+
+  @property
+  def mode(self):
+    return self._mode
+
+  @mode.setter
+  def mode(self, value):
+    self._mode = value
+    self.modeValueChanged.emit(value)
+
+  @property
+  def diameter(self):
+    return self._diameter
+
+  @diameter.setter
+  def diameter(self, value):
+    self._diameter = value
+    self.diameterValueChanged.emit(value)
+
+  @property
+  def CTDIv(self):
+    return self._CTDIv
+
+  @CTDIv.setter
+  def CTDIv(self, value):
+    self._CTDIv = value
+    self.CTDIValueChanged.emit(value)
+
+  @property
+  def DLP(self):
+    return self._DLP
+
+  @DLP.setter
+  def DLP(self, value):
+    self._DLP = value
+    self.DLPValueChanged.emit(value)
 
 
 if __name__ == "__main__":

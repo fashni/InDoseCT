@@ -25,16 +25,13 @@ class CTDIVolTab(QWidget):
     self.mAs = 0
     self.eff_mAs = 0
     self.CTDIw = 0
-    self.CTDIv = 0
-    self.DLP = 0
     self.current = []
 
   def initDB(self):
-    self.db = QSqlDatabase.addDatabase("QSQLITE")
+    self.db = QSqlDatabase.addDatabase("QSQLITE", "CTDIConnection")
     self.db.setDatabaseName(self.ctx.ctdi_db)
     if not self.db.open():
       QMessageBox.warning(None, f"Database Error: {self.db.lastError().text()}")
-      return
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -164,16 +161,16 @@ class CTDIVolTab(QWidget):
     self.coll_cb.setModel(self.coll_query)
     self.coll_cb.setModelColumn(self.coll_query.fieldIndex("COL_OPTS"))
 
-    self.tube_current_edit = QLineEdit('100')
+    self.tube_current_edit = QLineEdit(f'{self.tube_current}')
     self.tube_current_edit.setValidator(QDoubleValidator())
     self.tube_current_edit.setMaximumWidth(50)
-    self.rotation_time_edit = QLineEdit('1')
+    self.rotation_time_edit = QLineEdit(f'{self.rotation_time}')
     self.rotation_time_edit.setValidator(QDoubleValidator())
     self.rotation_time_edit.setMaximumWidth(50)
-    self.pitch_edit = QLineEdit('1')
+    self.pitch_edit = QLineEdit(f'{self.pitch}')
     self.pitch_edit.setValidator(QDoubleValidator())
     self.pitch_edit.setMaximumWidth(50)
-    self.scan_length_edit = QLineEdit('10')
+    self.scan_length_edit = QLineEdit(f'{self.scan_length}')
     self.scan_length_edit.setValidator(QDoubleValidator())
     self.scan_length_edit.setMaximumWidth(50)
 
@@ -214,30 +211,31 @@ class CTDIVolTab(QWidget):
   def options(self, sel):
     self.mode = sel
     font = QFont()
-    font.setBold(False)
+    font.setBold(True)
     out_items = [self.output_layout.itemAt(idx) for idx in range(self.output_layout.count())]
     [item.widget().setEnabled(True) for item in out_items]
-    [item.widget().setFont(font) for item in out_items]
     param_items = [self.param_layout.itemAt(idx) for idx in range(self.param_layout.count())]
     [item.widget().setEnabled(True) for item in param_items]
-    [item.widget().setFont(font) for item in param_items]
+
+    out_items[-1].widget().setFont(font)
+    out_items[-2].widget().setFont(font)
+    out_items[-3].widget().setFont(font)
+    out_items[-4].widget().setFont(font)
+    param_items[7].widget().setFont(font)
+    param_items[-1].widget().setFont(font)
 
     if self.mode == 0:
       [item.widget().setEnabled(False) for item in out_items[1::2]]
+      font.setBold(False)
+      self.scan_length_edit.setFont(font)
+      param_items[7].widget().setFont(font)
 
     elif self.mode == 1:
-      font.setBold(True)
       [item.widget().setEnabled(False) for item in param_items]
       [item.widget().setEnabled(False) for item in out_items[:6]]
       out_items[-1].widget().setEnabled(False)
-      out_items[-1].widget().setFont(font)
-      out_items[-2].widget().setFont(font)
-      out_items[-3].widget().setFont(font)
-      out_items[-4].widget().setFont(font)
       param_items[7].widget().setEnabled(True)
-      param_items[7].widget().setFont(font)
       param_items[-1].widget().setEnabled(True)
-      param_items[-1].widget().setFont(font)
 
     elif self.mode == 2:
       if not self.ctx.isImage:
@@ -245,27 +243,20 @@ class CTDIVolTab(QWidget):
         self.opts.setCurrentIndex(0)
         self.options(0)
         return
-      font.setBold(True)
       [item.widget().setEnabled(False) for item in out_items]
       [item.widget().setEnabled(False) for item in param_items]
-      out_items[-1].widget().setFont(font)
       out_items[-2].widget().setEnabled(True)
-      out_items[-2].widget().setFont(font)
-      out_items[-3].widget().setFont(font)
       out_items[-4].widget().setEnabled(True)
-      out_items[-4].widget().setFont(font)
       param_items[7].widget().setEnabled(True)
-      param_items[7].widget().setFont(font)
-      param_items[-1].widget().setFont(font)
       self.get_from_dicom()
 
   def on_CTDIv_changed(self, sel):
     if self.mode != 1:
       return
     try:
-      self.CTDIv = float(sel)
+      self.ctx.app_data.CTDIv = float(sel)
     except ValueError:
-      self.CTDIv = 0
+      self.ctx.app_data.CTDIv = 0
     self.manual_input()
 
   def on_scan_length_changed(self, sel):
@@ -302,19 +293,19 @@ class CTDIVolTab(QWidget):
     self.calculate()
 
   def manual_input(self):
-    self.DLP = self.scan_length * self.CTDIv
-    self.out_edits[-1].setText(f'{self.DLP:#.2f}')
+    self.ctx.app_data.DLP = self.scan_length * self.ctx.app_data.CTDIv
+    self.out_edits[-1].setText(f'{self.ctx.app_data.DLP:#.2f}')
 
   def get_from_dicom(self):
     try:
-      self.CTDIv = float(self.ctx.dicoms[0].CTDIvol)
+      self.ctx.app_data.CTDIv = float(self.ctx.dicoms[0].CTDIvol)
     except:
       QMessageBox.warning(None, "Warning", "The DICOM doesn't contain value for CTDIvol.\nTry different method.")
-      self.CTDIv = 0
+      self.ctx.app_data.CTDIv = 0
     self.get_tcm()
-    self.DLP = self.scan_length * self.CTDIv
-    self.out_edits[-1].setText(f'{self.DLP:#.2f}')
-    self.out_edits[-2].setText(f'{self.CTDIv:#.2f}')
+    self.ctx.app_data.DLP = self.scan_length * self.ctx.app_data.CTDIv
+    self.out_edits[-1].setText(f'{self.ctx.app_data.DLP:#.2f}')
+    self.out_edits[-2].setText(f'{self.ctx.app_data.CTDIv:#.2f}')
 
   def calculate(self):
     self.mAs = self.tube_current*self.rotation_time
@@ -324,16 +315,16 @@ class CTDIVolTab(QWidget):
     except TypeError:
       self.CTDIw = 0
     try:
-      self.CTDIv = self.coll*self.CTDI*self.eff_mAs / 100
+      self.ctx.app_data.CTDIv = self.coll*self.CTDI*self.eff_mAs / 100
     except TypeError:
-      self.CTDIv = 0
-    self.DLP = self.CTDIv*self.scan_length
+      self.ctx.app_data.CTDIv = 0
+    self.ctx.app_data.DLP = self.ctx.app_data.CTDIv*self.scan_length
 
     self.out_edits[0].setText(f'{self.mAs:#.2f}')
     self.out_edits[1].setText(f'{self.eff_mAs:#.2f}')
     self.out_edits[2].setText(f'{self.CTDIw:#.2f}')
-    self.out_edits[3].setText(f'{self.CTDIv:#.2f}')
-    self.out_edits[4].setText(f'{self.DLP:#.2f}')
+    self.out_edits[3].setText(f'{self.ctx.app_data.CTDIv:#.2f}')
+    self.out_edits[4].setText(f'{self.ctx.app_data.DLP:#.2f}')
 
   def printinfo(self):
     print('Brand_id: ', self.brand_id)

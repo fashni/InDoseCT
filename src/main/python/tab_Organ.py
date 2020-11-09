@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
 from PyQt5.QtCore import Qt
 from custom_widgets import HSeparator, VSeparator, Edit, Label
+from constants import *
 
 class OrganTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
@@ -15,7 +16,7 @@ class OrganTab(QWidget):
   def initUI(self):
     prot_lbl = QLabel('Protocol:')
     self.protocol = QComboBox()
-    self.protocol.addItems(self.ctx.head_protocol)
+    self.protocol.addItems(HEAD_PROTOCOL)
     self.calc_btn = QPushButton('Calculate')
 
     self.organs_edit = [QLineEdit('0') for i in range(28)]
