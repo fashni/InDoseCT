@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
                              QComboBox, QDesktopWidget)
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon
+from PyQt5.QtSql import QSqlTableModel
 import numpy as np
 import sys
 import os
@@ -65,8 +66,9 @@ class MainWindow(QMainWindow):
     self.setUpConnect()
 
   def setUpConnect(self):
-    self.phantom_cb.activated[str].connect(self.on_phantom_update)
+    self.phantom_cb.activated[int].connect(self.on_phantom_update)
     self.phantom_cb.setCurrentIndex(0)
+    self.on_phantom_update(0)
     self.open_btn.triggered.connect(self.open_files)
     self.open_folder_btn.triggered.connect(self.open_folder)
     self.dcmtree_btn.triggered.connect(self.dcmtree)
@@ -132,8 +134,8 @@ class MainWindow(QMainWindow):
 
     self.phantom_cb = QComboBox()
     self.phantom_cb.tag = 'phantom'
-    self.phantom_cb.addItems([HEAD.upper(), BODY.upper()])
-    self.phantom_cb.activated[str].connect(self._set_windowing)
+    self.phantom_cb.setModel(self.ctx.phantom_model)
+    self.phantom_cb.setModelColumn(self.ctx.phantom_model.fieldIndex('Protocol'))
     self.phantom_cb.setPlaceholderText('Phantom')
     self.phantom_cb.setCurrentIndex(-1)
 
@@ -290,15 +292,14 @@ class MainWindow(QMainWindow):
       return
     dicomtree.run(self.ctx.dicoms[self.ctx.current_img])
 
-  def on_phantom_update(self, sel):
-    self.ctx.phantom = sel.lower()
+  def on_phantom_update(self, idx):
+    self.ctx.phantom = self.ctx.phantom_model.record(idx).value("id")
+    self.ssde_tab.protocol_model.setFilter(f"Group_ID={self.ctx.phantom}")
+    self.organ_tab.protocol_model.setFilter(f"Group_ID={self.ctx.phantom}")
+
     self.ctdiv_tab.on_volt_changed(self.ctdiv_tab.volt_cb.currentIndex())
-    self.ssde_tab.protocol.clear()
-    self.organ_tab.protocol.clear()
-    protocol = BODY_PROTOCOL if self.ctx.phantom==BODY else HEAD_PROTOCOL
-    self.ssde_tab.protocol.addItems(protocol)
-    self.organ_tab.protocol.addItems(protocol)
-    self.ssde_tab.on_protocol_changed(protocol[0])
+    self.ssde_tab.on_protocol_changed(self.ssde_tab.protocol.currentIndex())
+    self.organ_tab.on_protocol_changed(self.organ_tab.protocol.currentIndex())
 
   def open_viewer(self):
     if self.rec_viewer is None:
@@ -353,6 +354,9 @@ class AppContext(ApplicationContext):
       return
     self.initVar()
     self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db)
+    self.phantom_model = QSqlTableModel(db=self.database.ssde_db)
+    self.phantom_model.setTable("Protocol_Group")
+    self.phantom_model.select()
     self.axes = plt.Axes(self, lock_aspect=True)
     self.plt_dialog = plt.PlotDialog(self)
     self.main_window.show()

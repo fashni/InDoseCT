@@ -1,7 +1,8 @@
 from PyQt5.QtGui import QFont, QDoubleValidator
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox, QMessageBox
-from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
+from PyQt5.QtSql import QSqlTableModel
 from custom_widgets import HSeparator, VSeparator
+from constants import *
 
 class CTDIVolTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
@@ -27,7 +28,6 @@ class CTDIVolTab(QWidget):
     self.current = []
 
   def initModel(self):
-    self.query_model = QSqlQueryModel()
     self.brand_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
     self.scanner_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
     self.volt_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
@@ -142,15 +142,21 @@ class CTDIVolTab(QWidget):
     self.opts.addItem('Get from DICOM')
 
     self.brand_cb = QComboBox(self)
+    self.scanner_cb = QComboBox(self)
+    self.volt_cb = QComboBox(self)
+    self.coll_cb = QComboBox(self)
+
+    self.brand_cb.setPlaceholderText('[Unavailable]')
+    self.scanner_cb.setPlaceholderText('[Unavailable]')
+    self.volt_cb.setPlaceholderText('[Unavailable]')
+    self.coll_cb.setPlaceholderText('[Unavailable]')
+    
     self.brand_cb.setModel(self.brand_query)
     self.brand_cb.setModelColumn(self.brand_query.fieldIndex("NAME"))
-    self.scanner_cb = QComboBox(self)
     self.scanner_cb.setModel(self.scanner_query)
     self.scanner_cb.setModelColumn(self.scanner_query.fieldIndex("NAME"))
-    self.volt_cb = QComboBox(self)
     self.volt_cb.setModel(self.volt_query)
     self.volt_cb.setModelColumn(self.volt_query.fieldIndex("VOLTAGE"))
-    self.coll_cb = QComboBox(self)
     self.coll_cb.setModel(self.coll_query)
     self.coll_cb.setModelColumn(self.coll_query.fieldIndex("COL_OPTS"))
 
@@ -190,9 +196,10 @@ class CTDIVolTab(QWidget):
     self.on_coll_changed(0)
 
   def on_volt_changed(self, sel):
-    self.CTDI = self.volt_query.record(sel).value(f"CTDI_{self.ctx.phantom.upper()}")
+    phantom = 'head' if self.ctx.phantom==HEAD else 'body'
+    self.CTDI = self.volt_query.record(sel).value(f"CTDI_{phantom.upper()}")
     if not self.CTDI and self.volt_cb.count() != 0:
-      QMessageBox.warning(None, 'No Data', f'There is no {self.ctx.phantom.capitalize()} CTDI value for this voltage value.')
+      QMessageBox.warning(None, 'No Data', f'There is no {phantom.capitalize()} CTDI value for this voltage value.')
     self.calculate()
 
   def on_coll_changed(self, sel):

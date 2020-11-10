@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox, QMessageBox
 from PyQt5.QtCore import Qt
-from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
+from PyQt5.QtSql import QSqlTableModel
 import numpy as np
 from custom_widgets import HSeparator, VSeparator
 from constants import *
@@ -17,26 +17,34 @@ class SSDETab(QWidget):
     self.sigConnect()
 
   def initModel(self):
-    self.query_model = QSqlQueryModel()
+    self.protocol_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.head_ap_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.head_lat_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.head_e_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.thorax_ap_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.thorax_lat_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.thorax_e_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.effdose_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+
+    self.protocol_model.setTable("Protocol")
     self.head_ap_model.setTable("HeadAP")
     self.head_lat_model.setTable("HeadLAT")
     self.head_e_model.setTable("HeadE")
     self.thorax_ap_model.setTable("ThoraxAP")
     self.thorax_lat_model.setTable("ThoraxLAT")
     self.thorax_e_model.setTable("ThoraxE")
+    self.effdose_model.setTable("Effective_Dose")
 
+    self.protocol_model.setFilter("Group_ID=1")
+
+    self.protocol_model.select()
     self.head_ap_model.select()
     self.head_lat_model.select()
     self.head_e_model.select()
     self.thorax_ap_model.select()
     self.thorax_lat_model.select()
     self.thorax_e_model.select()
+    self.effdose_model.select()
 
   def getData(self, model):
     data = [[model.data(model.index(i,j)) for i in range(model.rowCount())] for j in range(1,3)]
@@ -59,8 +67,8 @@ class SSDETab(QWidget):
 
   def initUI(self):
     self.protocol = QComboBox()
-    self.protocol.addItems(HEAD_PROTOCOL)
-    self.on_protocol_changed(HEAD_PROTOCOL[0])
+    self.protocol.setModel(self.protocol_model)
+    self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))
     self.calc_btn = QPushButton('Calculate')
     self.save_btn = QPushButton('Save')
 
@@ -110,7 +118,7 @@ class SSDETab(QWidget):
     self.setLayout(main_layout)
 
   def sigConnect(self):
-    self.protocol.activated[str].connect(self.on_protocol_changed)
+    self.protocol.activated[int].connect(self.on_protocol_changed)
     self.calc_btn.clicked.connect(self.on_calculate)
     self.ctx.app_data.modeValueChanged.connect(self.diameter_mode_handle)
     self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
@@ -145,11 +153,11 @@ class SSDETab(QWidget):
   def dlp_handle(self, value):
     self.dlp_edit.setText(f'{value:#.4f}')
 
-  def on_protocol_changed(self, text):
-    sql = f'SELECT alfaE, betaE FROM Effective_Dose WHERE Protocol="{text}"'
-    self.query_model.setQuery(sql, self.ctx.database.ssde_db)
-    self.alfa = self.query_model.record(0).value('alfaE')
-    self.beta = self.query_model.record(0).value('betaE')
+  def on_protocol_changed(self, idx):
+    self.protocol_id = self.protocol_model.record(idx).value("id")-1
+    self.alfa = self.effdose_model.record(self.protocol_id).value("alfaE")
+    self.beta = self.effdose_model.record(self.protocol_id).value("betaE")
+    print(self.protocol_id, self.alfa, self.beta)
 
   def on_calculate(self):
     if self.ctx.app_data.mode == DEFF_AP:

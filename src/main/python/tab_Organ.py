@@ -1,26 +1,53 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
 from PyQt5.QtCore import Qt
-from custom_widgets import HSeparator, VSeparator, Edit, Label
+from PyQt5.QtSql import QSqlTableModel
+import numpy as np
+from custom_widgets import HSeparator, VSeparator, Label
 from constants import *
 
 class OrganTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
     super(OrganTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
+    self.initModel()
     self.initVar()
     self.initUI()
+    self.sigConnect()
 
   def initVar(self):
-    pass
+    self.alfas = None
+    self.betas = None
+    self.organ_dose = None
+
+  def initModel(self):
+    self.protocol_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.organ_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.organ_dose_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    
+    self.protocol_model.setTable("Protocol")
+    self.organ_model.setTable("Organ")
+    self.organ_dose_model.setTable("Organ_Dose")
+
+    self.protocol_model.setFilter("Group_ID=1")
+    self.organ_dose_model.setFilter("Protocol_ID=1")
+
+    self.protocol_model.select()
+    self.organ_model.select()
+    self.organ_dose_model.select()
+
+  def sigConnect(self):
+    self.protocol.activated[int].connect(self.on_protocol_changed)
+    self.calc_btn.clicked.connect(self.on_calculate)
 
   def initUI(self):
     prot_lbl = QLabel('Protocol:')
     self.protocol = QComboBox()
-    self.protocol.addItems(HEAD_PROTOCOL)
+    self.protocol.setModel(self.protocol_model)
+    self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))
     self.calc_btn = QPushButton('Calculate')
 
-    self.organs_edit = [QLineEdit('0') for i in range(28)]
-    [organ_edit.setMaximumWidth(50) for organ_edit in self.organs_edit]
+    self.organ_edit = [QLineEdit('0') for i in range(28)]
+    [organ_edit.setMaximumWidth(60) for organ_edit in self.organ_edit]
 
     grid = QGridLayout()
     grid.setHorizontalSpacing(0)
@@ -28,36 +55,12 @@ class OrganTab(QWidget):
 
     for col in range(2):
       for row in range(14):
-        grid.addWidget(self.organs_edit[14*col+row], row, 2*col+1)
+        grid.addWidget(self.organ_edit[14*col+row], row, 2*col+1)
 
-    grid.addWidget(Label(78, 'Marrow'), 0, 0)
-    grid.addWidget(Label(78, 'Bones'), 1, 0)
-    grid.addWidget(Label(78, 'Skin'), 2, 0)
-    grid.addWidget(Label(78, 'Brain'), 3, 0)
-    grid.addWidget(Label(78, 'Eyes'), 4, 0)
-    grid.addWidget(Label(78, 'Larynx-Pharynx'), 5, 0)
-    grid.addWidget(Label(78, 'Tyroid'), 6, 0)
-    grid.addWidget(Label(78, 'Trachea-Bronchi'), 7, 0)
-    grid.addWidget(Label(78, 'Esophagus'), 8, 0)
-    grid.addWidget(Label(78, 'Lungs'), 9, 0)
-    grid.addWidget(Label(78, 'Thymus'), 10, 0)
-    grid.addWidget(Label(78, 'Breasts'), 11, 0)
-    grid.addWidget(Label(78, 'Heart'), 12, 0)
-    grid.addWidget(Label(78, 'Liver'), 13, 0)
-    grid.addWidget(Label(78, 'Stomach'), 0, 2)
-    grid.addWidget(Label(78, 'Spleen'), 1, 2)
-    grid.addWidget(Label(78, 'Large Intestine'), 2, 2)
-    grid.addWidget(Label(78, 'Adrenals'), 3, 2)
-    grid.addWidget(Label(78, 'Pancreas'), 4, 2)
-    grid.addWidget(Label(78, 'Small Intestine'), 5, 2)
-    grid.addWidget(Label(78, 'Kidneys'), 6, 2)
-    grid.addWidget(Label(78, 'Gallbladder'), 7, 2)
-    grid.addWidget(Label(78, 'Ovaries'), 8, 2)
-    grid.addWidget(Label(78, 'Uterus'), 9, 2)
-    grid.addWidget(Label(78, 'Vagina'), 10, 2)
-    grid.addWidget(Label(78, 'Bladder'), 11, 2)
-    grid.addWidget(Label(78, 'Prostate'), 12, 2)
-    grid.addWidget(Label(78, 'Testes'), 13, 2)
+    for col in range(2):
+      for row in range(14):
+        name = self.organ_model.record(14*col+row).value('name')
+        grid.addWidget(Label(78, name), row, 2*col)
 
     main_layout = QVBoxLayout()
     main_layout.addWidget(prot_lbl)
@@ -68,3 +71,17 @@ class OrganTab(QWidget):
     main_layout.addStretch()
 
     self.setLayout(main_layout)
+
+  def getData(self):
+    self.alfas = np.array([self.organ_dose_model.record(n).value('alfa') for n in range(self.organ_dose_model.rowCount())])
+    self.betas = np.array([self.organ_dose_model.record(n).value('beta') for n in range(self.organ_dose_model.rowCount())])
+
+  def on_protocol_changed(self, idx):
+    self.protocol_id = self.protocol_model.record(idx).value("id")
+    self.organ_dose_model.setFilter(f'Protocol_ID={self.protocol_id}')
+    self.getData()
+    print(self.protocol_id, self.protocol_model.record(idx).value("name"))
+
+  def on_calculate(self):
+    self.organ_dose = self.ctx.app_data.CTDIv * np.exp(self.alfas*self.ctx.app_data.diameter + self.betas)
+    [self.organ_edit[idx].setText(f'{dose:#.4f}') for idx, dose in enumerate(self.organ_dose)]

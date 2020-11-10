@@ -13,11 +13,6 @@ class VSeparator(QFrame):
     self.setFrameShape(QFrame.VLine)
     self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
 
-class Edit(QLineEdit):
-  def __init__(self, width, *args, **kwargs):
-    super(Edit, self).__init__(*args, **kwargs)
-    self.setMaximumWidth(width)
-
 class Label(QLabel):
   def __init__(self, width, *args, **kwargs):
     super(Label, self).__init__(*args, **kwargs)

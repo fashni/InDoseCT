@@ -610,31 +610,38 @@ class DiameterTab(QWidget):
           if self.ctx.phantom == HEAD:
             interp = self.head_latap_interp
             data = self.head_latap_data
+            ph = 'head'
           else:
             interp = self.thorax_latap_interp
             data = self.thorax_latap_data
+            ph = 'body'
         elif self._def_manual_method == 'ap':
           label = 'AP'
           if self.ctx.phantom == HEAD:
             interp = self.head_ap_interp
             data = self.head_ap_data
+            ph = 'head'
           else:
             interp = self.thorax_ap_interp
             data = self.thorax_ap_data
+            ph = 'body'
         elif self._def_manual_method == 'lat':
           label = 'LAT'
           if self.ctx.phantom == HEAD:
             interp = self.head_lat_interp
             data = self.head_lat_data
+            ph = 'head'
           else:
             interp = self.thorax_lat_interp
             data = self.thorax_lat_data
+            ph = 'body'
         if val1 < data[0,0] or val1 > data[-1,0]:
           QMessageBox.information(None, "Information",
             f"The result is an extrapolated value.\nFor the best result, input value between {data[0,0]} and {data[-1,0]}.")
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.ctx.app_data.diameter = dval
+      print(label, ph)
       if self._def_manual_method != 'deff':
         self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
         self.ctx.plt_dialog.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
