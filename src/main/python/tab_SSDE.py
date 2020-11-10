@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox, QMessageBox
 from PyQt5.QtCore import Qt
-from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
+from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
 import numpy as np
 from custom_widgets import HSeparator, VSeparator
 from constants import *
@@ -11,26 +11,19 @@ class SSDETab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
     super(SSDETab, self).__init__(*args, **kwargs)
     self.ctx = ctx
-    self.initDB()
     self.initModel()
     self.initData()
     self.initUI()
     self.sigConnect()
 
-  def initDB(self):
-    self.db = QSqlDatabase.addDatabase("QSQLITE", "SSDEConnection")
-    self.db.setDatabaseName(self.ctx.ssde_db)
-    if not self.db.open():
-      QMessageBox.warning(None, f"Database Error: {self.db.lastError().text()}")
-
   def initModel(self):
     self.query_model = QSqlQueryModel()
-    self.head_ap_model = QSqlTableModel(db=self.db)
-    self.head_lat_model = QSqlTableModel(db=self.db)
-    self.head_e_model = QSqlTableModel(db=self.db)
-    self.thorax_ap_model = QSqlTableModel(db=self.db)
-    self.thorax_lat_model = QSqlTableModel(db=self.db)
-    self.thorax_e_model = QSqlTableModel(db=self.db)
+    self.head_ap_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.head_lat_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.head_e_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.thorax_ap_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.thorax_lat_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.thorax_e_model = QSqlTableModel(db=self.ctx.database.ssde_db)
     self.head_ap_model.setTable("HeadAP")
     self.head_lat_model.setTable("HeadLAT")
     self.head_e_model.setTable("HeadE")
@@ -45,35 +38,23 @@ class SSDETab(QWidget):
     self.thorax_lat_model.select()
     self.thorax_e_model.select()
 
+  def getData(self, model):
+    data = [[model.data(model.index(i,j)) for i in range(model.rowCount())] for j in range(1,3)]
+    return np.array(data).T
+
   def initData(self):
-    data = [[self.head_ap_model.data(self.head_ap_model.index(i,j))
-             for i in range(self.head_ap_model.rowCount())] for j in range(1,3)]
-    self.head_ap_data = np.array(data).T
+    self.head_ap_data = self.getData(self.head_ap_model)
+    self.head_lat_data = self.getData(self.head_lat_model)
+    self.head_e_data = self.getData(self.head_e_model)
+    self.thorax_ap_data = self.getData(self.thorax_ap_model)
+    self.thorax_lat_data = self.getData(self.thorax_lat_model)
+    self.thorax_e_data = self.getData(self.thorax_e_model)
+
     self.head_ap_interp = interpolate.splrep(self.head_ap_data[:,0], self.head_ap_data[:,1])
-
-    data = [[self.head_lat_model.data(self.head_lat_model.index(i,j))
-             for i in range(self.head_lat_model.rowCount())] for j in range(1,3)]
-    self.head_lat_data = np.array(data).T
     self.head_lat_interp = interpolate.splrep(self.head_lat_data[:,0], self.head_lat_data[:,1])
-
-    data = [[self.head_e_model.data(self.head_e_model.index(i,j))
-             for i in range(self.head_e_model.rowCount())] for j in range(1,3)]
-    self.head_e_data = np.array(data).T
     self.head_e_interp = interpolate.splrep(self.head_e_data[:,0], self.head_e_data[:,1])
-
-    data = [[self.thorax_ap_model.data(self.thorax_ap_model.index(i,j))
-             for i in range(self.thorax_ap_model.rowCount())] for j in range(1,3)]
-    self.thorax_ap_data = np.array(data).T
     self.thorax_ap_interp = interpolate.splrep(self.thorax_ap_data[:,0], self.thorax_ap_data[:,1])
-
-    data = [[self.thorax_lat_model.data(self.thorax_lat_model.index(i,j))
-             for i in range(self.thorax_lat_model.rowCount())] for j in range(1,3)]
-    self.thorax_lat_data = np.array(data).T
     self.thorax_lat_interp = interpolate.splrep(self.thorax_lat_data[:,0], self.thorax_lat_data[:,1])
-
-    data = [[self.thorax_e_model.data(self.thorax_e_model.index(i,j))
-             for i in range(self.thorax_e_model.rowCount())] for j in range(1,3)]
-    self.thorax_e_data = np.array(data).T
     self.thorax_e_interp = interpolate.splrep(self.thorax_e_data[:,0], self.thorax_e_data[:,1])
 
   def initUI(self):
@@ -136,8 +117,18 @@ class SSDETab(QWidget):
     self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
     self.ctx.app_data.DLPValueChanged.connect(self.dlp_handle)
 
-  def plot(self):
-    pass
+  def plot(self, data):
+    x = self.ctx.app_data.diameter
+    y = self.ctx.app_data.convf
+    xlabel = 'Dw' if self.ctx.app_data.mode==DW else 'Deff'
+    title = 'Water Equivalent Diameter' if self.ctx.app_data.mode==DW else 'Effective Diameter'
+    self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2})
+    self.ctx.plt_dialog.scatter([x], [y], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+    self.ctx.plt_dialog.annotate(pos=(x,y), text=f'{xlabel}: {x:#.2f} cm\nConv. Factor: {y:#.2f}')
+    self.ctx.plt_dialog.axes.showGrid(True,True)
+    self.ctx.plt_dialog.setLabels(xlabel,'Conversion Factor','cm',None)
+    self.ctx.plt_dialog.setTitle(f'{title} - Conversion Factor')
+    self.ctx.plt_dialog.show()
 
   def diameter_mode_handle(self, value):
     if value == DW:
@@ -156,7 +147,7 @@ class SSDETab(QWidget):
 
   def on_protocol_changed(self, text):
     sql = f'SELECT alfaE, betaE FROM Effective_Dose WHERE Protocol="{text}"'
-    self.query_model.setQuery(sql, self.db)
+    self.query_model.setQuery(sql, self.ctx.database.ssde_db)
     self.alfa = self.query_model.record(0).value('alfaE')
     self.beta = self.query_model.record(0).value('betaE')
 
@@ -180,3 +171,4 @@ class SSDETab(QWidget):
     self.ssde_edit.setText(f'{self.ctx.app_data.SSDE:#.4f}')
     self.dlpc_edit.setText(f'{self.ctx.app_data.DLPc:#.4f}')
     self.effdose_edit.setText(f'{self.ctx.app_data.effdose:#.4f}')
+    self.plot(data)

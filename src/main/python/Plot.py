@@ -161,11 +161,13 @@ class PlotDialog(QDialog):
     self.clear()
     self.axes.linePlot.clear()
     self.axes.plot(*args, **kwargs)
+    self.setLabels("","","","")
 
   def scatter(self, *args, **kwargs):
     self.clear()
     self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
+    self.setLabels("","","","")
 
   def annotate(self, pos=(0,0), *args, **kwargs):
     self.txt = pg.TextItem(*args, **kwargs)

@@ -18,7 +18,7 @@ from tab_Diameter import DiameterTab
 from tab_SSDE import SSDETab
 from tab_Organ import OrganTab
 from tab_Analyze import AnalyzeTab
-from db import insert_patient, get_records_num, create_patients_table
+from db import insert_patient, get_records_num, create_patients_table, Database
 from DBViewer import DBViewer
 from AppConfig import AppConfig
 from constants import *
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
     self.ssde_tab = SSDETab(self.ctx)
     self.organ_tab = OrganTab(self.ctx)
     self.analyze_tab = AnalyzeTab()
-  
+
     self.tabs.addTab(self.ctdiv_tab, 'CTDIvol')
     self.tabs.addTab(self.diameter_tab, 'Diameter')
     self.tabs.addTab(self.ssde_tab, 'SSDE')
@@ -352,6 +352,7 @@ class AppContext(ApplicationContext):
     if not check:
       return
     self.initVar()
+    self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db)
     self.axes = plt.Axes(self, lock_aspect=True)
     self.plt_dialog = plt.PlotDialog(self)
     self.main_window.show()

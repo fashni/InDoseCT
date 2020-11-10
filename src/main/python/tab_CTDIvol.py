@@ -1,6 +1,6 @@
 from PyQt5.QtGui import QFont, QDoubleValidator
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel, QWidget, QComboBox, QMessageBox
-from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
+from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
 from custom_widgets import HSeparator, VSeparator
 
 class CTDIVolTab(QWidget):
@@ -8,7 +8,6 @@ class CTDIVolTab(QWidget):
     super(CTDIVolTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
     self.initVar()
-    self.initDB()
     self.initModel()
     self.initUI()
     self.sigConnect()
@@ -27,18 +26,12 @@ class CTDIVolTab(QWidget):
     self.CTDIw = 0
     self.current = []
 
-  def initDB(self):
-    self.db = QSqlDatabase.addDatabase("QSQLITE", "CTDIConnection")
-    self.db.setDatabaseName(self.ctx.ctdi_db)
-    if not self.db.open():
-      QMessageBox.warning(None, f"Database Error: {self.db.lastError().text()}")
-
   def initModel(self):
     self.query_model = QSqlQueryModel()
-    self.brand_query = QSqlTableModel(db=self.db)
-    self.scanner_query = QSqlTableModel(db=self.db)
-    self.volt_query = QSqlTableModel(db=self.db)
-    self.coll_query = QSqlTableModel(db=self.db)
+    self.brand_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
+    self.scanner_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
+    self.volt_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
+    self.coll_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
 
     # fill brand combobox
     self.brand_query.setTable("BRAND")

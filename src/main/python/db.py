@@ -1,6 +1,23 @@
 import sqlite3 as sl
 import os
 import json
+from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtSql import QSqlDatabase
+
+class Database(object):
+  def __init__(self, **kwargs):
+    for key, value in kwargs.items():
+      self.__dict__[key] = value
+    self.keys = list(self.__dict__.keys())
+    self.set_connection()
+    print('db estabilished')
+
+  def set_connection(self):
+    for key in self.keys:
+      self.__dict__[key+'_db'] = QSqlDatabase.addDatabase("QSQLITE", key+"_connection")
+      self.__dict__[key+'_db'].setDatabaseName(self.__dict__[key])
+      if not self.__dict__[key+'_db'].open():
+        QMessageBox.warning(None, f"Database Error: {self.__dict__[key+'_db'].lastError().text()}")
 
 def get_db():
   with open('config.json', 'r') as f:

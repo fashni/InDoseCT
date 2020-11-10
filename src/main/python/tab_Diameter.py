@@ -4,8 +4,8 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox
                              QStackedWidget, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
 from diameters import get_dw_value, get_deff_value, get_label, get_label_pos, get_image
-from db import get_records
 from custom_widgets import VSeparator
 from constants import *
 from scipy import interpolate
@@ -34,28 +34,53 @@ class DiameterTab(QWidget):
       'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
       'Input Manually': ['Manual'],
     }
+    self.initModel()
     self.initData()
 
+  def initModel(self):
+    self.query_model = QSqlQueryModel()
+    self.age_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.head_ap_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.head_lat_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.head_latap_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.thorax_ap_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.thorax_lat_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.thorax_latap_model = QSqlTableModel(db=self.ctx.database.deff_db)
+    self.age_model.setTable("Age")
+    self.head_ap_model.setTable("HeadAP")
+    self.head_lat_model.setTable("HeadLAT")
+    self.head_latap_model.setTable("HeadLATAP")
+    self.thorax_ap_model.setTable("ThoraxAP")
+    self.thorax_lat_model.setTable("ThoraxLAT")
+    self.thorax_latap_model.setTable("ThoraxLATAP")
+
+    self.age_model.select()
+    self.head_ap_model.select()
+    self.head_lat_model.select()
+    self.head_latap_model.select()
+    self.thorax_ap_model.select()
+    self.thorax_lat_model.select()
+    self.thorax_latap_model.select()
+
+  def getData(self, model):
+    data = [[model.data(model.index(i,j)) for i in range(model.rowCount())] for j in range(1,3)]
+    return np.array(data).T
+
   def initData(self):
-    self.age_data = np.array(get_records(self.ctx.aapm_db, 'Age'))
+    self.age_data = self.getData(self.age_model)
+    self.head_ap_data = self.getData(self.head_ap_model)
+    self.head_lat_data = self.getData(self.head_lat_model)
+    self.head_latap_data = self.getData(self.head_latap_model)
+    self.thorax_ap_data = self.getData(self.thorax_ap_model)
+    self.thorax_lat_data = self.getData(self.thorax_lat_model)
+    self.thorax_latap_data = self.getData(self.thorax_latap_model)
+
     self.age_interp = interpolate.splrep(self.age_data[:,0], self.age_data[:,1])
-
-    self.head_ap_data = np.array(get_records(self.ctx.aapm_db, 'HeadAP'))
     self.head_ap_interp = interpolate.splrep(self.head_ap_data[:,0], self.head_ap_data[:,1])
-
-    self.head_lat_data = np.array(get_records(self.ctx.aapm_db, 'HeadLAT'))
     self.head_lat_interp = interpolate.splrep(self.head_lat_data[:,0], self.head_lat_data[:,1])
-
-    self.head_latap_data = np.array(get_records(self.ctx.aapm_db, 'HeadLATAP'))
     self.head_latap_interp = interpolate.splrep(self.head_latap_data[:,0], self.head_latap_data[:,1])
-
-    self.thorax_ap_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxAP'))
     self.thorax_ap_interp = interpolate.splrep(self.thorax_ap_data[:,0], self.thorax_ap_data[:,1])
-
-    self.thorax_lat_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxLAT'))
     self.thorax_lat_interp = interpolate.splrep(self.thorax_lat_data[:,0], self.thorax_lat_data[:,1])
-
-    self.thorax_latap_data = np.array(get_records(self.ctx.aapm_db, 'ThoraxLATAP'))
     self.thorax_latap_interp = interpolate.splrep(self.thorax_latap_data[:,0], self.thorax_latap_data[:,1])
 
   def initUI(self):
@@ -610,13 +635,14 @@ class DiameterTab(QWidget):
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.ctx.app_data.diameter = dval
-      self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
-      self.ctx.plt_dialog.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-      self.ctx.plt_dialog.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nDeff: {dval:#.2f} cm')
-      self.ctx.plt_dialog.axes.showGrid(True,True)
-      self.ctx.plt_dialog.setLabels(label,'Effective Diameter',unit,'cm')
-      self.ctx.plt_dialog.setTitle(f'{label} - Deff')
-      self.ctx.plt_dialog.show()
+      if self._def_manual_method != 'deff':
+        self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
+        self.ctx.plt_dialog.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+        self.ctx.plt_dialog.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nDeff: {dval:#.2f} cm')
+        self.ctx.plt_dialog.axes.showGrid(True,True)
+        self.ctx.plt_dialog.setLabels(label,'Effective Diameter',unit,'cm')
+        self.ctx.plt_dialog.setTitle(f'{label} - Deff')
+        self.ctx.plt_dialog.show()
     else:
       pass
 
