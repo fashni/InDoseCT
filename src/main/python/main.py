@@ -357,6 +357,7 @@ class AppContext(ApplicationContext):
     self.phantom_model = QSqlTableModel(db=self.database.ssde_db)
     self.phantom_model.setTable("Protocol_Group")
     self.phantom_model.select()
+    self.app_data = AppData()
     self.axes = plt.Axes(self, lock_aspect=True)
     self.plt_dialog = plt.PlotDialog(self)
     self.main_window.show()
@@ -370,7 +371,6 @@ class AppContext(ApplicationContext):
     self.total_img = 0
     self.phantom = HEAD
     self.isImage = False
-    self.app_data = AppData()
 
   def getImg(self):
     return get_image(self.dicoms[self.current_img-1])
