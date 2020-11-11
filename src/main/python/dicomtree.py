@@ -1,83 +1,73 @@
-# https://pydicom.github.io/pydicom/stable/auto_examples/dicomtree.html#sphx-glr-auto-examples-dicomtree-py
-import tkinter.tix as tkinter_tix
-import sys
+# dcm_qt_tree.py
+"""View DICOM files in a tree using Qt and PySide"""
+# Copyright (c) 2013 Padraig Looney
+# This file is released under the
+# pydicom (https://github.com/pydicom/pydicom)
+# license, see the file LICENSE available at
+# (https://github.com/pydicom/pydicom)
+
 import pydicom
-
-usage = "Usage: python dicomtree.py dicom_filename"
-
-
-def RunTree(w, ds):
-  top = tkinter_tix.Frame(w, relief=tkinter_tix.RAISED, bd=1)
-  tree = tkinter_tix.Tree(top, options="hlist.columns 2")
-  tree.pack(expand=1, fill=tkinter_tix.BOTH, padx=10, pady=10,
-            side=tkinter_tix.LEFT)
-  # print(tree.hlist.keys())   # use to see the available configure() options
-  tree.hlist.configure(bg='white', font='Courier 8', indent=30)
-  tree.hlist.configure(selectbackground='light yellow', gap=150)
-
-  box = tkinter_tix.ButtonBox(w, orientation=tkinter_tix.HORIZONTAL)
-  # box.add('ok', text='Ok', underline=0, command=w.destroy, width=6)
-  box.add('exit', text='Exit', underline=0, command=w.destroy, width=6)
-  box.pack(side=tkinter_tix.BOTTOM, fill=tkinter_tix.X)
-  top.pack(side=tkinter_tix.TOP, fill=tkinter_tix.BOTH, expand=1)
-  # https://stackoverflow.com/questions/17355902/python-tkinter-binding-mousewheel-to-scrollbar
-  tree.bind_all('<MouseWheel>', lambda event:  # Wheel in Windows
-                tree.hlist.yview_scroll(int(-1 * event.delta / 120.),
-                                        "units"))
-  tree.bind_all('<Button-4>', lambda event:  # Wheel up in Linux
-                tree.hlist.yview_scroll(int(-1), "units"))
-  tree.bind_all('<Button-5>', lambda event:  # Wheel down in Linux
-                tree.hlist.yview_scroll(int(+1), "units"))
-
-  show_file(ds, tree)
+import sys
+from PyQt5.QtWidgets import QApplication, QDialog, QTreeView, QDialogButtonBox, QVBoxLayout
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QFont
+import collections
 
 
-def show_file(ds, tree):
-  root = str(ds.PatientName) if 'PatientName' in ds else 'DICOM'
-  tree.hlist.add("root", text=root)
-  # ds = pydicom.dcmread(sys.argv[1])
-  ds.decode()  # change strings to unicode
-  recurse_tree(tree, ds, "root", False)
-  tree.autosetmode()
+class DicomTree(QDialog):
+  def __init__(self, ds, *args, **kwargs):
+    super(DicomTree, self).__init__()
+    self.ds = ds
+    self.initModel()
+    self.initUI()
+    self.sigConnect()
 
+  def initUI(self):
+    self.font = QFont('Courier', 8)
+    self.setWindowTitle('DICOM Tree View')
+    self.layout = QVBoxLayout()
+    self.tree = QTreeView()
+    self.tree.setFont(self.font)
+    self.tree.setModel(self.model)
 
-def recurse_tree(tree, dataset, parent, hide=False):
-  # order the dicom tags
-  for data_element in dataset:
-    node_id = parent + "." + hex(id(data_element))
-    if isinstance(data_element.value, str):
-      tree.hlist.add(node_id, text=str(data_element))
-    else:
-      tree.hlist.add(node_id, text=str(data_element))
-    if hide:
-      tree.hlist.hide_entry(node_id)
-    if data_element.VR == "SQ":  # a sequence
-      for i, dataset in enumerate(data_element.value):
-        item_id = node_id + "." + str(i + 1)
-        sq_item_description = data_element.name.replace(
-            " Sequence", "")  # XXX not i18n
-        item_text = "{0:s} {1:d}".format(sq_item_description, i + 1)
-        tree.hlist.add(item_id, text=item_text)
-        tree.hlist.hide_entry(item_id)
-        recurse_tree(tree, dataset, item_id, hide=True)
+    btns = QDialogButtonBox.Close
+    self.buttons = QDialogButtonBox(btns)
 
-def run(ds):
-  root = tkinter_tix.Tk()
-  root.geometry("{0:d}x{1:d}+{2:d}+{3:d}".format(640, 480, 100, 100))
-  root.title("DICOM tree viewer")
+    self.layout.addWidget(self.tree)
+    self.layout.addWidget(self.buttons)
 
-  RunTree(root, ds)
-  root.mainloop()
+    self.setLayout(self.layout)
+    self.resize(960, 480)
 
-if __name__ == '__main__':
-  if len(sys.argv) != 2:
-    print("Please supply a dicom file name:\n")
-    print(usage)
-    sys.exit(-1)
-  root = tkinter_tix.Tk()
-  root.geometry("{0:d}x{1:d}+{2:d}+{3:d}".format(640, 480, 0, 0))
-  root.title("DICOM tree viewer - " + sys.argv[1])
-  ds = pydicom.dcmread(sys.argv[1])
+  def initModel(self):
+    self.ds.decode()
+    self.model = self.ds_to_model(self.ds)
 
-  RunTree(root, ds)
-  root.mainloop()
+  def sigConnect(self):
+    self.buttons.rejected.connect(self.reject)
+
+  def ds_to_model(self, dic):
+    model = QStandardItemModel()
+    parentItem = model.invisibleRootItem()
+    self.recurse_ds_to_item(dic, parentItem)
+    return model
+
+  def recurse_ds_to_item(self, ds, parent):
+    for el in ds:
+      item = QStandardItem(str(el))
+      parent.appendRow(item)
+      if el.VR == 'SQ':
+        for i, dataset in enumerate(el.value):
+          sq_item_description = el.name.replace(" Sequence", "")  # XXX not i18n
+          item_text = QStandardItem("{0:s} {1:d}".format(sq_item_description, i + 1))
+          item.appendRow(item_text)
+          self.recurse_ds_to_item(dataset, item_text)
+
+def main():
+  filename = sys.argv[1]
+  ds = pydicom.dcmread(filename)
+  app = QApplication(sys.argv)
+  dicomTree = DicomTree(ds)
+  sys.exit(dicomTree.exec_())
+
+if __name__ == "__main__":
+  main()

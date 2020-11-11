@@ -10,8 +10,8 @@ import numpy as np
 import sys
 import os
 import json
-import dicomtree
 import Plot as plt
+from dicomtree import DicomTree
 from diameters import get_image, get_dicom
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
@@ -290,7 +290,8 @@ class MainWindow(QMainWindow):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first.")
       return
-    dicomtree.run(self.ctx.dicoms[self.ctx.current_img])
+    self.dt = DicomTree(self.ctx.dicoms[self.ctx.current_img-1])
+    self.dt.show()
 
   def on_phantom_update(self, idx):
     self.ctx.phantom = self.ctx.phantom_model.record(idx).value("id")
