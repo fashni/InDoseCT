@@ -1,10 +1,12 @@
+import faulthandler; faulthandler.enable()
 from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_property
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressDialog, QMessageBox,
-                             QComboBox, QDesktopWidget)
+                             QComboBox, QDesktopWidget, QSpinBox, QAbstractSpinBox,
+                             QPushButton)
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtSql import QSqlTableModel
 import numpy as np
 import sys
@@ -44,7 +46,7 @@ class MainWindow(QMainWindow):
     self.icon = None
     self.top = 0
     self.left = 0
-    self.width = 1024
+    self.width = 1280
     self.height = 576
     self.setUIComponents()
 
@@ -53,7 +55,7 @@ class MainWindow(QMainWindow):
     self.setGeometry(self.top, self.left, self.width, self.height)
     rect = self.frameGeometry()
     rect.moveCenter(QDesktopWidget().availableGeometry().center())
-    self.move(rect.topLeft())
+    self.move(rect.topLeft().x(), rect.topLeft().y()-50)
     self.main_widget = QWidget()
 
     self.setToolbar()
@@ -71,6 +73,7 @@ class MainWindow(QMainWindow):
     self.on_phantom_update(0)
     self.open_btn.triggered.connect(self.open_files)
     self.open_folder_btn.triggered.connect(self.open_folder)
+    self.open_sample_btn.triggered.connect(self.open_sample)
     self.dcmtree_btn.triggered.connect(self.dcmtree)
     self.settings_btn.triggered.connect(self.open_config)
     self.save_btn.triggered.connect(self.save_db)
@@ -78,6 +81,7 @@ class MainWindow(QMainWindow):
     self.next_btn.triggered.connect(self.next_img)
     self.prev_btn.triggered.connect(self.prev_img)
     self.close_img_btn.triggered.connect(self.close_image)
+    self.go_to_slice_btn.clicked.connect(self.go_to_slice)
     self.ssde_tab.save_btn.clicked.connect(self.save_db)
 
   def setToolbar(self):
@@ -91,6 +95,9 @@ class MainWindow(QMainWindow):
     self.open_folder_btn = QAction(self.ctx.folder_icon, 'Open Folder', self)
     self.open_folder_btn.setStatusTip('Open Folder')
 
+    self.open_sample_btn = QAction(self.ctx.sample_icon, 'Open Sample', self)
+    self.open_sample_btn.setStatusTip('Load Sample DICOM Files')
+
     self.dcmtree_btn = QAction(self.ctx.tree_icon, 'DICOM Info', self)
     self.dcmtree_btn.setStatusTip('DICOM Info')
     self.dcmtree_btn.setEnabled(False)
@@ -100,6 +107,7 @@ class MainWindow(QMainWindow):
 
     toolbar.addAction(self.open_btn)
     toolbar.addAction(self.open_folder_btn)
+    toolbar.addAction(self.open_sample_btn)
     toolbar.addAction(self.dcmtree_btn)
     toolbar.addAction(self.settings_btn)
 
@@ -128,6 +136,22 @@ class MainWindow(QMainWindow):
     self.close_img_btn.setEnabled(False)
     self.current_lbl = QLabel('0')
     self.total_lbl = QLabel('0')
+    self.go_to_slice_sb = QSpinBox()
+    self.go_to_slice_sb.setButtonSymbols(QAbstractSpinBox.NoButtons)
+    self.go_to_slice_sb.setMinimumWidth(30)
+    self.go_to_slice_sb.setMinimum(0)
+    self.go_to_slice_sb.setMaximum(self.ctx.total_img)
+    self.go_to_slice_sb.setAlignment(Qt.AlignCenter)
+    self.go_to_slice_btn = QPushButton('Go to slice')
+
+    img_ctrl.addAction(self.close_img_btn)
+    img_ctrl.addAction(self.prev_btn)
+    img_ctrl.addWidget(self.current_lbl)
+    img_ctrl.addWidget(QLabel('/'))
+    img_ctrl.addWidget(self.total_lbl)
+    img_ctrl.addAction(self.next_btn)
+    img_ctrl.addWidget(self.go_to_slice_sb)
+    img_ctrl.addWidget(self.go_to_slice_btn)
 
     opts = QToolBar('Options')
     self.addToolBar(opts)
@@ -146,13 +170,6 @@ class MainWindow(QMainWindow):
     self.windowing_cb.setPlaceholderText('Windowing')
     self.windowing_cb.setCurrentIndex(-1)
 
-    img_ctrl.addAction(self.prev_btn)
-    img_ctrl.addWidget(self.current_lbl)
-    img_ctrl.addWidget(QLabel('/'))
-    img_ctrl.addWidget(self.total_lbl)
-    img_ctrl.addAction(self.next_btn)
-    img_ctrl.addAction(self.close_img_btn)
-
     opts.addWidget(QLabel('Phantom: '))
     opts.addWidget(self.phantom_cb)
     opts.addSeparator()
@@ -160,17 +177,20 @@ class MainWindow(QMainWindow):
     opts.addWidget(self.windowing_cb)
 
   def setLayout(self):
+    vbox = QVBoxLayout()
+    vbox.addWidget(self.info_panel)
+    vbox.addWidget(self.tabs)
+
+    right_panel = QWidget()
+    right_panel.setLayout(vbox)
+
     hbox = QHBoxLayout()
     splitter = QSplitter(Qt.Horizontal)
     splitter.addWidget(self.ctx.axes)
-    splitter.addWidget(self.tabs)
+    splitter.addWidget(right_panel)
     hbox.addWidget(splitter)
 
-    vbox = QVBoxLayout()
-    vbox.addWidget(self.info_panel)
-    vbox.addLayout(hbox)
-    # vbox.addStretch(5)
-    self.main_widget.setLayout(vbox)
+    self.main_widget.setLayout(hbox)
 
   def setTabs(self):
     self.tabs = QTabWidget()
@@ -196,6 +216,13 @@ class MainWindow(QMainWindow):
     filenames, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if filenames:
       self._load_files(filenames)
+
+  def open_sample(self):
+    filenames = [os.path.join(self.ctx.sample_dir, f) for f in os.listdir(self.ctx.sample_dir) if os.path.isfile(os.path.join(self.ctx.sample_dir, f))]
+    if filenames:
+      self._load_files(filenames)
+    else:
+      QMessageBox.information(None, "Info", "No DICOM files in sample directory.")
 
   def _load_files(self, fnames):
     self.statusBar().showMessage('Loading Images')
@@ -228,6 +255,10 @@ class MainWindow(QMainWindow):
     self.ctx.img_dims = (int(self.ctx.dicoms[0].Rows), int(self.ctx.dicoms[0].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[0].ReconstructionDiameter)
 
+    self.go_to_slice_sb.setValue(self.ctx.current_img)
+    self.go_to_slice_sb.setMinimum(self.ctx.current_img)
+    self.go_to_slice_sb.setMaximum(self.ctx.total_img)
+
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.getImg())
     self.get_patient_info()
@@ -257,10 +288,15 @@ class MainWindow(QMainWindow):
       self.ctx.current_img = 1
     else:
       self.ctx.current_img += 1
+    self.update_image()
+
+  def update_image(self):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.getImg())
+    self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))
+    self.ctx.recons_dim = float(self.ctx.dicoms[self.ctx.current_img-1].ReconstructionDiameter)
 
   def prev_img(self):
     if not self.ctx.total_img:
@@ -269,15 +305,20 @@ class MainWindow(QMainWindow):
       self.ctx.current_img = self.ctx.total_img
     else:
       self.ctx.current_img -= 1
-    self.current_lbl.setText(str(self.ctx.current_img))
-    self.current_lbl.adjustSize()
-    self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.getImg())
+    self.update_image()
+
+  def go_to_slice(self):
+    if self.ctx.current_img:
+      self.ctx.current_img = self.go_to_slice_sb.value()
+      self.update_image()
 
   def close_image(self):
     self.initVar()
     self.current_lbl.setText(str(self.ctx.current_img))
     self.total_lbl.setText(str(self.ctx.total_img))
+    self.go_to_slice_sb.setValue(self.ctx.current_img)
+    self.go_to_slice_sb.setMinimum(self.ctx.current_img)
+    self.go_to_slice_sb.setMaximum(self.ctx.total_img)
     self.info_panel.setInfo(self.patient_info)
     self.ctx.axes.clearAll()
     self.dcmtree_btn.setEnabled(False)
@@ -459,6 +500,14 @@ class AppContext(ApplicationContext):
     return QIcon(self.get_resource("icons/close_image.png"))
 
   @cached_property
+  def sample_icon(self):
+    return QIcon(self.get_resource("icons/snippet.png"))
+
+  @cached_property
+  def sample_dir(self):
+    return self.get_resource("dicom_sample")
+
+  @cached_property
   def aapm_db(self):
     return self.get_resource("db/aapm.db")
 
@@ -542,5 +591,8 @@ class AppData(QObject):
 
 if __name__ == "__main__":
   appctxt = AppContext()
+  fnt = appctxt.app.font()
+  fnt.setPointSize(10)
+  appctxt.app.setFont(fnt)
   exit_code = appctxt.run()
   sys.exit(exit_code)

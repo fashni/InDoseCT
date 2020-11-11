@@ -5,6 +5,7 @@ import numpy as np
 from custom_widgets import HSeparator, VSeparator
 from constants import *
 from db import get_records
+from Plot import PlotDialog
 from scipy import interpolate
 
 class SSDETab(QWidget):
@@ -80,6 +81,14 @@ class SSDETab(QWidget):
     self.dlpc_edit = QLineEdit(f'{self.ctx.app_data.DLPc}')
     self.effdose_edit = QLineEdit(f'{self.ctx.app_data.effdose}')
 
+    self.ctdiv_edit.setReadOnly(True)
+    self.diameter_edit.setReadOnly(True)
+    self.convf_edit.setReadOnly(True)
+    self.ssde_edit.setReadOnly(True)
+    self.dlp_edit.setReadOnly(True)
+    self.dlpc_edit.setReadOnly(True)
+    self.effdose_edit.setReadOnly(True)
+
     self.diameter_label = QLabel('Diameter (cm)')
 
     grid = QGridLayout()
@@ -130,13 +139,14 @@ class SSDETab(QWidget):
     y = self.ctx.app_data.convf
     xlabel = 'Dw' if self.ctx.app_data.mode==DW else 'Deff'
     title = 'Water Equivalent Diameter' if self.ctx.app_data.mode==DW else 'Effective Diameter'
-    self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2})
-    self.ctx.plt_dialog.scatter([x], [y], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-    self.ctx.plt_dialog.annotate(pos=(x,y), text=f'{xlabel}: {x:#.2f} cm\nConv. Factor: {y:#.2f}')
-    self.ctx.plt_dialog.axes.showGrid(True,True)
-    self.ctx.plt_dialog.setLabels(xlabel,'Conversion Factor','cm',None)
-    self.ctx.plt_dialog.setTitle(f'{title} - Conversion Factor')
-    self.ctx.plt_dialog.show()
+    self.figure = PlotDialog(self.ctx)
+    self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
+    self.figure.scatter([x], [y], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+    self.figure.annotate(pos=(x,y), text=f'{xlabel}: {x:#.2f} cm\nConv. Factor: {y:#.2f}')
+    self.figure.axes.showGrid(True,True)
+    self.figure.setLabels(xlabel,'Conversion Factor','cm',None)
+    self.figure.setTitle(f'{title} - Conversion Factor')
+    self.figure.show()
 
   def diameter_mode_handle(self, value):
     if value == DW:

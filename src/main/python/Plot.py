@@ -18,6 +18,7 @@ class Axes(pg.PlotWidget):
     self.image = pg.ImageItem()
     self.linePlot = pg.PlotDataItem()
     self.scatterPlot = pg.PlotDataItem()
+    self.graphs = []
     self.lineLAT = None
     self.lineAP = None
     self.ellipse = None
@@ -47,6 +48,17 @@ class Axes(pg.PlotWidget):
     self.scatter(*args, **kwargs)
     self.rois.append('marker')
 
+  def addPlot(self, *args, **kwargs):
+    plot = pg.PlotDataItem()
+    self.addItem(plot)
+    self.graphs.append(plot)
+    plot.setData(*args, **kwargs)
+
+  def bar(self, *args, **kwargs):
+    bargraph = pg.BarGraphItem(*args, **kwargs)
+    self.addItem(bargraph)
+    self.graphs.append(bargraph)
+
   def clearImage(self):
     self.invertY(False)
     self.image.clear()
@@ -54,6 +66,10 @@ class Axes(pg.PlotWidget):
   def clearGraph(self):
     self.linePlot.clear()
     self.scatterPlot.clear()
+    for plot in self.graphs:
+      self.removeItem(plot)
+      del plot
+    self.graphs = []
     try:
       self.rois.remove('marker')
     except:
@@ -129,16 +145,19 @@ class Axes(pg.PlotWidget):
 
 
 class PlotDialog(QDialog):
-  def __init__(self, ctx):
+  def __init__(self, ctx, straxis=None):
     super(PlotDialog, self).__init__()
     self.ctx = ctx
+    if straxis is None:
+      self.axes = Axes(self.ctx)
+    else:
+      self.axes = Axes(self.ctx, axisItems={'bottom': straxis})
     self.initUI()
     self.sigConnect()
 
   def initUI(self):
     self.setWindowTitle('Plot')
     self.layout = QVBoxLayout()
-    self.axes = Axes(self.ctx)
     self.txt = None
     self.mean = None
 
@@ -222,6 +241,11 @@ class PlotDialog(QDialog):
     self.mean = pg.InfiniteLine(angle=0, movable=False, pen={'color': "00FFFF", 'width': 1})
     self.axes.addItem(self.mean)
     self.mean.setPos(value)
+
+  def bar(self, *args, **kwargs):
+    self.clear()
+    self.axes.clearAll()
+    self.axes.bar(*args, **kwargs)
 
   def clearAvgLine(self):
     if self.mean:

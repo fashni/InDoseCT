@@ -1,17 +1,8 @@
-# dcm_qt_tree.py
-"""View DICOM files in a tree using Qt and PySide"""
-# Copyright (c) 2013 Padraig Looney
-# This file is released under the
-# pydicom (https://github.com/pydicom/pydicom)
-# license, see the file LICENSE available at
-# (https://github.com/pydicom/pydicom)
-
 import pydicom
 import sys
 from PyQt5.QtWidgets import QApplication, QDialog, QTreeView, QDialogButtonBox, QVBoxLayout
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QFont
 import collections
-
 
 class DicomTree(QDialog):
   def __init__(self, ds, *args, **kwargs):
@@ -45,10 +36,10 @@ class DicomTree(QDialog):
   def sigConnect(self):
     self.buttons.rejected.connect(self.reject)
 
-  def ds_to_model(self, dic):
+  def ds_to_model(self, ds):
     model = QStandardItemModel()
     parentItem = model.invisibleRootItem()
-    self.recurse_ds_to_item(dic, parentItem)
+    self.recurse_ds_to_item(ds, parentItem)
     return model
 
   def recurse_ds_to_item(self, ds, parent):

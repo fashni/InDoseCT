@@ -8,6 +8,7 @@ from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
 from diameters import get_dw_value, get_deff_value, get_label, get_label_pos, get_image
 from custom_widgets import VSeparator
 from constants import *
+from Plot import PlotDialog
 from scipy import interpolate
 import sip
 import numpy as np
@@ -117,7 +118,7 @@ class DiameterTab(QWidget):
     self.d_out.setMaximumWidth(50)
     self.d_out.setValidator(QDoubleValidator())
     self.d_out.textChanged.connect(self._d_changed)
-    self.d_out.setEnabled(False)
+    self.d_out.setReadOnly(True)
 
     out = QHBoxLayout()
     out.addWidget(self.calc_btn)
@@ -293,8 +294,12 @@ class DiameterTab(QWidget):
     self.opt.setLayout(inner)
 
   def _ui_def_img_manual(self):
-    self.def_img_man_lbl1 = QLabel(f'{self.lineLAT:#.2f} cm') if self.lineLAT else QLabel('0 cm')
-    self.def_img_man_lbl2 = QLabel(f'{self.lineAP:#.2f} cm') if self.lineLAT else QLabel('0 cm')
+    self.def_img_man_edit1 = QLineEdit(f'{self.lineLAT:#.2f} cm') if self.lineLAT else QLineEdit('0 cm')
+    self.def_img_man_edit2 = QLineEdit(f'{self.lineAP:#.2f} cm') if self.lineLAT else QLineEdit('0 cm')
+    self.def_img_man_edit1.setMaximumWidth(60)
+    self.def_img_man_edit2.setMaximumWidth(60)
+    self.def_img_man_edit1.setReadOnly(True)
+    self.def_img_man_edit2.setReadOnly(True)
     opt1 = QPushButton('LAT')
     opt2 = QPushButton('AP')
     opt3 = QPushButton('Clear')
@@ -303,11 +308,11 @@ class DiameterTab(QWidget):
     opt3.clicked.connect(self._clearROIs)
     h1 = QHBoxLayout()
     h1.addWidget(opt1)
-    h1.addWidget(self.def_img_man_lbl1)
+    h1.addWidget(self.def_img_man_edit1)
     h1.addStretch()
     h2 = QHBoxLayout()
     h2.addWidget(opt2)
-    h2.addWidget(self.def_img_man_lbl2)
+    h2.addWidget(self.def_img_man_edit2)
     h2.addStretch()
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
@@ -392,7 +397,7 @@ class DiameterTab(QWidget):
         self.ctx.app_data.mode = DEFF_MANUAL
       else:
         self.ctx.app_data.mode = DW
-      self.d_out.setEnabled(True)
+      self.d_out.setReadOnly(False)
     elif self.source == 0:
       if self.based_on == 0:
         if self.method == 0:
@@ -410,7 +415,7 @@ class DiameterTab(QWidget):
         elif self.method == 2:
           self._ui_dw_img_manual()
         self.ctx.app_data.mode = DW
-      self.d_out.setEnabled(False)
+      self.d_out.setReadOnly(True)
       if not self.ctx.isImage:
         QMessageBox.warning(None, "Warning", "Open DICOM files first.")
     self.d_out.setText('0')
@@ -445,10 +450,10 @@ class DiameterTab(QWidget):
       self.opt2_unit.setHidden(True)
       if sel.lower() == 'deff':
         self.ctx.app_data.mode = DEFF_MANUAL
-        self.d_out.setEnabled(True)
+        self.d_out.setReadOnly(False)
       else:
         self.ctx.app_data.mode = DEFF_AP if sel.lower()=='ap' else DEFF_LAT
-        self.d_out.setEnabled(False)
+        self.d_out.setReadOnly(True)
     else:
       self.def_man_stack2.setHidden(False)
       self.opt2_unit.setHidden(False)
@@ -466,7 +471,7 @@ class DiameterTab(QWidget):
         self.opt1_unit.setText('cm')
         self.opt2_unit.setText('cm')
         self.ctx.app_data.mode = DEFF_APLAT
-      self.d_out.setEnabled(False)
+      self.d_out.setReadOnly(True)
     self._def_manual_method = sel.lower()
     print(self._def_manual_method)
     self.d_out.setText('0')
@@ -495,13 +500,26 @@ class DiameterTab(QWidget):
       rd = self.ctx.recons_dim
       img = self.ctx.getImg()
       pos = get_label_pos(get_label(img))+0.5
+      pos_x = pos[:,1]
+      pos_y = pos[:,0]
       self.ctx.axes.clearGraph()
-      self.ctx.axes.immarker(pos[:,1], pos[:,0], pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
-      self.ctx.axes.autoRange()
-    except:
+      self.ctx.axes.immarker(pos_x, pos_y, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
+    except Exception as e:
+      print(e)
       return
     if self.based_on == 0: # deff
       dval, x, y = get_deff_value(img, dims, rd, self._def_auto_method)
+      if self._def_auto_method != 'area':
+        print(x,y)
+        x += 0.5
+        y += 0.5
+        id_x = [id for id, el in enumerate(pos_x) if el==x]
+        id_y = [id for id, el in enumerate(pos_y) if el==y]
+        line_v = np.array([pos_x[id_x], pos_y[id_x]]).T
+        line_h = np.array([pos_x[id_y], pos_y[id_y]]).T
+        self.ctx.axes.addPlot(line_v, pen={'color': "00FF7F", 'width': 2}, symbol=None)
+        self.ctx.axes.addPlot(line_h, pen={'color': "00FF7F", 'width': 2}, symbol=None)
+        self.ctx.axes.addPlot([x], [y], pen=None, symbol='o', symbolPen=None, symbolSize=10, symbolBrush=(255, 127, 0, 255))
     elif self.based_on == 1:
       dval = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
@@ -561,14 +579,15 @@ class DiameterTab(QWidget):
   def plot_3d_auto(self):
     xlabel = 'Dw' if self.based_on else 'Deff'
     title = 'Water Equivalent Diameter' if self.based_on else 'Effective Diameter'
-    self.ctx.plt_dialog.axes.scatterPlot.clear()
-    self.ctx.plt_dialog.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-    self.ctx.plt_dialog.avgLine(self.ctx.app_data.diameter)
-    self.ctx.plt_dialog.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.ctx.app_data.diameter), text=f'Avg {xlabel}: {self.ctx.app_data.diameter:#.2f} cm')
-    self.ctx.plt_dialog.axes.showGrid(True,True)
-    self.ctx.plt_dialog.setLabels('slice',xlabel,None,'cm')
-    self.ctx.plt_dialog.setTitle(f'Slice - {title}')
-    self.ctx.plt_dialog.show()
+    self.figure = PlotDialog(self.ctx)
+    self.figure.axes.scatterPlot.clear()
+    self.figure.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+    self.figure.avgLine(self.ctx.app_data.diameter)
+    self.figure.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.ctx.app_data.diameter), text=f'Avg {xlabel}: {self.ctx.app_data.diameter:#.2f} cm')
+    self.figure.axes.showGrid(True,True)
+    self.figure.setLabels('slice',xlabel,None,'cm')
+    self.figure.setTitle(f'Slice - {title}')
+    self.figure.show()
 
   def _d_changed(self, text):
     try:
@@ -582,10 +601,14 @@ class DiameterTab(QWidget):
   def _input_manual(self):
     if self.based_on == 0: # deff
       if self._def_manual_method == 'deff':
+        label = 'Effective Diameter'
+        unit = 'cm'
         try:
           dval = float(self.def_man_opt1.text())
         except:
           dval = 0
+        val1 = dval
+        data = np.array([np.arange(0,2*val1,.01) for _ in range(2)]).T
       elif self._def_manual_method == 'age':
         label = 'Age'
         unit = 'year'
@@ -610,46 +633,39 @@ class DiameterTab(QWidget):
           if self.ctx.phantom == HEAD:
             interp = self.head_latap_interp
             data = self.head_latap_data
-            ph = 'head'
           else:
             interp = self.thorax_latap_interp
             data = self.thorax_latap_data
-            ph = 'body'
         elif self._def_manual_method == 'ap':
           label = 'AP'
           if self.ctx.phantom == HEAD:
             interp = self.head_ap_interp
             data = self.head_ap_data
-            ph = 'head'
           else:
             interp = self.thorax_ap_interp
             data = self.thorax_ap_data
-            ph = 'body'
         elif self._def_manual_method == 'lat':
           label = 'LAT'
           if self.ctx.phantom == HEAD:
             interp = self.head_lat_interp
             data = self.head_lat_data
-            ph = 'head'
           else:
             interp = self.thorax_lat_interp
             data = self.thorax_lat_data
-            ph = 'body'
         if val1 < data[0,0] or val1 > data[-1,0]:
           QMessageBox.information(None, "Information",
             f"The result is an extrapolated value.\nFor the best result, input value between {data[0,0]} and {data[-1,0]}.")
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.ctx.app_data.diameter = dval
-      print(label, ph)
-      if self._def_manual_method != 'deff':
-        self.ctx.plt_dialog.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
-        self.ctx.plt_dialog.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-        self.ctx.plt_dialog.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nDeff: {dval:#.2f} cm')
-        self.ctx.plt_dialog.axes.showGrid(True,True)
-        self.ctx.plt_dialog.setLabels(label,'Effective Diameter',unit,'cm')
-        self.ctx.plt_dialog.setTitle(f'{label} - Deff')
-        self.ctx.plt_dialog.show()
+      self.figure = PlotDialog(self.ctx)
+      self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
+      self.figure.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+      self.figure.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')
+      self.figure.axes.showGrid(True,True)
+      self.figure.setLabels(label,'Effective Diameter',unit,'cm')
+      self.figure.setTitle(f'{label} - Deff')
+      self.figure.show()
     else:
       pass
 
@@ -660,8 +676,8 @@ class DiameterTab(QWidget):
     self.ctx.axes.clearAll()
     self.ctx.axes.imshow(self.ctx.getImg())
     try:
-      self.def_img_man_lbl1.setText('0 cm')
-      self.def_img_man_lbl2.setText('0 cm')
+      self.def_img_man_edit1.setText('0 cm')
+      self.def_img_man_edit2.setText('0 cm')
     except:
       pass
     self.d_out.setText('0')
@@ -681,7 +697,7 @@ class DiameterTab(QWidget):
       self.ctx.axes.addLAT()
       self.ctx.axes.lineLAT.sigRegionChanged.connect(self._getLATfromLine)
       self.lineLAT = self._get_dist(self.ctx.axes.lineLAT.getHandles())
-      self.def_img_man_lbl1.setText(f'{self.lineLAT:#.2f} cm')
+      self.def_img_man_edit1.setText(f'{self.lineLAT:#.2f} cm')
       self._getImgManDeff()
 
   def _addAP(self):
@@ -689,7 +705,7 @@ class DiameterTab(QWidget):
       self.ctx.axes.addAP()
       self.ctx.axes.lineAP.sigRegionChanged.connect(self._getAPfromLine)
       self.lineAP = self._get_dist(self.ctx.axes.lineAP.getHandles())
-      self.def_img_man_lbl2.setText(f'{self.lineAP:#.2f} cm')
+      self.def_img_man_edit2.setText(f'{self.lineAP:#.2f} cm')
       self._getImgManDeff()
 
   def _addEllipse(self):
@@ -701,13 +717,13 @@ class DiameterTab(QWidget):
   def _getLATfromLine(self, roi):
     pts = roi.getHandles()
     self.lineLAT = self._get_dist(pts)
-    self.def_img_man_lbl1.setText(f'{self.lineLAT:#.2f} cm')
+    self.def_img_man_edit1.setText(f'{self.lineLAT:#.2f} cm')
     self._getImgManDeff()
 
   def _getAPfromLine(self, roi):
     pts = roi.getHandles()
     self.lineAP = self._get_dist(pts)
-    self.def_img_man_lbl2.setText(f'{self.lineAP:#.2f} cm')
+    self.def_img_man_edit2.setText(f'{self.lineAP:#.2f} cm')
     self._getImgManDeff()
 
   def _getImgManDeff(self):
