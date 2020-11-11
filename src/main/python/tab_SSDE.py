@@ -89,19 +89,19 @@ class SSDETab(QWidget):
     self.dlpc_edit.setReadOnly(True)
     self.effdose_edit.setReadOnly(True)
 
-    self.diameter_label = QLabel('Diameter (cm)')
+    self.diameter_label = QLabel('<b>Diameter (cm)</b>')
 
     grid = QGridLayout()
     grid.setHorizontalSpacing(20)
     grid.setVerticalSpacing(15)
 
-    grid.addWidget(QLabel('CTDIvol (mGy)'), 0, 0)
+    grid.addWidget(QLabel('<b>CTDIvol (mGy)</b>'), 0, 0)
     grid.addWidget(self.diameter_label, 1, 0)
-    grid.addWidget(QLabel('Conv Factor'), 2, 0)
-    grid.addWidget(QLabel('SSDE (mGy)'), 3, 0)
-    grid.addWidget(QLabel('DLP (mGy-cm)'), 0, 2)
-    grid.addWidget(QLabel('DLPc (mGy-cm)'), 1, 2)
-    grid.addWidget(QLabel('Effective Dose (mSv)'), 3, 2)
+    grid.addWidget(QLabel('<b>Conv Factor</b>'), 2, 0)
+    grid.addWidget(QLabel('<b>SSDE (mGy)</b>'), 3, 0)
+    grid.addWidget(QLabel('<b>DLP (mGy-cm)</b>'), 0, 2)
+    grid.addWidget(QLabel('<b>DLP<sub>c</sub> (mGy-cm)</b>'), 1, 2)
+    grid.addWidget(QLabel('<b>Effective Dose (mSv)</b>'), 3, 2)
     grid.addWidget(self.ctdiv_edit, 0, 1)
     grid.addWidget(self.diameter_edit, 1, 1)
     grid.addWidget(self.convf_edit, 2, 1)
@@ -150,9 +150,9 @@ class SSDETab(QWidget):
 
   def diameter_mode_handle(self, value):
     if value == DW:
-      self.diameter_label.setText('Dw (cm)')
+      self.diameter_label.setText('<b>Dw (cm)</b>')
     else:
-      self.diameter_label.setText('Deff (cm)')
+      self.diameter_label.setText('<b>Deff (cm)</b>')
 
   def diameter_handle(self, value):
     self.diameter_edit.setText(f'{value:#.4f}')

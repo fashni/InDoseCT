@@ -90,9 +90,9 @@ class CTDIVolTab(QWidget):
     output_lbls = [
       QLabel('mAs'),
       QLabel('Effective mAs'),
-      QLabel('CTDIw (mGy)'),
-      QLabel('CTDIvol (mGy)'),
-      QLabel('DLP (mGy-cm)'),
+      QLabel('CTDI<sub>w</sub> (mGy)'),
+      QLabel('CTDI<sub>vol</sub> (mGy)'),
+      QLabel('DLP<sub>img</sub> (mGy-cm)'),
     ]
     [lbl.setMinimumWidth(150) for lbl in output_lbls]
 
@@ -123,8 +123,8 @@ class CTDIVolTab(QWidget):
       self.output_layout.addWidget(self.out_edits[row], row, 1)
 
     hbox = QHBoxLayout()
-    hbox.addLayout(self.output_layout)
     hbox.addStretch()
+    hbox.addLayout(self.output_layout)
     hbox.addWidget(VSeparator())
     hbox.addLayout(self.param_layout)
     hbox.addStretch()
@@ -177,20 +177,20 @@ class CTDIVolTab(QWidget):
 
     self.tube_current_edit = QLineEdit(f'{self.tube_current}')
     self.tube_current_edit.setValidator(QDoubleValidator())
-    self.tube_current_edit.setMaximumWidth(50)
+    self.tube_current_edit.setMaximumWidth(60)
     self.rotation_time_edit = QLineEdit(f'{self.rotation_time}')
     self.rotation_time_edit.setValidator(QDoubleValidator())
-    self.rotation_time_edit.setMaximumWidth(50)
+    self.rotation_time_edit.setMaximumWidth(60)
     self.pitch_edit = QLineEdit(f'{self.pitch}')
     self.pitch_edit.setValidator(QDoubleValidator())
-    self.pitch_edit.setMaximumWidth(50)
+    self.pitch_edit.setMaximumWidth(60)
     self.scan_length_edit = QLineEdit(f'{self.scan_length}')
     self.scan_length_edit.setValidator(QDoubleValidator())
-    self.scan_length_edit.setMaximumWidth(50)
+    self.scan_length_edit.setMaximumWidth(60)
 
     self.out_edits = [QLineEdit('0') for i in range(5)]
     [out_edit.setValidator(QDoubleValidator()) for out_edit in self.out_edits]
-    [out_edit.setMaximumWidth(50) for out_edit in self.out_edits]
+    [out_edit.setMaximumWidth(60) for out_edit in self.out_edits]
 
   def on_brand_changed(self, sel):
     self.brand_id = self.brand_query.record(sel).value("ID")

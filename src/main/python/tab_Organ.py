@@ -67,7 +67,7 @@ class OrganTab(QWidget):
       for row in range(14):
         name = self.organ_model.record(14*col+row).value('name')
         self.organ_initials.append(name[0])
-        label = Label(78, name)
+        label = Label(100, name)
         label.adjustSize()
         self.organ_labels.append(label)
         grid.addWidget(self.organ_labels[14*col+row], row, 2*col)
@@ -87,7 +87,6 @@ class OrganTab(QWidget):
     stringaxis = pg.AxisItem(orientation='bottom')
     stringaxis.setTicks([xdict.items()])
 
-    print(list(xdict.keys()))
     self.figure = PlotDialog(self.ctx, straxis=stringaxis)
     self.figure.setTitle('Organ Dose')
     self.figure.axes.showGrid(False,True)

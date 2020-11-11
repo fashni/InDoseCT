@@ -592,7 +592,7 @@ class AppData(QObject):
 if __name__ == "__main__":
   appctxt = AppContext()
   fnt = appctxt.app.font()
-  fnt.setPointSize(10)
+  fnt.setPointSize(10.5)
   appctxt.app.setFont(fnt)
   exit_code = appctxt.run()
   sys.exit(exit_code)
