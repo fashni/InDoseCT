@@ -21,6 +21,8 @@ class DiameterTab(QWidget):
     self.slices2 = None
     self.initVar()
     self.initUI()
+    self._update_methods('Get from Image')
+    self._set_options()
 
   def initVar(self):
     self.idxs = []
@@ -92,7 +94,7 @@ class DiameterTab(QWidget):
     self.based_on_cb.addItems(based_ons)
     self.based_on_cb.activated[str].connect(self._set_options)
     self.based_on_cb.setPlaceholderText('Choose...')
-    self.based_on_cb.setCurrentIndex(-1)
+    self.based_on_cb.setCurrentIndex(0)
 
     src_lbl = QLabel('Source:')
     self.src_cb = QComboBox()
@@ -101,14 +103,14 @@ class DiameterTab(QWidget):
     self.src_cb.activated[str].connect(self._update_methods)
     self.src_cb.activated[str].connect(self._set_options)
     self.src_cb.setPlaceholderText('Choose...')
-    self.src_cb.setCurrentIndex(-1)
+    self.src_cb.setCurrentIndex(0)
 
     method_lbl = QLabel('Method')
     self.method_cb = QComboBox()
     self.method_cb.tag = 'method'
     self.method_cb.activated[str].connect(self._set_options)
     self.method_cb.setPlaceholderText('Choose...')
-    self.method_cb.setCurrentIndex(-1)
+    self.method_cb.setCurrentIndex(0)
 
     self.calc_btn = QPushButton('Calculate')
     self.calc_btn.clicked.connect(self._calculate)
@@ -134,8 +136,9 @@ class DiameterTab(QWidget):
     vbox.addWidget(self.src_cb)
     vbox.addWidget(method_lbl)
     vbox.addWidget(self.method_cb)
-    vbox.addStretch()
+    vbox.addWidget(QLabel(''))
     vbox.addLayout(out)
+    vbox.addStretch()
 
     self.opt = QWidget()
     inner = QVBoxLayout()
@@ -416,8 +419,6 @@ class DiameterTab(QWidget):
           self._ui_dw_img_manual()
         self.ctx.app_data.mode = DW
       self.d_out.setReadOnly(True)
-      if not self.ctx.isImage:
-        QMessageBox.warning(None, "Warning", "Open DICOM files first.")
     self.d_out.setText('0')
 
   def _is_truncated(self, state):
@@ -485,6 +486,8 @@ class DiameterTab(QWidget):
 
   def _calculate(self):
     if self.source == 0: # from img
+      if not self.ctx.isImage:
+        QMessageBox.warning(None, "Warning", "Open DICOM files first.")
       if self.method == 0: # auto
         self._auto()
       elif self.method == 1: # 3d
@@ -500,26 +503,26 @@ class DiameterTab(QWidget):
       rd = self.ctx.recons_dim
       img = self.ctx.getImg()
       pos = get_label_pos(get_label(img))+0.5
-      pos_x = pos[:,1]
-      pos_y = pos[:,0]
+      pos_col = pos[:,1]
+      pos_row = pos[:,0]
       self.ctx.axes.clearGraph()
-      self.ctx.axes.immarker(pos_x, pos_y, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
+      self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
     except Exception as e:
       print(e)
       return
     if self.based_on == 0: # deff
-      dval, x, y = get_deff_value(img, dims, rd, self._def_auto_method)
+      dval, row, col = get_deff_value(img, dims, rd, self._def_auto_method)
       if self._def_auto_method != 'area':
-        print(x,y)
-        x += 0.5
-        y += 0.5
-        id_x = [id for id, el in enumerate(pos_x) if el==x]
-        id_y = [id for id, el in enumerate(pos_y) if el==y]
-        line_v = np.array([pos_x[id_x], pos_y[id_x]]).T
-        line_h = np.array([pos_x[id_y], pos_y[id_y]]).T
+        print(row, col)
+        col += 0.5
+        row += 0.5
+        id_row = [id for id, el in enumerate(pos_col) if el==col]
+        id_col = [id for id, el in enumerate(pos_row) if el==row]
+        line_v = np.array([pos_col[id_row], pos_row[id_row]]).T
+        line_h = np.array([pos_col[id_col], pos_row[id_col]]).T
         self.ctx.axes.addPlot(line_v, pen={'color': "00FF7F", 'width': 2}, symbol=None)
         self.ctx.axes.addPlot(line_h, pen={'color': "00FF7F", 'width': 2}, symbol=None)
-        self.ctx.axes.addPlot([x], [y], pen=None, symbol='o', symbolPen=None, symbolSize=10, symbolBrush=(255, 127, 0, 255))
+        self.ctx.axes.addPlot([col], [row], pen=None, symbol='o', symbolPen=None, symbolSize=10, symbolBrush=(255, 127, 0, 255))
     elif self.based_on == 1:
       dval = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
@@ -528,8 +531,9 @@ class DiameterTab(QWidget):
   def get_avg_diameter(self, imgs, idxs):
     dval = 0
     n = len(imgs)
-    progress = QProgressDialog(f"Calculating diameter of {n} images...", "Abort", 0, n, self)
+    progress = QProgressDialog(f"Calculating diameter of {n} images...", "Stop", 0, n, self)
     progress.setWindowModality(Qt.WindowModal)
+    progress.setMinimumDuration(1000)
     for idx, dcm in enumerate(imgs):
       img = get_image(dcm)
       if self.based_on == 0:
@@ -543,7 +547,7 @@ class DiameterTab(QWidget):
         idxs = idxs[:idx+1]
         break
     progress.setValue(n)
-    return dval/n
+    return dval/n, idxs
 
   def _auto_3d(self):
     self.d_vals = []
@@ -570,7 +574,7 @@ class DiameterTab(QWidget):
       idxs = index[first-1:last]
       imgs = dcms[first-1:last]
 
-    avg_dval = self.get_avg_diameter(imgs, idxs)
+    avg_dval, idxs = self.get_avg_diameter(imgs, idxs)
     self.d_out.setText(f'{avg_dval:#.2f}')
     self.ctx.app_data.diameter = avg_dval
     self.idxs = [i+1 for i in idxs]
@@ -693,26 +697,32 @@ class DiameterTab(QWidget):
     return (0.1*rd/col)*np.sqrt((x2-x1)**2+(y2-y1)**2)
 
   def _addLAT(self):
-    if self.ctx.current_img:
-      self.ctx.axes.addLAT()
-      self.ctx.axes.lineLAT.sigRegionChanged.connect(self._getLATfromLine)
-      self.lineLAT = self._get_dist(self.ctx.axes.lineLAT.getHandles())
-      self.def_img_man_edit1.setText(f'{self.lineLAT:#.2f} cm')
-      self._getImgManDeff()
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+      return
+    self.ctx.axes.addLAT()
+    self.ctx.axes.lineLAT.sigRegionChanged.connect(self._getLATfromLine)
+    self.lineLAT = self._get_dist(self.ctx.axes.lineLAT.getHandles())
+    self.def_img_man_edit1.setText(f'{self.lineLAT:#.2f} cm')
+    self._getImgManDeff()
 
   def _addAP(self):
-    if self.ctx.current_img:
-      self.ctx.axes.addAP()
-      self.ctx.axes.lineAP.sigRegionChanged.connect(self._getAPfromLine)
-      self.lineAP = self._get_dist(self.ctx.axes.lineAP.getHandles())
-      self.def_img_man_edit2.setText(f'{self.lineAP:#.2f} cm')
-      self._getImgManDeff()
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+      return
+    self.ctx.axes.addAP()
+    self.ctx.axes.lineAP.sigRegionChanged.connect(self._getAPfromLine)
+    self.lineAP = self._get_dist(self.ctx.axes.lineAP.getHandles())
+    self.def_img_man_edit2.setText(f'{self.lineAP:#.2f} cm')
+    self._getImgManDeff()
 
   def _addEllipse(self):
-    if self.ctx.current_img:
-      self.ctx.axes.addEllipse()
-      self.ctx.axes.ellipse.sigRegionChangeFinished.connect(self._getEllipseDw)
-      self._getEllipseDw(self.ctx.axes.ellipse)
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+      return
+    self.ctx.axes.addEllipse()
+    self.ctx.axes.ellipse.sigRegionChangeFinished.connect(self._getEllipseDw)
+    self._getEllipseDw(self.ctx.axes.ellipse)
 
   def _getLATfromLine(self, roi):
     pts = roi.getHandles()

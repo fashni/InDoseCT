@@ -43,10 +43,13 @@ def get_reference(file):
 
 def get_label(img, threshold=-200):
   thres = img>threshold
-  edges = closing(canny(thres), square(3))
-  fill = ndi.binary_fill_holes(edges)
+  pad = np.zeros((thres.shape[0]+2, thres.shape[1]+2))
+  pad[1:thres.shape[0]+1, 1:thres.shape[1]+1] = thres
+  # edges = closing(canny(pad), square(3))
+  # edges = canny(pad)
+  fill = ndi.binary_fill_holes(pad)
   largest_segment = get_largest_obj(fill)
-  return largest_segment
+  return largest_segment[1:thres.shape[0]+1, 1:thres.shape[1]+1]
 
 def get_largest_obj(img):
   labels = label(img)
@@ -109,14 +112,14 @@ def get_deff_value(img, dims, rd, method):
     deff = np.sqrt(len_row*len_col)
   elif method == 'max':
     row, col = label.shape
-    len_rows = [sum(label[r, :] for r in range(row))]
-    len_cols = [sum(label[:, c] for c in range(col))]
+    len_cols = np.array([sum(label[r, :] for r in range(row))]).flatten()
+    len_rows = np.array([sum(label[:, c] for c in range(col))]).flatten()
 
-    len_row = np.max(len_rows) * (0.1*rd/row)
     len_col = np.max(len_cols) * (0.1*rd/col)
+    len_row = np.max(len_rows) * (0.1*rd/row)
 
-    cen_row = np.argmax(len_rows)
     cen_col = np.argmax(len_cols)
+    cen_row = np.argmax(len_rows)
 
     deff = np.sqrt(len_row*len_col)
   else:
@@ -145,8 +148,10 @@ def truncation(label):
   return (n/m) * 100
 
 def get_label_pos(label):
-  edges = canny(label)
-  pos = get_coord(edges, True)
+  pad = np.zeros((label.shape[0]+2, label.shape[1]+2))
+  pad[1:label.shape[0]+1, 1:label.shape[1]+1] = label
+  edges = canny(pad)
+  pos = get_coord(edges, True)-1
   return pos
 
 def get_patient_info():
