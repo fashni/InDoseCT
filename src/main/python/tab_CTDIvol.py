@@ -92,7 +92,7 @@ class CTDIVolTab(QWidget):
       QLabel('Effective mAs'),
       QLabel('CTDI<sub>w</sub> (mGy)'),
       QLabel('CTDI<sub>vol</sub> (mGy)'),
-      QLabel('DLP<sub>img</sub> (mGy-cm)'),
+      QLabel('DLP (mGy-cm)'),
     ]
     [lbl.setMinimumWidth(150) for lbl in output_lbls]
 

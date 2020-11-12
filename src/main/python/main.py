@@ -1,4 +1,3 @@
-import faulthandler; faulthandler.enable()
 from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_property
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
@@ -65,32 +64,33 @@ class MainWindow(QMainWindow):
     self.setCentralWidget(self.main_widget)
 
     self.statusBar().showMessage('READY')
-    self.setUpConnect()
+    self.sigConnect()
 
-  def setUpConnect(self):
+  def sigConnect(self):
     self.phantom_cb.activated[int].connect(self.on_phantom_update)
     self.phantom_cb.setCurrentIndex(0)
     self.on_phantom_update(0)
-    self.open_btn.triggered.connect(self.open_files)
-    self.open_folder_btn.triggered.connect(self.open_folder)
-    self.open_sample_btn.triggered.connect(self.open_sample)
-    self.dcmtree_btn.triggered.connect(self.dcmtree)
-    self.settings_btn.triggered.connect(self.open_config)
-    self.save_btn.triggered.connect(self.save_db)
-    self.openrec_btn.triggered.connect(self.open_viewer)
-    self.next_btn.triggered.connect(self.next_img)
-    self.prev_btn.triggered.connect(self.prev_img)
-    self.close_img_btn.triggered.connect(self.close_image)
-    self.go_to_slice_btn.clicked.connect(self.go_to_slice)
-    self.ssde_tab.save_btn.clicked.connect(self.save_db)
+    self.open_btn.triggered.connect(self.on_open_files)
+    self.open_folder_btn.triggered.connect(self.on_open_folder)
+    self.open_sample_btn.triggered.connect(self.on_open_sample)
+    self.dcmtree_btn.triggered.connect(self.on_dcmtree)
+    self.settings_btn.triggered.connect(self.on_open_config)
+    self.save_btn.triggered.connect(self.on_save_db)
+    self.openrec_btn.triggered.connect(self.on_open_viewer)
+    self.next_btn.triggered.connect(self.on_next_img)
+    self.prev_btn.triggered.connect(self.on_prev_img)
+    self.close_img_btn.triggered.connect(self.on_close_image)
+    self.go_to_slice_btn.clicked.connect(self.on_go_to_slice)
+    self.go_to_slice_sb.editingFinished.connect(self.on_go_to_slice_edit_finish)
+    self.ssde_tab.save_btn.clicked.connect(self.on_save_db)
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
     self.addToolBar(toolbar)
 
-    self.open_btn = QAction(self.ctx.open_icon, 'Open DICOM', self)
+    self.open_btn = QAction(self.ctx.open_icon, 'Open File(s)', self)
     self.open_btn.setShortcut('Ctrl+O')
-    self.open_btn.setStatusTip('Open DICOM Files')
+    self.open_btn.setStatusTip('Open File(s)')
 
     self.open_folder_btn = QAction(self.ctx.folder_icon, 'Open Folder', self)
     self.open_folder_btn.setStatusTip('Open Folder')
@@ -141,6 +141,7 @@ class MainWindow(QMainWindow):
     self.go_to_slice_sb.setMinimumWidth(30)
     self.go_to_slice_sb.setMinimum(0)
     self.go_to_slice_sb.setMaximum(self.ctx.total_img)
+    self.go_to_slice_sb.setWrapping(True)
     self.go_to_slice_sb.setAlignment(Qt.AlignCenter)
     self.go_to_slice_btn = QPushButton('Go to slice')
 
@@ -206,18 +207,18 @@ class MainWindow(QMainWindow):
     self.tabs.addTab(self.organ_tab, 'Organ')
     self.tabs.addTab(self.analyze_tab, 'Analyze')
 
-  def open_folder(self):
+  def on_open_folder(self):
     dir = QFileDialog.getExistingDirectory(self,"Open Folder", "")
     if dir:
       filenames = [os.path.join(dir, f) for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
       self._load_files(filenames)
 
-  def open_files(self):
+  def on_open_files(self):
     filenames, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if filenames:
       self._load_files(filenames)
 
-  def open_sample(self):
+  def on_open_sample(self):
     filenames = [os.path.join(self.ctx.sample_dir, f) for f in os.listdir(self.ctx.sample_dir) if os.path.isfile(os.path.join(self.ctx.sample_dir, f))]
     if filenames:
       self._load_files(filenames)
@@ -226,10 +227,11 @@ class MainWindow(QMainWindow):
 
   def _load_files(self, fnames):
     self.statusBar().showMessage('Loading Images')
-    self.initVar()
+    self.on_close_image()
     n = len(fnames)
-    progress = QProgressDialog(f"Loading {n} images...", "Abort", 0, n, self)
+    progress = QProgressDialog(f"Loading {n} images...", "Cancel", 0, n, self)
     progress.setWindowModality(Qt.WindowModal)
+    progress.setMinimumDuration(1000) # operation shorter than 1 sec will not open progress dialog
     for idx, filename in enumerate(fnames):
       try:
         dcm = get_dicom(filename)
@@ -242,8 +244,8 @@ class MainWindow(QMainWindow):
     progress.setValue(n)
 
     if not self.ctx.dicoms:
-      QMessageBox.information(None, "Info", "No DICOM files in directory.")
       progress.cancel()
+      QMessageBox.information(None, "Info", "No DICOM files in selected directory.")
       return
 
     self.ctx.total_img = len(self.ctx.dicoms)
@@ -281,7 +283,7 @@ class MainWindow(QMainWindow):
       'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None
     }
 
-  def next_img(self):
+  def on_next_img(self):
     if not self.ctx.total_img:
       return
     if self.ctx.current_img == self.ctx.total_img:
@@ -298,7 +300,7 @@ class MainWindow(QMainWindow):
     self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[self.ctx.current_img-1].ReconstructionDiameter)
 
-  def prev_img(self):
+  def on_prev_img(self):
     if not self.ctx.total_img:
       return
     if self.ctx.current_img == 1:
@@ -307,12 +309,16 @@ class MainWindow(QMainWindow):
       self.ctx.current_img -= 1
     self.update_image()
 
-  def go_to_slice(self):
+  def on_go_to_slice(self):
     if self.ctx.current_img:
       self.ctx.current_img = self.go_to_slice_sb.value()
       self.update_image()
 
-  def close_image(self):
+  def on_go_to_slice_edit_finish(self):
+    if self.go_to_slice_sb.hasFocus():
+      self.on_go_to_slice()
+
+  def on_close_image(self):
     self.initVar()
     self.current_lbl.setText(str(self.ctx.current_img))
     self.total_lbl.setText(str(self.ctx.total_img))
@@ -327,7 +333,7 @@ class MainWindow(QMainWindow):
   def _set_windowing(self, sel):
     pass
 
-  def dcmtree(self):
+  def on_dcmtree(self):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first.")
       return
@@ -343,19 +349,19 @@ class MainWindow(QMainWindow):
     self.ssde_tab.on_protocol_changed(self.ssde_tab.protocol.currentIndex())
     self.organ_tab.on_protocol_changed(self.organ_tab.protocol.currentIndex())
 
-  def open_viewer(self):
+  def on_open_viewer(self):
     if self.rec_viewer is None:
       self.rec_viewer = DBViewer(self.ctx)
     else:
       self.rec_viewer.onRefresh()
     self.rec_viewer.show()
 
-  def open_config(self):
+  def on_open_config(self):
     accepted = self.configs.exec()
     if accepted:
       self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
 
-  def save_db(self):
+  def on_save_db(self):
     btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
     if btn_reply == QMessageBox.No:
       return
@@ -461,63 +467,63 @@ class AppContext(ApplicationContext):
 
   @cached_property
   def open_icon(self):
-    return QIcon(self.get_resource("icons/open.png"))
+    return QIcon(self.get_resource("assets/icons/open.png"))
 
   @cached_property
   def save_icon(self):
-    return QIcon(self.get_resource("icons/save.png"))
+    return QIcon(self.get_resource("assets/icons/save.png"))
 
   @cached_property
   def launch_icon(self):
-    return QIcon(self.get_resource("icons/launch.png"))
+    return QIcon(self.get_resource("assets/icons/launch.png"))
 
   @cached_property
   def setting_icon(self):
-    return QIcon(self.get_resource("icons/setting.png"))
+    return QIcon(self.get_resource("assets/icons/setting.png"))
 
   @cached_property
   def next_icon(self):
-    return QIcon(self.get_resource("icons/navigate_next.png"))
+    return QIcon(self.get_resource("assets/icons/navigate_next.png"))
 
   @cached_property
   def prev_icon(self):
-    return QIcon(self.get_resource("icons/navigate_before.png"))
+    return QIcon(self.get_resource("assets/icons/navigate_before.png"))
 
   @cached_property
   def export_icon(self):
-    return QIcon(self.get_resource("icons/export.png"))
+    return QIcon(self.get_resource("assets/icons/export.png"))
 
   @cached_property
   def tree_icon(self):
-    return QIcon(self.get_resource("icons/tree.png"))
+    return QIcon(self.get_resource("assets/icons/tree.png"))
 
   @cached_property
   def folder_icon(self):
-    return QIcon(self.get_resource("icons/open_folder.png"))
+    return QIcon(self.get_resource("assets/icons/open_folder.png"))
 
   @cached_property
   def close_img_icon(self):
-    return QIcon(self.get_resource("icons/close_image.png"))
+    return QIcon(self.get_resource("assets/icons/close_image.png"))
 
   @cached_property
   def sample_icon(self):
-    return QIcon(self.get_resource("icons/snippet.png"))
+    return QIcon(self.get_resource("assets/icons/snippet.png"))
 
   @cached_property
   def sample_dir(self):
-    return self.get_resource("dicom_sample")
+    return self.get_resource("assets/dicom_sample")
 
   @cached_property
   def aapm_db(self):
-    return self.get_resource("db/aapm.db")
+    return self.get_resource("assets/db/aapm.db")
 
   @cached_property
   def ssde_db(self):
-    return self.get_resource("db/ssde.db")
+    return self.get_resource("assets/db/ssde.db")
 
   @cached_property
   def ctdi_db(self):
-    return self.get_resource("db/ctdi.db")
+    return self.get_resource("assets/db/ctdi.db")
 
   @cached_property
   def default_patients_database(self):
