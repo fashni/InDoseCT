@@ -5,7 +5,7 @@ import pyqtgraph as pg
 import numpy as np
 from custom_widgets import HSeparator, VSeparator, Label
 from constants import *
-from Plot import PlotDialog
+from Plot import PlotDialog, AxisItem
 
 class OrganTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
@@ -20,7 +20,7 @@ class OrganTab(QWidget):
     self.alfas = None
     self.betas = None
     self.organ_dose = None
-    self.organ_initials = []
+    self.organ_names = []
 
   def initModel(self):
     self.protocol_model = QSqlTableModel(db=self.ctx.database.ssde_db)
@@ -66,7 +66,7 @@ class OrganTab(QWidget):
     for col in range(2):
       for row in range(14):
         name = self.organ_model.record(14*col+row).value('name')
-        self.organ_initials.append(name[0])
+        self.organ_names.append(name[0])
         label = Label(100, name)
         label.adjustSize()
         self.organ_labels.append(label)
@@ -83,14 +83,18 @@ class OrganTab(QWidget):
     self.setLayout(main_layout)
 
   def plot(self):
-    xdict = dict(enumerate(self.organ_initials, 1))
-    stringaxis = pg.AxisItem(orientation='bottom')
+    xdict = dict(enumerate(self.organ_names, 1))
+    stringaxis = AxisItem(orientation='bottom')
     stringaxis.setTicks([xdict.items()])
+    # fm = QFontMetrics(stringaxis.font())
+    # minHeight = max(fm.boundingRect(QRect(), Qt.AlignLeft, t).width() for t in xdict.values())
+    # stringaxis.setHeight(minHeight + fm.width('     '))
 
-    self.figure = PlotDialog(self.ctx, straxis=stringaxis)
+    self.figure = PlotDialog(self.ctx, size=(900,600), straxis=stringaxis)
     self.figure.setTitle('Organ Dose')
     self.figure.axes.showGrid(False,True)
-    self.figure.bar(x=list(xdict.keys()), height=self.organ_dose, width=.75, brush='g')
+    self.figure.setLabels('', 'Dose' ,'', 'mGy')
+    self.figure.bar(x=list(xdict.keys()), height=self.organ_dose, width=.8, brush='g')
     self.figure.show()
 
   def getData(self):

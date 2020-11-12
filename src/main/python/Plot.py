@@ -145,8 +145,9 @@ class Axes(pg.PlotWidget):
 
 
 class PlotDialog(QDialog):
-  def __init__(self, ctx, straxis=None):
+  def __init__(self, ctx, size=(640, 480), straxis=None):
     super(PlotDialog, self).__init__()
+    self.size = size
     self.ctx = ctx
     if straxis is None:
       self.axes = Axes(self.ctx)
@@ -168,7 +169,7 @@ class PlotDialog(QDialog):
     self.layout.addWidget(self.axes)
     self.layout.addWidget(self.buttons)
     self.setLayout(self.layout)
-    self.resize(640, 480)
+    self.resize(self.size[0], self.size[1])
     self.crosshair()
 
   def sigConnect(self):
@@ -267,6 +268,39 @@ class PlotDialog(QDialog):
       self.axes.setTitle("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y=%0.1f</span>" % (mousePoint.x(), mousePoint.y()))
       self.vLine.setPos(mousePoint.x())
       self.hLine.setPos(mousePoint.y())
+
+
+class AxisItem(pg.AxisItem):
+  def __init__(self, *args, **kwargs):
+    super(AxisItem, self).__init__(*args, **kwargs)
+
+  def drawPicture(self, p, axisSpec, tickSpecs, textSpecs):
+    p.setRenderHint(p.Antialiasing, False)
+    p.setRenderHint(p.TextAntialiasing, True)
+
+    ## draw long line along axis
+    pen, p1, p2 = axisSpec
+    p.setPen(pen)
+    p.drawLine(p1, p2)
+    p.translate(0.5,0)  ## resolves some damn pixel ambiguity
+
+    ## draw ticks
+    for pen, p1, p2 in tickSpecs:
+      p.setPen(pen)
+      p.drawLine(p1, p2)
+
+    # Draw all text
+    if self.style['tickFont'] is not None:
+      p.setFont(self.style['tickFont'])
+    p.setPen(self.textPen())
+    for rect, flags, text in textSpecs:
+      # p.save()
+      # p.translate(rect.x(), rect.y())
+      # p.rotate(-90)
+      # p.drawText(-rect.width(), rect.height(), rect.width(), rect.height(), int(flags), text)
+      p.drawText(rect, int(flags), text)
+      # p.restore()
+
 
 if __name__ == '__main__':
   app = QApplication(sys.argv)
