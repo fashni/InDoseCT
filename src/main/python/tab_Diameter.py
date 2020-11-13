@@ -488,6 +488,7 @@ class DiameterTab(QWidget):
     if self.source == 0: # from img
       if not self.ctx.isImage:
         QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+        return
       if self.method == 0: # auto
         self._auto()
       elif self.method == 1: # 3d
@@ -498,18 +499,16 @@ class DiameterTab(QWidget):
       self._input_manual()
 
   def _auto(self):
-    try:
-      dims = self.ctx.img_dims
-      rd = self.ctx.recons_dim
-      img = self.ctx.getImg()
-      pos = get_label_pos(get_label(img))+0.5
-      pos_col = pos[:,1]
-      pos_row = pos[:,0]
-      self.ctx.axes.clearGraph()
-      self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
-    except Exception as e:
-      print(e)
+    img = self.ctx.getImg()
+    if img is None:
       return
+    dims = self.ctx.img_dims
+    rd = self.ctx.recons_dim
+    pos = get_label_pos(get_label(img))+0.5
+    pos_col = pos[:,1]
+    pos_row = pos[:,0]
+    self.ctx.axes.clearGraph()
+    self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
     if self.based_on == 0: # deff
       dval, row, col = get_deff_value(img, dims, rd, self._def_auto_method)
       if self._def_auto_method != 'area':
@@ -583,7 +582,7 @@ class DiameterTab(QWidget):
   def plot_3d_auto(self):
     xlabel = 'Dw' if self.based_on else 'Deff'
     title = 'Water Equivalent Diameter' if self.based_on else 'Effective Diameter'
-    self.figure = PlotDialog(self.ctx)
+    self.figure = PlotDialog()
     self.figure.axes.scatterPlot.clear()
     self.figure.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
     self.figure.avgLine(self.ctx.app_data.diameter)
@@ -662,7 +661,7 @@ class DiameterTab(QWidget):
         dval = float(interpolate.splev(val1, interp))
       self.d_out.setText(f'{dval:#.2f}')
       self.ctx.app_data.diameter = dval
-      self.figure = PlotDialog(self.ctx)
+      self.figure = PlotDialog()
       self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
       self.figure.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
       self.figure.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')
@@ -690,7 +689,10 @@ class DiameterTab(QWidget):
     self.ctx.app_data.diameter = 0
 
   def _get_dist(self, pts):
-    col,row = self.ctx.getImg().shape
+    try:
+      col,row = self.ctx.getImg().shape
+    except:
+      return
     rd = self.ctx.recons_dim
     x1, y1 = pts[0].pos().x(), pts[0].pos().y()
     x2, y2 = pts[1].pos().x(), pts[1].pos().y()

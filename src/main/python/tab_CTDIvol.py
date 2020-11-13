@@ -252,7 +252,7 @@ class CTDIVolTab(QWidget):
       [item.setEnabled(False) for item in self.param_lbls]
       [item.setEnabled(False) for item in self.param_edits]
       [item.widget().setEnabled(False) for item in out_items[:6]]
-      out_items[-1].widget().setReadOnly(True)
+      out_items[-1].widget().setReadOnly(False)
       self.scan_length_edit.setEnabled(True)
       self.param_lbls[-1].setEnabled(True)
 
@@ -365,7 +365,7 @@ class CTDIVolTab(QWidget):
   def plot_tcm(self):
       xlabel = 'TCM'
       title = 'Tube Current'
-      self.figure = PlotDialog(self.ctx)
+      self.figure = PlotDialog()
       self.figure.axes.scatterPlot.clear()
       self.figure.plot(self.idxs, self.current, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
       self.figure.avgLine(self.tube_current)
@@ -375,6 +375,26 @@ class CTDIVolTab(QWidget):
       self.figure.setTitle(f'Slice - {title}')
       self.figure.show()
 
+  def get_scan_length(self):
+    try:
+      first = float(self.ctx.dicoms[0].SliceLocation)
+      last = float(self.ctx.dicoms[-1].SliceLocation)
+      width = float(self.ctx.dicoms[0].SliceThickness)
+      try:
+        second = float(self.ctx.dicoms[1].SliceLocation)
+      except:
+        second = last
+    except Exception as e:
+      QMessageBox.warning(None, 'Exception Occured', str(e))
+      return
+    
+    lf = abs(0.1*(last-first))
+    sf = abs(0.1*(second-first))
+    print(lf, sf, width/10)
+    scan_length = (abs((last-first)) + abs((second-first)) + width)*.1
+    self.scan_length_edit.setText(f'{scan_length:#.2f}')
+    self.scan_length = scan_length
+
   def get_tcm(self, auto):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first, or input manually")
@@ -382,18 +402,20 @@ class CTDIVolTab(QWidget):
       return
     self.current = []
     self.idxs = []
-    for idx, dcm in enumerate(self.ctx.dicoms):
-      self.current.append(float(dcm.XRayTubeCurrent))
-      self.idxs.append(idx+1)
+    try:
+      for idx, dcm in enumerate(self.ctx.dicoms):
+        self.current.append(float(dcm.XRayTubeCurrent))
+        self.idxs.append(idx+1)
+    except Exception as e:
+      self.current = []
+      self.idxs = []
+      QMessageBox.warning(None, 'Exception Occured', str(e))
+      return
     tube_current = sum(self.current)/self.ctx.total_img
     self.tube_current_edit.setText(f'{tube_current:#.2f}')
     self.tube_current = tube_current
 
-    first = float(self.ctx.dicoms[0].SliceLocation)
-    last = float(self.ctx.dicoms[-1].SliceLocation)
-    scan_length = abs(0.1*(last-first))
-    self.scan_length_edit.setText(f'{scan_length:#.2f}')
-    self.scan_length = scan_length
+    self.get_scan_length()
 
     if not auto:
       self.plot_tcm()

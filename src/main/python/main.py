@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtSql import QSqlTableModel
+from pydicom.errors import InvalidDicomError
 import numpy as np
 import sys
 import os
@@ -129,8 +130,10 @@ class MainWindow(QMainWindow):
 
     self.next_btn = QAction(self.ctx.next_icon, 'Next Slice', self)
     self.next_btn.setStatusTip('Next Slice')
+    self.next_btn.setShortcut('D')
     self.prev_btn = QAction(self.ctx.prev_icon, 'Previous Slice', self)
     self.prev_btn.setStatusTip('Previous Slice')
+    self.prev_btn.setShortcut('A')
     self.close_img_btn = QAction(self.ctx.close_img_icon, 'Close Images', self)
     self.close_img_btn.setStatusTip('Close all images')
     self.close_img_btn.setEnabled(False)
@@ -210,17 +213,25 @@ class MainWindow(QMainWindow):
   def on_open_folder(self):
     dir = QFileDialog.getExistingDirectory(self,"Open Folder", "")
     if dir:
-      filenames = [os.path.join(dir, f) for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+      filenames = []
+      for f in os.listdir(dir):
+        fullfile = os.path.join(dir, f)
+        _, ext = os.path.splitext(f)
+        if os.path.isfile(fullfile) and (ext == '.dcm' or ext == ''):
+          filenames.append(fullfile)
+      self.fsource = 'dir'
       self._load_files(filenames)
 
   def on_open_files(self):
     filenames, _ = QFileDialog.getOpenFileNames(self,"Open Files", "", "DICOM Files (*.dcm);;All Files (*)")
     if filenames:
+      self.fsource = 'files'
       self._load_files(filenames)
 
   def on_open_sample(self):
     filenames = [os.path.join(self.ctx.sample_dir, f) for f in os.listdir(self.ctx.sample_dir) if os.path.isfile(os.path.join(self.ctx.sample_dir, f))]
     if filenames:
+      self.fsource = 'sample'
       self._load_files(filenames)
     else:
       QMessageBox.information(None, "Info", "No DICOM files in sample directory.")
@@ -235,17 +246,34 @@ class MainWindow(QMainWindow):
     for idx, filename in enumerate(fnames):
       try:
         dcm = get_dicom(filename)
-      except:
+      except InvalidDicomError as e:
+        excpt_msg = str(e)
         continue
+        # try:
+        #   dcm = get_dicom(filename, force=True)
+        #   if 'StudyDate' not in dcm:
+        #     raise InvalidDicomError
+        # except Exception as e:
+        #   print(e)
+        #   self.last_error = e
+        #   continue
       self.ctx.dicoms.append(dcm)
       progress.setValue(idx)
       if progress.wasCanceled():
         break
     progress.setValue(n)
 
+    if 'excpt_msg' in locals():
+      QMessageBox.information(None, "Info", f"Exception occured while loading the files: \n{excpt_msg}")
+
     if not self.ctx.dicoms:
       progress.cancel()
-      QMessageBox.information(None, "Info", "No DICOM files in selected directory.")
+      if self.fsource=='dir':
+        QMessageBox.information(None, "Info", "No DICOM files in the selected directory.")
+      elif self.fsource=='sample':
+        QMessageBox.information(None, "Info", "No DICOM files in sample directory.")
+      elif self.fsource=='files':
+        QMessageBox.warning(None, "Info", "The specified file is not a valid DICOM file.")
       return
 
     self.ctx.total_img = len(self.ctx.dicoms)
@@ -254,6 +282,7 @@ class MainWindow(QMainWindow):
     self.ctx.current_img = 1
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
+
     self.ctx.img_dims = (int(self.ctx.dicoms[0].Rows), int(self.ctx.dicoms[0].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[0].ReconstructionDiameter)
 
@@ -266,8 +295,10 @@ class MainWindow(QMainWindow):
     self.get_patient_info()
     self.info_panel.setInfo(self.patient_info)
     if self.diameter_tab.slices:
+      self.diameter_tab.slices.setValue(self.ctx.current_img)
       self.diameter_tab.slices.setMaximum(self.ctx.total_img)
     if self.diameter_tab.slices2:
+      self.diameter_tab.slices.setValue(self.ctx.current_img)
       self.diameter_tab.slices.setMaximum(self.ctx.total_img)
     self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
@@ -406,8 +437,7 @@ class AppContext(ApplicationContext):
     self.phantom_model.setTable("Protocol_Group")
     self.phantom_model.select()
     self.app_data = AppData()
-    self.axes = plt.Axes(self, lock_aspect=True)
-    self.plt_dialog = plt.PlotDialog(self)
+    self.axes = plt.Axes(lock_aspect=True)
     self.main_window.show()
     return self.app.exec_()
 
@@ -421,7 +451,11 @@ class AppContext(ApplicationContext):
     self.isImage = False
 
   def getImg(self):
-    return get_image(self.dicoms[self.current_img-1])
+    img = get_image(self.dicoms[self.current_img-1])
+    if isinstance(img, str):
+      QMessageBox.warning(None, 'Exception Occured', img)
+      return None
+    return img
 
   def checkFiles(self):
     if not os.path.isfile(self.config_file()):

@@ -90,7 +90,7 @@ class OrganTab(QWidget):
     # minHeight = max(fm.boundingRect(QRect(), Qt.AlignLeft, t).width() for t in xdict.values())
     # stringaxis.setHeight(minHeight + fm.width('     '))
 
-    self.figure = PlotDialog(self.ctx, size=(900,600), straxis=stringaxis)
+    self.figure = PlotDialog(size=(900,600), straxis=stringaxis)
     self.figure.setTitle('Organ Dose')
     self.figure.axes.showGrid(False,True)
     self.figure.setLabels('', 'Dose' ,'', 'mGy')

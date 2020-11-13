@@ -2,13 +2,13 @@ import pyqtgraph as pg
 import numpy as np
 import pyqtgraph.exporters
 import sys
+from xlsxwriter.workbook import Workbook
 from PyQt5.QtWidgets import QDialog, QApplication, QFileDialog, QDialogButtonBox, QVBoxLayout
 
 class Axes(pg.PlotWidget):
   pg.setConfigOptions(imageAxisOrder='row-major')
-  def __init__(self, ctx, lock_aspect=False, *args, **kwargs):
+  def __init__(self, lock_aspect=False, *args, **kwargs):
     super(Axes, self).__init__(*args, **kwargs)
-    self.ctx = ctx
     self.initUI()
     self.setupConnect()
     self.setAspectLocked(lock_aspect)
@@ -19,6 +19,7 @@ class Axes(pg.PlotWidget):
     self.linePlot = pg.PlotDataItem()
     self.scatterPlot = pg.PlotDataItem()
     self.graphs = []
+    self.imagedata = None
     self.lineLAT = None
     self.lineAP = None
     self.ellipse = None
@@ -32,6 +33,9 @@ class Axes(pg.PlotWidget):
     self.image.hoverEvent = self.imageHoverEvent
 
   def imshow(self, data):
+    if data is None:
+      return
+    self.imagedata = data
     self.invertY(True)
     self.image.setImage(data)
     self.autoRange()
@@ -60,6 +64,7 @@ class Axes(pg.PlotWidget):
     self.graphs.append(bargraph)
 
   def clearImage(self):
+    self.imagedata = None
     self.invertY(False)
     self.image.clear()
 
@@ -111,48 +116,49 @@ class Axes(pg.PlotWidget):
         self.setTitle("")
         return
     pos = event.pos()
-    i, j = pos.y(), pos.x()
-    i = int(np.clip(i, 0, self.ctx.getImg().shape[0] - 1))
-    j = int(np.clip(j, 0, self.ctx.getImg().shape[1] - 1))
-    val = self.ctx.getImg()[i, j]
+    i, j = pos.x(), pos.y()
+    i = int(np.clip(i, 0, self.imagedata.shape[0] - 1))
+    j = int(np.clip(j, 0, self.imagedata.shape[1] - 1))
+    val = self.imagedata[i, j]
     self.setTitle(f"pixel: ({i:#d}, {j:#d})  value: {val:#g}")
 
   def addLAT(self):
-    if self.lineLAT==None and self.ctx.current_img:
-      x,y = self.ctx.img_dims
+    if self.lineLAT==None and self.imagedata is not None:
+      x,y = self.imagedata.shape
       self.lineLAT = pg.LineSegmentROI([((x/2)-0.25*x, y/2), ((x/2)+0.25*x, y/2)])
       self.addItem(self.lineLAT)
       self.rois.append('lineLAT')
 
   def addAP(self):
-    if self.lineAP==None and self.ctx.current_img:
-      x,y = self.ctx.img_dims
+    if self.lineAP==None and self.imagedata is not None:
+      x,y = self.imagedata.shape
       self.lineAP = pg.LineSegmentROI([((x/2), (y/2)-0.25*y), ((x/2), (y/2)+0.25*y)])
       self.addItem(self.lineAP)
       self.rois.append('lineAP')
 
   def addEllipse(self):
-    if self.ellipse==None and self.ctx.current_img:
-      x,y = self.ctx.img_dims
+    if self.ellipse==None and self.imagedata is not None:
+      x,y = self.imagedata.shape
       unit = np.sqrt(x*y)/4
       self.ellipse = pg.EllipseROI(pos=[(x/2)-unit, (y/2)-unit*1.5],size=[unit*2,unit*3])
       self.addItem(self.ellipse)
       self.rois.append('ellipse')
 
   def addPoly(self):
-    if self.poly==None and self.ctx.current_img:
+    if self.poly==None and self.imagedata is not None:
       pass
 
 
 class PlotDialog(QDialog):
-  def __init__(self, ctx, size=(640, 480), straxis=None):
+  def __init__(self, size=(640, 480), straxis=None):
     super(PlotDialog, self).__init__()
     self.size = size
-    self.ctx = ctx
     if straxis is None:
-      self.axes = Axes(self.ctx)
+      self.axes = Axes()
     else:
-      self.axes = Axes(self.ctx, axisItems={'bottom': straxis})
+      self.axes = Axes(axisItems={'bottom': straxis})
+    self.xlabel = None
+    self.ylabel = None
     self.initUI()
     self.sigConnect()
 
@@ -181,13 +187,13 @@ class PlotDialog(QDialog):
     self.clear()
     self.axes.linePlot.clear()
     self.axes.plot(*args, **kwargs)
-    self.setLabels("","","","")
+    self.setLabels(None,None,"","")
 
   def scatter(self, *args, **kwargs):
     self.clear()
     self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
-    self.setLabels("","","","")
+    self.setLabels(None,None,"","")
 
   def annotate(self, pos=(0,0), *args, **kwargs):
     self.txt = pg.TextItem(*args, **kwargs)
@@ -200,6 +206,8 @@ class PlotDialog(QDialog):
       self.txt = None
 
   def setLabels(self, xlabel, ylabel, x_unit=None, y_unit=None, x_prefix=None, y_prefix=None):
+    self.xlabel = xlabel
+    self.ylabel = ylabel
     self.axes.setLabel('bottom', xlabel, x_unit, x_prefix)
     self.axes.setLabel('left', ylabel, y_unit, y_prefix)
 
@@ -223,20 +231,22 @@ class PlotDialog(QDialog):
       JPEG (*.jpg;*.jpeg;*.jpe;*.jfif);;
       Bitmap (*.bmp);;
       Scalable Vector Graphics (*.svg);;
-      Comma-Separated Value (*.csv)
+      Comma-Separated Value (*.csv);;
+      Microsoft Excel Workbook (*.xlsx)
     """
     filename, _ = QFileDialog.getSaveFileName(self, "Save plot as image...", self.windowTitle(), accepted_format)
     if not filename:
       return
-    if not filename.lower().endswith(('.csv', '.svg')):
+    if not filename.lower().endswith(('.csv', '.svg', '.xlsx')):
       exporter = pg.exporters.ImageExporter(self.axes.plotItem)
       exporter.parameters()['width'] *= 2
     elif filename.lower().endswith('.csv'):
-      exporter = pg.exporters.CSVExporter(self.axes.plotItem)
+      exporter = CSVExporter(self.axes.plotItem, xheader=self.xlabel, yheader=self.ylabel)
+    elif filename.lower().endswith('.xlsx'):
+      exporter = XLSXExporter(self.axes.plotItem, xheader=self.xlabel, yheader=self.ylabel)
     elif filename.lower().endswith('.svg'):
       exporter = pg.exporters.SVGExporter(self.axes.plotItem)
     exporter.export(filename)
-    self.accept()
 
   def avgLine(self, value):
     self.mean = pg.InfiniteLine(angle=0, movable=False, pen={'color': "00FFFF", 'width': 1})
@@ -268,6 +278,115 @@ class PlotDialog(QDialog):
       self.axes.setTitle("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y=%0.1f</span>" % (mousePoint.x(), mousePoint.y()))
       self.vLine.setPos(mousePoint.x())
       self.hLine.setPos(mousePoint.y())
+
+
+class XLSXExporter(pg.exporters.CSVExporter):
+  def __init__(self, item, xheader=None, yheader=None):
+    pg.exporters.CSVExporter.__init__(self, item)
+    self.item = item
+    self.xheader = xheader
+    self.yheader = yheader
+  
+  def export(self, fileName=None):
+    if fileName is None:
+      self.fileSaveDialog(filter=["*.xlsx"])
+      return
+
+    data = []
+    header = []
+
+    # get header and data
+    for i, c in enumerate(self.item.curves):
+      cd = c.getData()
+      if cd[0] is None:
+        continue
+      data.append(cd)
+      if self.xheader is not None and self.yheader is not None:
+        xName = f'{self.xheader}_{i:#d}'
+        yName = f'{self.yheader}_{i:#d}'
+      elif hasattr(c, 'implements') and c.implements('plotData') and c.name() is not None:
+        name = c.name().replace('"', '""') + '_'
+        xName, yName = '"'+name+'x"', '"'+name+'y"'
+      else:
+        xName = 'x%d' % i
+        yName = 'y%d' % i
+      header.extend([xName, yName])
+    
+    # create and open workbook
+    workbook = Workbook(fileName)
+    worksheet = workbook.add_worksheet()
+    bold = workbook.add_format({'bold': True})
+    numCols = len(data)*2
+    
+    # write header
+    for col in range(numCols):
+      worksheet.write(0, col, header[col], bold)
+    
+    # write data
+    for i, d in enumerate(data):
+      numCols = len(d)
+      numRows = len(d[0])
+      for row in range(1, numRows+1):
+        for col in range(i*2, i*2+numCols):
+          worksheet.write(row, col, d[col-i*2][row-1])
+    
+    # close workbook
+    workbook.close()
+
+
+class CSVExporter(pg.exporters.CSVExporter):
+  def __init__(self, item, xheader=None, yheader=None):
+    pg.exporters.CSVExporter.__init__(self, item)
+    self.item = item
+    self.xheader = xheader
+    self.yheader = yheader
+  
+  def export(self, fileName=None):
+    if fileName is None:
+      self.fileSaveDialog(filter=["*.csv"])
+      return
+
+    data = []
+    header = []
+    sep = ','
+
+    for i, c in enumerate(self.item.curves):
+      cd = c.getData()
+      if cd[0] is None:
+        continue
+      data.append(cd)
+      if self.xheader is not None and self.yheader is not None:
+        xName = f'{self.xheader}_{i:#d}'
+        yName = f'{self.yheader}_{i:#d}'
+      elif hasattr(c, 'implements') and c.implements('plotData') and c.name() is not None:
+        name = c.name().replace('"', '""') + '_'
+        xName, yName = '"'+name+'x"', '"'+name+'y"'
+      else:
+        xName = 'x%d' % i
+        yName = 'y%d' % i
+      header.extend([xName, yName])
+
+    with open(fileName, 'w') as fd:
+      fd.write(sep.join(header) + '\n')
+      i = 0
+      numFormat = '%%0.%dg' % self.params['precision']
+      numRows = max([len(d[0]) for d in data])
+      for i in range(numRows):
+        for j, d in enumerate(data):
+          # print(d)
+          # write x value if this is the first column, or if we want
+          # x for all rows
+          if d is not None and i < len(d[0]):
+            fd.write(numFormat % d[0][i] + sep)
+          else:
+            fd.write(' %s' % sep)
+
+          # write y value
+          if d is not None and i < len(d[1]):
+            fd.write(numFormat % d[1][i] + sep)
+          else:
+            fd.write(' %s' % sep)
+        fd.write('\n')
 
 
 class AxisItem(pg.AxisItem):
@@ -304,5 +423,5 @@ class AxisItem(pg.AxisItem):
 
 if __name__ == '__main__':
   app = QApplication(sys.argv)
-  dialog = PlotDialog(None)
+  dialog = PlotDialog()
   sys.exit(dialog.exec_())

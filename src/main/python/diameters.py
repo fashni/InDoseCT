@@ -16,10 +16,14 @@ def get_images(filelist, ref=False):
   return imgs
 
 def get_image(ds):
-  return np.array(ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept)
+  try:
+    img_hu = np.array(ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept)
+    return img_hu
+  except Exception as e:
+    return str(e)
 
-def get_dicom(filename):
-  return pydicom.dcmread(filename)
+def get_dicom(*args, **kwargs):
+  return pydicom.dcmread(*args, **kwargs)
 
 def get_reference(file):
   ref = pydicom.dcmread(file)
