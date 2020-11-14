@@ -36,7 +36,7 @@ class AppConfig(QDialog):
   def setConnect(self):
     self.buttons.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.on_restore)
     self.buttons.accepted.connect(self.on_save)
-    self.buttons.rejected.connect(self.reject)
+    self.buttons.rejected.connect(self.on_cancel)
     self.open_db.clicked.connect(self.on_open)
 
   def setTabs(self):
@@ -98,6 +98,10 @@ class AppConfig(QDialog):
       return
     self._set_default()
     self.accept()
+  
+  def on_cancel(self):
+    self.patients_db.setText(os.path.abspath(self.configs['patients_db']))
+    self.reject()
 
 
 # if __name__ == "__main__":

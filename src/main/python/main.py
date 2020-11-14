@@ -390,6 +390,7 @@ class MainWindow(QMainWindow):
   def on_open_config(self):
     accepted = self.configs.exec()
     if accepted:
+      self.ctx.database.update_connection('patient', self.ctx.patients_database())
       self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
 
   def on_save_db(self):
@@ -432,7 +433,7 @@ class AppContext(ApplicationContext):
     if not check:
       return
     self.initVar()
-    self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db)
+    self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db, patient=self.patients_database())
     self.phantom_model = QSqlTableModel(db=self.database.ssde_db)
     self.phantom_model.setTable("Protocol_Group")
     self.phantom_model.select()

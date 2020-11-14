@@ -2,20 +2,18 @@ import sys
 import os
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QIntValidator
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
                              QTableView, QLabel, QPushButton, QLineEdit,
                              QHeaderView, QToolBar, QAction, QFileDialog,
                              QMessageBox)
 from xlsxwriter.workbook import Workbook
-import re
 
 class DBViewer(QWidget):
   def __init__(self, ctx):
     super(DBViewer, self).__init__()
     self.ctx = ctx
 
-    self.db = None
     self.layout = QVBoxLayout()
     self.queryModel = QSqlQueryModel()
 
@@ -27,22 +25,24 @@ class DBViewer(QWidget):
     self.totalPageLabel = QLabel()
     self.currentPageLabel = QLabel()
     self.switchPageLineEdit = QLineEdit()
+    self.switchPageLineEdit.tag = 'edit'
     self.prevButton = QPushButton("Prev")
     self.nextButton = QPushButton("Next")
     self.refreshButton = QPushButton("Refresh")
-    self.switchPageButton = QPushButton("Switch")
+    self.switchPageButton = QPushButton("Jump to page")
+    self.switchPageButton.tag = 'button'
     self.currentPage = 1
     self.totalPage = None
     self.totalRecordCount = None
     self.pageRecordCount = 20
 
     self.initUI()
-    self.openConnection()
     self.initModel()
     self.setUpConnect()
     self.updateStatus()
 
   def initUI(self):
+    self.switchPageLineEdit.setValidator(QIntValidator())
     self.layout.setContentsMargins(11, 0, 11, 11)
     self.toolbar.addAction(self.exportXLS)
     self.layout.addWidget(self.toolbar)
@@ -54,7 +54,6 @@ class DBViewer(QWidget):
     hLayout = QHBoxLayout()
     hLayout.addWidget(self.prevButton)
     hLayout.addWidget(self.nextButton)
-    hLayout.addWidget(QLabel("Jump to Page:"))
     self.switchPageLineEdit.setFixedWidth(40)
     hLayout.addWidget(self.switchPageLineEdit)
     hLayout.addWidget(self.switchPageButton)
@@ -63,7 +62,6 @@ class DBViewer(QWidget):
     hLayout.addWidget(self.currentPageLabel)
     hLayout.addWidget(QLabel("of"))
     hLayout.addWidget(self.totalPageLabel)
-    # hLayout.addStretch()
     hLayout.addWidget(self.refreshButton)
 
     self.layout.addLayout(hLayout)
@@ -76,17 +74,9 @@ class DBViewer(QWidget):
     self.prevButton.clicked.connect(self.onPrevPage)
     self.nextButton.clicked.connect(self.onNextPage)
     self.switchPageButton.clicked.connect(self.onSwitchPage)
+    self.switchPageLineEdit.editingFinished.connect(self.onSwitchPage)
     self.refreshButton.clicked.connect(self.onRefresh)
     self.exportXLS.triggered.connect(self.onExport)
-
-  def openConnection(self):
-    PATIENTS_DB_PATH = self.ctx.patients_database()
-    if self.db:
-      self.onClose()
-    self.db = QSqlDatabase.addDatabase("QSQLITE")
-    self.db.setDatabaseName(PATIENTS_DB_PATH)
-    if not self.db.open():
-      return False
 
   def initModel(self):
     self.queryModel.setHeaderData(0, Qt.Horizontal, "ID")
@@ -97,8 +87,8 @@ class DBViewer(QWidget):
     self.queryModel.setHeaderData(5, Qt.Horizontal, "Age")
     self.queryModel.setHeaderData(6, Qt.Horizontal, "Sex_ID")
     self.queryModel.setHeaderData(7, Qt.Horizontal, "Sex")
-    self.queryModel.setHeaderData(8, Qt.Horizontal, "CTDIVol")
-    self.queryModel.setHeaderData(9, Qt.Horizontal, "DE_WED")
+    self.queryModel.setHeaderData(8, Qt.Horizontal, "CTDIvol")
+    self.queryModel.setHeaderData(9, Qt.Horizontal, "Deff_Dw")
     self.queryModel.setHeaderData(10, Qt.Horizontal, "SSDE")
     self.queryModel.setHeaderData(11, Qt.Horizontal, "DLP")
     self.queryModel.setHeaderData(12, Qt.Horizontal, "DLPc")
@@ -106,7 +96,7 @@ class DBViewer(QWidget):
 
     # Query all records
     sql = "SELECT * FROM PATIENTS"
-    self.queryModel.setQuery(sql, self.db)
+    self.queryModel.setQuery(sql, self.ctx.database.patient_db)
     self.totalRecordCount = self.queryModel.rowCount()
     if self.totalRecordCount % self.pageRecordCount == 0:
       self.totalPage = int(self.totalRecordCount / self.pageRecordCount)
@@ -115,7 +105,7 @@ class DBViewer(QWidget):
 
     # Show first page
     sql = f"SELECT * FROM PATIENTS LIMIT {0},{self.pageRecordCount:#d}"
-    self.queryModel.setQuery(sql, self.db)
+    self.queryModel.setQuery(sql, self.ctx.database.patient_db)
 
   def onExport(self):
     filename, _ = QFileDialog.getSaveFileName(self, "Export to Excel", "", "Excel Workbook (*.xlsx)")
@@ -125,7 +115,7 @@ class DBViewer(QWidget):
     worksheet = workbook.add_worksheet()
     bold = workbook.add_format({'bold': True})
     sql = "SELECT * FROM PATIENTS"
-    self.queryModel.setQuery(sql, self.db)
+    self.queryModel.setQuery(sql, self.ctx.database.patient_db)
 
     for row in range(self.queryModel.rowCount()+1):
       for col in range(self.queryModel.record(row).count()):
@@ -137,7 +127,6 @@ class DBViewer(QWidget):
     QMessageBox.information(self, "Success", "Records can be found in "+filename+" .")
 
   def onRefresh(self):
-    self.openConnection()
     self.initModel()
     if self.totalPage < self.currentPage:
       self.currentPage = 1
@@ -158,12 +147,10 @@ class DBViewer(QWidget):
     self.updateStatus()
 
   def onSwitchPage(self):
-    szText = self.switchPageLineEdit.text()
-    pattern = re.compile('^[0-9]+$')
-    match = pattern.match(szText)
-    if not match:
-      QMessageBox.information(self, "Tips", "Please enter a number.")
+    sender = self.sender()
+    if sender.tag == 'edit' and not self.switchPageLineEdit.hasFocus():
       return
+    szText = self.switchPageLineEdit.text()
     if szText == "":
       QMessageBox.information(self, "Tips", "Please enter a page number.")
       return
@@ -180,7 +167,7 @@ class DBViewer(QWidget):
   # Query records based on paging
   def queryRecord(self, limitIndex):
     sql = f"SELECT * FROM PATIENTS LIMIT {limitIndex:#d},{self.pageRecordCount:#d}"
-    self.queryModel.setQuery(sql)
+    self.queryModel.setQuery(sql, self.ctx.database.patient_db)
 
   # Update buttons
   def updateStatus(self):
@@ -195,20 +182,3 @@ class DBViewer(QWidget):
       self.nextButton.setEnabled(False)
     else:
       self.nextButton.setEnabled(True)
-
-  def onClose(self):
-    PATIENTS_DB_PATH = self.ctx.patients_database()
-    self.db.close()
-    del self.db
-    QSqlDatabase.removeDatabase(PATIENTS_DB_PATH)
-    self.db = None
-
-  def closeEvent(self, event):
-    self.onClose()
-
-
-# if __name__ == "__main__":
-#   app = QApplication(sys.argv)
-#   window = DBViewer()
-#   window.show()
-#   sys.exit(app.exec_())

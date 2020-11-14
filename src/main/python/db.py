@@ -6,18 +6,35 @@ from PyQt5.QtSql import QSqlDatabase
 
 class Database(object):
   def __init__(self, **kwargs):
+    self.keys = []
     for key, value in kwargs.items():
-      self.__dict__[key] = value
-    self.keys = list(self.__dict__.keys())
+      setattr(self, key, value)
+      self.keys.append(key)
+    print(self.keys)
     self.set_connection()
     print('db estabilished')
 
   def set_connection(self):
     for key in self.keys:
-      self.__dict__[key+'_db'] = QSqlDatabase.addDatabase("QSQLITE", key+"_connection")
-      self.__dict__[key+'_db'].setDatabaseName(self.__dict__[key])
-      if not self.__dict__[key+'_db'].open():
-        QMessageBox.warning(None, f"Database Error: {self.__dict__[key+'_db'].lastError().text()}")
+      setattr(self, key+'_db', QSqlDatabase.addDatabase("QSQLITE", key+"_connection"))
+      db = getattr(self, key+'_db')
+      db.setDatabaseName(getattr(self, key))
+      if not db.open():
+        QMessageBox.warning(None, "Database Error:", f"{db.lastError().text()}")
+
+  def update_connection(self, key, new_db):
+    if not hasattr(self, key+'_db'):
+      QMessageBox.warning(None, "Database Error", f"No db connection with the name {key}")
+      return
+    db = getattr(self, key+'_db')
+    path = getattr(self, key) 
+    db.close()
+    db.removeDatabase(path)
+    db.setDatabaseName(new_db)
+    setattr(self, key, new_db)
+    if not db.open():
+      QMessageBox.warning(None, "Database Error:", f"{db.lastError().text()}")
+
 
 def get_db():
   with open('config.json', 'r') as f:
@@ -60,7 +77,7 @@ def create_patients_table(path):
 
 def insert_patient(patient_data, path):
   con = create_connection(path)
-  sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIVol, DE_WED, SSDE, DLP, DLPc, Effective_Dose)
+  sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIvol, Deff_Dw, SSDE, DLP, DLPc, Effective_Dose)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
   cur.execute(sql, patient_data)
