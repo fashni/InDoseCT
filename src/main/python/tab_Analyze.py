@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QLineEdit, QSpinBox, QComboBox
+from PyQt5.QtWidgets import QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QDateEdit, QSpinBox, QComboBox
 
 class AnalyzeTab(QWidget):
   def __init__(self):
@@ -12,8 +12,10 @@ class AnalyzeTab(QWidget):
     self.protocol_cb = QComboBox()
     self.age_sb1 = QSpinBox()
     self.age_sb2 = QSpinBox()
-    self.date_edit1 = QLineEdit()
-    self.date_edit2 = QLineEdit()
+    self.date_edit1 = QDateEdit()
+    self.date_edit2 = QDateEdit()
+    self.date_edit1.setDisplayFormat('dd/MM/yyyy')
+    self.date_edit2.setDisplayFormat('dd/MM/yyyy')
 
     age_layout = QHBoxLayout()
     age_layout.addWidget(self.age_sb1)

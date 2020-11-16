@@ -75,6 +75,12 @@ class AppConfig(QDialog):
       'patients_db': self.ctx.default_patients_database,
     }
     self._set_config()
+    if not os.path.exists(self.configs['patients_db']):
+      try:
+        create_patients_table(self.configs['patients_db'])
+      except:
+        self.ctx.ioError()
+        return
     self.patients_db.setText(os.path.abspath(self.configs['patients_db']))
 
   def on_save(self):
@@ -98,14 +104,7 @@ class AppConfig(QDialog):
       return
     self._set_default()
     self.accept()
-  
+
   def on_cancel(self):
     self.patients_db.setText(os.path.abspath(self.configs['patients_db']))
     self.reject()
-
-
-# if __name__ == "__main__":
-#   app = QApplication(sys.argv)
-#   window = AppConfig()
-#   window.show()
-#   sys.exit(app.exec_())

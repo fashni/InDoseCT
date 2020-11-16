@@ -1,4 +1,6 @@
-from PyQt5.QtWidgets import QRadioButton, QGridLayout, QHBoxLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox
+from PyQt5.QtWidgets import (QRadioButton, QGridLayout, QHBoxLayout, QFormLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox,
+                             QDateEdit, QSpinBox, QAbstractSpinBox)
+from PyQt5.QtCore import QDate
 from db import get_records_num
 
 class InfoPanel(QWidget):
@@ -13,13 +15,14 @@ class InfoPanel(QWidget):
     self.sex = None
     self.initUI()
     self.setUpConnect()
+    self.setInfo(self.getInfo())
 
   def setUpConnect(self):
     self.name_edit.textChanged.connect(self.on_name_changed)
     self.protocol_edit.textChanged.connect(self.on_protocol_changed)
-    self.exam_date_edit.textChanged.connect(self.on_date_changed)
-    self.age_edit.textChanged.connect(self.on_age_changed)
-    self.sex_edit.textChanged.connect(self.on_sex_changed)
+    self.exam_date_edit.dateChanged.connect(self.on_date_changed)
+    self.age_edit.valueChanged.connect(self.on_age_changed)
+    self.sex_edit.activated[int].connect(self.on_sex_changed)
 
   def initUI(self):
     no_label = QLabel('No')
@@ -32,65 +35,72 @@ class InfoPanel(QWidget):
     self.no_edit = QLineEdit(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
     self.name_edit = QLineEdit()
     self.protocol_edit = QLineEdit()
-    self.exam_date_edit = QLineEdit()
-    self.age_edit = QLineEdit()
-    self.sex_edit = QLineEdit()
+    self.exam_date_edit = QDateEdit()
+    self.age_edit = QSpinBox()
+    self.sex_edit = QComboBox()
 
-    grid = QGridLayout()
-    grid.setHorizontalSpacing(5)
-    grid.setVerticalSpacing(1)
+    self.sex_edit.addItems(['M', 'F', 'Unspecified'])
+    self.sex_edit.setPlaceholderText('Unspecified')
+    self.sex_edit.setCurrentIndex(2)
+    self.exam_date_edit.setDisplayFormat('dd/MM/yyyy')
+    self.exam_date_edit.setButtonSymbols(QAbstractSpinBox.NoButtons)
+    self.age_edit.setButtonSymbols(QAbstractSpinBox.NoButtons)
 
-    grid.addWidget(no_label, 0, 0)
-    grid.addWidget(self.no_edit, 0, 1)
-    grid.addWidget(name_label, 1, 0)
-    grid.addWidget(self.name_edit, 1, 1)
-    grid.addWidget(protocol_label, 2, 0)
-    grid.addWidget(self.protocol_edit, 2, 1)
-    grid.addWidget(exam_date_label, 0, 2)
-    grid.addWidget(self.exam_date_edit, 0, 3)
-    grid.addWidget(age_label, 1, 2)
-    grid.addWidget(self.age_edit, 1, 3)
-    grid.addWidget(sex_label, 2, 2)
-    grid.addWidget(self.sex_edit, 2, 3)
+    l_layout = QFormLayout()
+    l_layout.setVerticalSpacing(1)
+    l_layout.addRow(no_label, self.no_edit)
+    l_layout.addRow(name_label, self.name_edit)
+    l_layout.addRow(protocol_label, self.protocol_edit)
+
+    r_layout = QFormLayout()
+    r_layout.setVerticalSpacing(1)
+    r_layout.addRow(exam_date_label, self.exam_date_edit)
+    r_layout.addRow(age_label, self.age_edit)
+    r_layout.addRow(sex_label, self.sex_edit)
 
     main_layout = QHBoxLayout()
-    main_layout.addLayout(grid)
+    main_layout.addLayout(l_layout)
+    main_layout.addLayout(r_layout)
 
     self.setLayout(main_layout)
     self.setMaximumHeight(75)
 
   def setInfo(self, pat_info):
-    self.name = pat_info['name'] if pat_info['name'] is not None else ''
-    self.age = pat_info['age'][:3] if pat_info['age'] is not None else ''
-    self.sex = pat_info['sex'] if pat_info['sex'] is not None else ''
-    self.protocol = pat_info['protocol'] if pat_info['protocol'] is not None else ''
-    self.date = pat_info['date'] if pat_info['date'] is not None else ''
+    self.name = pat_info['name'] or ''
+    self.protocol = pat_info['protocol'] or ''
+    self.age = pat_info['age'] or 0
+    self.sex = pat_info['sex'] or None
+    self.date = pat_info['date'] or None
+
     self.name_edit.setText(self.name)
-    self.age_edit.setText(self.age)
-    self.sex_edit.setText(self.sex)
     self.protocol_edit.setText(self.protocol)
-    self.exam_date_edit.setText(self.date)
+    self.age_edit.setValue(self.age)
+    self.sex_edit.setCurrentText(self.sex) if self.sex is not None else self.sex_edit.setCurrentIndex(2)
+    date = QDate.fromString(self.date, 'yyyyMMdd') if self.date is not None else QDate.currentDate()
+    self.exam_date_edit.setDate(date)
 
   def getInfo(self):
-    info = {'name': self.name if self.name else None,
-            'sex': self.sex if self.sex else None,
-            'age': self.age if self.age else None,
-            'protocol': self.protocol if self.protocol else None,
-            'date': self.date if self.date else None,
-            }
+    info = {
+      'name': self.name or None,
+      'sex': self.sex or None,
+      'age': self.age or None,
+      'protocol': self.protocol or None,
+      'date': self.date or None,
+      }
     return info
 
   def on_name_changed(self):
     self.name = self.name_edit.text()
 
   def on_date_changed(self):
-    self.date = self.exam_date_edit.text()
+    self.date = self.exam_date_edit.date().toString('yyyyMMdd')
 
   def on_age_changed(self):
-    self.age = self.age_edit.text()
+    self.age = self.age_edit.value()
 
-  def on_sex_changed(self):
-    self.sex = self.sex_edit.text()
+  def on_sex_changed(self, id):
+    self.sex = self.sex_edit.currentText() if id != 2 else None
+    print(self.sex)
 
   def on_protocol_changed(self):
     self.protocol = self.protocol_edit.text()

@@ -192,6 +192,7 @@ class MainWindow(QMainWindow):
     splitter = QSplitter(Qt.Horizontal)
     splitter.addWidget(self.ctx.axes)
     splitter.addWidget(right_panel)
+    splitter.setSizes([854,427])
     hbox.addWidget(splitter)
 
     self.main_widget.setLayout(hbox)
@@ -249,14 +250,6 @@ class MainWindow(QMainWindow):
       except InvalidDicomError as e:
         excpt_msg = str(e)
         continue
-        # try:
-        #   dcm = get_dicom(filename, force=True)
-        #   if 'StudyDate' not in dcm:
-        #     raise InvalidDicomError
-        # except Exception as e:
-        #   print(e)
-        #   self.last_error = e
-        #   continue
       self.ctx.dicoms.append(dcm)
       progress.setValue(idx)
       if progress.wasCanceled():
@@ -297,9 +290,11 @@ class MainWindow(QMainWindow):
     if self.diameter_tab.slices:
       self.diameter_tab.slices.setValue(self.ctx.current_img)
       self.diameter_tab.slices.setMaximum(self.ctx.total_img)
+      self.diameter_tab.slices.setMinimum(1)
     if self.diameter_tab.slices2:
-      self.diameter_tab.slices.setValue(self.ctx.current_img)
-      self.diameter_tab.slices.setMaximum(self.ctx.total_img)
+      self.diameter_tab.slices2.setValue(self.ctx.current_img)
+      self.diameter_tab.slices2.setMaximum(self.ctx.total_img)
+      self.diameter_tab.slices2.setMinimum(1)
     self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
     self.close_img_btn.setEnabled(True)
@@ -309,7 +304,7 @@ class MainWindow(QMainWindow):
     self.patient_info = {
       'name': str(ref.PatientName) if 'PatientName' in ref else None,
       'sex': str(ref.PatientSex) if 'PatientSex' in ref else None,
-      'age': str(ref.PatientAge) if 'PatientAge' in ref else None,
+      'age': int(str(ref.PatientAge)[:3]) if 'PatientAge' in ref else None,
       'protocol': str(ref.BodyPartExamined) if 'BodyPartExamined' in ref else None,
       'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None
     }
@@ -348,6 +343,7 @@ class MainWindow(QMainWindow):
   def on_go_to_slice_edit_finish(self):
     if self.go_to_slice_sb.hasFocus():
       self.on_go_to_slice()
+      self.go_to_slice_sb.clearFocus()
 
   def on_close_image(self):
     self.initVar()
@@ -400,27 +396,17 @@ class MainWindow(QMainWindow):
     self.patient_info = self.info_panel.getInfo()
     recs = [
       self.patient_info['name'],    # 'name'
-      None,   # 'protocol_num'
       self.patient_info['protocol'],    # 'protocol'
       self.patient_info['date'],    # 'date'
-      self.patient_info['age'][:3] if self.patient_info['age'] is not None else None,   # 'age'
-      1,    # 'sex_id'
+      self.patient_info['age'] or None,   # 'age'
       self.patient_info['sex'],   # 'sex'
-      self.ctx.app_data.CTDIv if self.ctx.app_data.CTDIv is not 0 else None,   # 'CTDIVol'
-      self.ctx.app_data.diameter if self.ctx.app_data.diameter is not 0 else None,    # 'DE_WED'
-      self.ctx.app_data.SSDE if self.ctx.app_data.SSDE is not 0 else None,   # 'SSDE'
-      self.ctx.app_data.DLP if self.ctx.app_data.DLP is not 0 else None,    # 'DLP'
-      self.ctx.app_data.DLPc if self.ctx.app_data.DLPc is not 0 else None,   # 'DLPc'
-      self.ctx.app_data.effdose if self.ctx.app_data.effdose is not 0 else None   # 'Effective_Dose'
+      self.ctx.app_data.CTDIv or None,   # 'CTDIVol'
+      self.ctx.app_data.diameter or None,    # 'DE_WED'
+      self.ctx.app_data.SSDE or None,   # 'SSDE'
+      self.ctx.app_data.DLP or None,    # 'DLP'
+      self.ctx.app_data.DLPc or None,   # 'DLPc'
+      self.ctx.app_data.effdose or None   # 'Effective_Dose'
     ]
-    if recs[6] is not None:
-      if not recs[6]:
-        recs[5] = None
-        recs[6] = None
-      elif recs[6]=='F':
-        recs[5] = 2
-    else:
-        recs[5] = None
     print(recs)
     insert_patient(recs, self.ctx.patients_database())
     QMessageBox.information(self, "Success", "Record has been saved in database.")

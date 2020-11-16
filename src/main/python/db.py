@@ -27,7 +27,7 @@ class Database(object):
       QMessageBox.warning(None, "Database Error", f"No db connection with the name {key}")
       return
     db = getattr(self, key+'_db')
-    path = getattr(self, key) 
+    path = getattr(self, key)
     db.close()
     db.removeDatabase(path)
     db.setDatabaseName(new_db)
@@ -57,11 +57,9 @@ def create_patients_table(path):
         CREATE TABLE IF NOT EXISTS PATIENTS (
           ID INTEGER PRIMARY KEY,
           Name TEXT,
-          Protocol_ID INTEGER,
           Protocol TEXT,
           Date TEXT,
           Age INTEGER,
-          Sex_ID INTEGER,
           Sex TEXT,
           CTDIvol REAL,
           Deff_Dw REAL,
@@ -77,8 +75,8 @@ def create_patients_table(path):
 
 def insert_patient(patient_data, path):
   con = create_connection(path)
-  sql = """INSERT INTO PATIENTS (Name, Protocol_ID, Protocol, Date, Age, Sex_ID, Sex, CTDIvol, Deff_Dw, SSDE, DLP, DLPc, Effective_Dose)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+  sql = """INSERT INTO PATIENTS (Name, Protocol, Date, Age, Sex, CTDIvol, Deff_Dw, SSDE, DLP, DLPc, Effective_Dose)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
   cur.execute(sql, patient_data)
   con.commit()
@@ -125,15 +123,3 @@ def get_records(path, table):
       data.append(row[1:])
   con.close()
   return data
-
-# def main():
-#   create_patients_table()
-
-#   patient1 = ('MACHRUP, TN', None, 'HEAD', '20150128', 72, 1, 'M', 7.0, 17.290882261324896, None, 70.0, None, None)
-#   patient2 = ('XXXXXX-001', None, None, '20170209', None, None, None, 6.0, 15.613011979837614, None, 138.0, None, None)
-#   patient_id1 = insert_patient(patient1)
-#   patient_id2 = insert_patient(patient2)
-
-# if __name__ == '__main__':
-#   main()
-#   print_records()

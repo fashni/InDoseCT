@@ -50,8 +50,9 @@ class OrganTab(QWidget):
     self.calc_btn = QPushButton('Calculate')
 
     self.organ_edits = [QLineEdit('0') for i in range(28)]
-    [organ_edit.setMaximumWidth(60) for organ_edit in self.organ_edits]
+    [organ_edit.setMaximumWidth(70) for organ_edit in self.organ_edits]
     [organ_edit.setReadOnly(True) for organ_edit in self.organ_edits]
+    [organ_edit.setAlignment(Qt.AlignRight) for organ_edit in self.organ_edits]
 
     self.organ_labels = []
 

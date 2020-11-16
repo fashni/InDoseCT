@@ -47,8 +47,8 @@ class DBViewer(QWidget):
     self.toolbar.addAction(self.exportXLS)
     self.layout.addWidget(self.toolbar)
 
-    self.tableView.horizontalHeader().setStretchLastSection(True)
-    self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+    self.tableView.horizontalHeader().setStretchLastSection(False)
+    self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
     self.layout.addWidget(self.tableView)
 
     hLayout = QHBoxLayout()
@@ -68,7 +68,7 @@ class DBViewer(QWidget):
     self.setLayout(self.layout)
 
     self.setWindowTitle("Patients Record")
-    self.resize(960, 640)
+    self.resize(800, 600)
 
   def setUpConnect(self):
     self.prevButton.clicked.connect(self.onPrevPage)
@@ -79,21 +79,6 @@ class DBViewer(QWidget):
     self.exportXLS.triggered.connect(self.onExport)
 
   def initModel(self):
-    self.queryModel.setHeaderData(0, Qt.Horizontal, "ID")
-    self.queryModel.setHeaderData(1, Qt.Horizontal, "Name")
-    self.queryModel.setHeaderData(2, Qt.Horizontal, "Protocol_ID")
-    self.queryModel.setHeaderData(3, Qt.Horizontal, "Protocol")
-    self.queryModel.setHeaderData(4, Qt.Horizontal, "Date")
-    self.queryModel.setHeaderData(5, Qt.Horizontal, "Age")
-    self.queryModel.setHeaderData(6, Qt.Horizontal, "Sex_ID")
-    self.queryModel.setHeaderData(7, Qt.Horizontal, "Sex")
-    self.queryModel.setHeaderData(8, Qt.Horizontal, "CTDIvol")
-    self.queryModel.setHeaderData(9, Qt.Horizontal, "Deff_Dw")
-    self.queryModel.setHeaderData(10, Qt.Horizontal, "SSDE")
-    self.queryModel.setHeaderData(11, Qt.Horizontal, "DLP")
-    self.queryModel.setHeaderData(12, Qt.Horizontal, "DLPc")
-    self.queryModel.setHeaderData(13, Qt.Horizontal, "Effective_Dose")
-
     # Query all records
     sql = "SELECT * FROM PATIENTS"
     self.queryModel.setQuery(sql, self.ctx.database.patient_db)

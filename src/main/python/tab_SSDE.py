@@ -164,9 +164,9 @@ class SSDETab(QWidget):
     self.dlp_edit.setText(f'{value:#.4f}')
 
   def on_protocol_changed(self, idx):
-    self.protocol_id = self.protocol_model.record(idx).value("id")-1
-    self.alfa = self.effdose_model.record(self.protocol_id).value("alfaE")
-    self.beta = self.effdose_model.record(self.protocol_id).value("betaE")
+    self.protocol_id = self.protocol_model.record(idx).value("id")
+    self.alfa = self.effdose_model.record(self.protocol_id-1).value("alfaE")
+    self.beta = self.effdose_model.record(self.protocol_id-1).value("betaE")
     print(self.protocol_id, self.alfa, self.beta)
 
   def on_calculate(self):
