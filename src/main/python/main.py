@@ -203,7 +203,7 @@ class MainWindow(QMainWindow):
     self.diameter_tab = DiameterTab(self.ctx)
     self.ssde_tab = SSDETab(self.ctx)
     self.organ_tab = OrganTab(self.ctx)
-    self.analyze_tab = AnalyzeTab()
+    self.analyze_tab = AnalyzeTab(self.ctx)
 
     self.tabs.addTab(self.ctdiv_tab, 'CTDIvol')
     self.tabs.addTab(self.diameter_tab, 'Diameter')
@@ -388,6 +388,7 @@ class MainWindow(QMainWindow):
     if accepted:
       self.ctx.database.update_connection('patient', self.ctx.patients_database())
       self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
+      self.analyze_tab.set_filter()
 
   def on_save_db(self):
     btn_reply = QMessageBox.question(self, 'Save Record', 'Are you sure want to save the record?')
@@ -411,6 +412,7 @@ class MainWindow(QMainWindow):
     insert_patient(recs, self.ctx.patients_database())
     QMessageBox.information(self, "Success", "Record has been saved in database.")
     self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
+    self.analyze_tab.set_filter()
 
 
 class AppContext(ApplicationContext):
