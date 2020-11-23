@@ -119,7 +119,7 @@ class Axes(pg.PlotWidget):
     i, j = pos.x(), pos.y()
     i = int(np.clip(i, 0, self.imagedata.shape[0] - 1))
     j = int(np.clip(j, 0, self.imagedata.shape[1] - 1))
-    val = self.imagedata[i, j]
+    val = self.imagedata[j, i]
     self.setTitle(f"pixel: ({i:#d}, {j:#d})  value: {val:#g}")
 
   def addLAT(self):
