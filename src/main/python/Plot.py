@@ -328,7 +328,10 @@ class XLSXExporter(pg.exporters.CSVExporter):
       numRows = len(d[0])
       for row in range(1, numRows+1):
         for col in range(i*2, i*2+numCols):
-          worksheet.write(row, col, d[col-i*2][row-1])
+          try:
+            worksheet.write(row, col, d[col-i*2][row-1])
+          except:
+            continue
     
     # close workbook
     workbook.close()

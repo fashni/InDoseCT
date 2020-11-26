@@ -21,7 +21,7 @@ class DBViewer(QWidget):
     self.tableView = QTableView()
     self.tableView.setModel(self.queryModel)
 
-    self.exportXLS = QAction(self.ctx.export_icon, 'Export to Excel')
+    self.exportXLS = QPushButton(self.ctx.export_icon, 'Export to Excel',)
     self.totalPageLabel = QLabel()
     self.currentPageLabel = QLabel()
     self.switchPageLineEdit = QLineEdit()
@@ -44,7 +44,7 @@ class DBViewer(QWidget):
   def initUI(self):
     self.switchPageLineEdit.setValidator(QIntValidator())
     self.layout.setContentsMargins(11, 0, 11, 11)
-    self.toolbar.addAction(self.exportXLS)
+    self.toolbar.addWidget(self.exportXLS)
     self.layout.addWidget(self.toolbar)
 
     self.tableView.horizontalHeader().setStretchLastSection(False)
@@ -68,7 +68,7 @@ class DBViewer(QWidget):
     self.setLayout(self.layout)
 
     self.setWindowTitle("Patients Record")
-    self.resize(800, 600)
+    self.resize(900, 600)
 
   def setUpConnect(self):
     self.prevButton.clicked.connect(self.onPrevPage)
@@ -76,7 +76,7 @@ class DBViewer(QWidget):
     self.switchPageButton.clicked.connect(self.onSwitchPage)
     self.switchPageLineEdit.editingFinished.connect(self.onSwitchPage)
     self.refreshButton.clicked.connect(self.onRefresh)
-    self.exportXLS.triggered.connect(self.onExport)
+    self.exportXLS.clicked.connect(self.onExport)
 
   def initModel(self):
     # Query all records
