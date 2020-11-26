@@ -19,6 +19,7 @@ class CTDIVolTab(QWidget):
     self.calculate()
 
   def initVar(self):
+    self.prev_mode = 0
     self.mode = 0
     self.CTDI = 0
     self.DLP = 0
@@ -218,7 +219,6 @@ class CTDIVolTab(QWidget):
     xlabel = 'TCM'
     title = 'Tube Current'
     self.figure = PlotDialog()
-    self.figure.axes.scatterPlot.clear()
     self.figure.plot(self.idxs, self.current, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
     self.figure.avgLine(self.tube_current)
     self.figure.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.tube_current), text=f'Avg {xlabel}: {self.tube_current:#.2f} mA')
@@ -275,6 +275,7 @@ class CTDIVolTab(QWidget):
     self.scan_length = scan_length
 
   def on_set_method(self, idx):
+    self.prev_mode = self.mode
     self.mode = idx
     self.stacks.setCurrentIndex(idx)
     self.calculate()
@@ -343,15 +344,15 @@ class CTDIVolTab(QWidget):
       self.DLP = float(sel)
     except ValueError:
       self.DLP = 0
-    self.calculate()
+    self.set_app_data()
 
   def on_ctdiv_changed(self, sel):
     try:
       self.CTDIv = float(sel)
     except ValueError:
       self.CTDIv = 0
-    self.calculate()
-  
+    self.set_app_data()
+
   def on_dicom_manual(self):
     try:
       self.CTDIv = float(self.ctdiv_d_edit.text())
@@ -390,11 +391,21 @@ class CTDIVolTab(QWidget):
       self.ctdiv_c_edit.setText(f'{self.CTDIv:#.2f}')
       self.dlp_c_edit.setText(f'{self.DLP:#.2f}')
 
+    elif self.mode==1:
+      try:
+        self.CTDIv = float(self.ctdiv_m_edit.text())
+      except:
+        self.CTDIv = 0
+      try:
+        self.DLP = float(self.dlp_m_edit.text())
+      except:
+        self.DLP = 0
+
     elif self.mode==2:
       if not self.ctx.isImage:
         QMessageBox.warning(None, "Warning", "Open DICOM files first.")
-        self.opts.setCurrentIndex(0)
-        self.on_set_method(0)
+        self.opts.setCurrentIndex(self.prev_mode)
+        self.on_set_method(self.prev_mode)
         return
       self.get_ctdiv_dicom()
       self.get_scan_length_dicom()

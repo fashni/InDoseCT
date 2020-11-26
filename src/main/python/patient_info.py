@@ -11,7 +11,7 @@ class InfoPanel(QWidget):
     self.name = None
     self.protocol = None
     self.date = None
-    self.age = None
+    self.age = -1
     self.sex = None
     self.initUI()
     self.setUpConnect()
@@ -45,6 +45,9 @@ class InfoPanel(QWidget):
     self.exam_date_edit.setDisplayFormat('dd/MM/yyyy')
     self.exam_date_edit.setButtonSymbols(QAbstractSpinBox.NoButtons)
     self.age_edit.setButtonSymbols(QAbstractSpinBox.NoButtons)
+    self.age_edit.setSpecialValueText('-')
+    self.age_edit.setMinimum(-1)
+    self.age_edit.setValue(-1)
 
     l_layout = QFormLayout()
     l_layout.setVerticalSpacing(1)
@@ -68,7 +71,7 @@ class InfoPanel(QWidget):
   def setInfo(self, pat_info):
     self.name = pat_info['name'] or ''
     self.protocol = pat_info['protocol'] or ''
-    self.age = pat_info['age'] or 0
+    self.age = pat_info['age'] or -1
     self.sex = pat_info['sex'] or None
     self.date = pat_info['date'] or None
 
@@ -83,7 +86,7 @@ class InfoPanel(QWidget):
     info = {
       'name': self.name or None,
       'sex': self.sex or None,
-      'age': self.age or None,
+      'age': self.age if self.age>=0 else None,
       'protocol': self.protocol or None,
       'date': self.date or None,
       }
