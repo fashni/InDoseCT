@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressDialog, QMessageBox,
                              QComboBox, QDesktopWidget, QSpinBox, QAbstractSpinBox,
-                             QPushButton)
+                             QPushButton, QSizePolicy)
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtSql import QSqlTableModel
@@ -130,10 +130,10 @@ class MainWindow(QMainWindow):
 
     self.next_btn = QAction(self.ctx.next_icon, 'Next Slice', self)
     self.next_btn.setStatusTip('Next Slice')
-    self.next_btn.setShortcut('D')
+    self.next_btn.setShortcut(Qt.Key_Right)
     self.prev_btn = QAction(self.ctx.prev_icon, 'Previous Slice', self)
     self.prev_btn.setStatusTip('Previous Slice')
-    self.prev_btn.setShortcut('A')
+    self.prev_btn.setShortcut(Qt.Key_Left)
     self.close_img_btn = QAction(self.ctx.close_img_icon, 'Close Images', self)
     self.close_img_btn.setStatusTip('Close all images')
     self.close_img_btn.setEnabled(False)
@@ -157,15 +157,8 @@ class MainWindow(QMainWindow):
     img_ctrl.addWidget(self.go_to_slice_sb)
     img_ctrl.addWidget(self.go_to_slice_btn)
 
-    opts = QToolBar('Options')
-    self.addToolBar(opts)
-
-    self.phantom_cb = QComboBox()
-    self.phantom_cb.tag = 'phantom'
-    self.phantom_cb.setModel(self.ctx.phantom_model)
-    self.phantom_cb.setModelColumn(self.ctx.phantom_model.fieldIndex('Protocol'))
-    self.phantom_cb.setPlaceholderText('Phantom')
-    self.phantom_cb.setCurrentIndex(-1)
+    view = QToolBar('View Options')
+    self.addToolBar(view)
 
     self.windowing_cb = QComboBox()
     self.windowing_cb.tag = 'wd'
@@ -174,11 +167,27 @@ class MainWindow(QMainWindow):
     self.windowing_cb.setPlaceholderText('Windowing')
     self.windowing_cb.setCurrentIndex(-1)
 
+    view.addWidget(QLabel('Windowing: '))
+    view.addWidget(self.windowing_cb)
+
+    opts = QToolBar('Options')
+    self.addToolBar(opts)
+
+    spacer = QWidget(self)
+    spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    spacer.setVisible(True)
+
+    self.phantom_cb = QComboBox()
+    self.phantom_cb.tag = 'phantom'
+    self.phantom_cb.setModel(self.ctx.phantom_model)
+    self.phantom_cb.setModelColumn(self.ctx.phantom_model.fieldIndex('Protocol'))
+    self.phantom_cb.setPlaceholderText('Phantom')
+    self.phantom_cb.setCurrentIndex(-1)
+
+    opts.addWidget(spacer)
     opts.addWidget(QLabel('Phantom: '))
     opts.addWidget(self.phantom_cb)
     opts.addSeparator()
-    opts.addWidget(QLabel('Windowing: '))
-    opts.addWidget(self.windowing_cb)
 
   def setLayout(self):
     vbox = QVBoxLayout()
@@ -199,7 +208,7 @@ class MainWindow(QMainWindow):
 
   def setTabs(self):
     self.tabs = QTabWidget()
-    self.ctdiv_tab = CTDIVolTab(self.ctx, parent=self)
+    self.ctdiv_tab = CTDIVolTab(self.ctx)
     self.diameter_tab = DiameterTab(self.ctx)
     self.ssde_tab = SSDETab(self.ctx)
     self.organ_tab = OrganTab(self.ctx)
@@ -399,16 +408,24 @@ class MainWindow(QMainWindow):
       self.patient_info['name'],    # 'name'
       self.patient_info['protocol'],    # 'protocol'
       self.patient_info['date'],    # 'date'
-      self.patient_info['age'] or None,   # 'age'
+      self.patient_info['age'],   # 'age'
       self.patient_info['sex'],   # 'sex'
       self.ctx.app_data.CTDIv or None,   # 'CTDIVol'
       self.ctx.app_data.diameter or None,    # 'DE_WED'
+      'Deff' if self.ctx.app_data.mode else 'Dw',
       self.ctx.app_data.SSDE or None,   # 'SSDE'
       self.ctx.app_data.DLP or None,    # 'DLP'
       self.ctx.app_data.DLPc or None,   # 'DLPc'
       self.ctx.app_data.effdose or None   # 'Effective_Dose'
     ]
     print(recs)
+    if None in recs:
+      ids = [i+1 for i, x in enumerate(recs) if x == None]
+      items = np.array(PAT_RECS_FIELDS)
+      emp_f = items[ids]
+      btn_reply = QMessageBox.question(self, 'Empty field(s)', f'The following fields are empty: {", ".join(emp_f)}\nSave it anyway?')
+      if btn_reply == QMessageBox.No:
+        return
     insert_patient(recs, self.ctx.patients_database())
     QMessageBox.information(self, "Success", "Record has been saved in database.")
     self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
@@ -572,7 +589,7 @@ class AppData(QObject):
 
   def __init__(self, parent=None):
     super(AppData, self).__init__(parent)
-    self._mode = DW
+    self._mode = DEFF_IMAGE
     self._diameter = 0
     self._CTDIv = 0
     self._DLP = 0

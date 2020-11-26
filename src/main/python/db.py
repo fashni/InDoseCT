@@ -55,18 +55,19 @@ def create_patients_table(path):
     try:
       con.execute("""
         CREATE TABLE IF NOT EXISTS PATIENTS (
-          ID INTEGER PRIMARY KEY,
-          Name TEXT,
-          Protocol TEXT,
-          Date TEXT,
-          Age INTEGER,
-          Sex TEXT,
+          id INTEGER PRIMARY KEY,
+          name TEXT,
+          protocol TEXT,
+          exam_date TEXT,
+          age INTEGER,
+          sex TEXT,
           CTDIvol REAL,
-          Deff_Dw REAL,
+          diameter REAL,
+          diameter_type TEXT,
           SSDE REAL,
           DLP REAL,
           DLPc REAL,
-          Effective_Dose REAL
+          effective_dose REAL
         );
       """)
     except sl.Error as e:
@@ -75,8 +76,8 @@ def create_patients_table(path):
 
 def insert_patient(patient_data, path):
   con = create_connection(path)
-  sql = """INSERT INTO PATIENTS (Name, Protocol, Date, Age, Sex, CTDIvol, Deff_Dw, SSDE, DLP, DLPc, Effective_Dose)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+  sql = """INSERT INTO PATIENTS (name, protocol, exam_date, age, sex, CTDIvol, diameter, diameter_type, SSDE, DLP, DLPc, effective_dose)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
   cur.execute(sql, patient_data)
   con.commit()

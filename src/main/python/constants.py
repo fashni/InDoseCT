@@ -10,3 +10,19 @@ DEFF_AGE = 6
 
 HEAD = 1
 BODY = 2
+
+PAT_RECS_FIELDS = [
+  'id',
+  'name',
+  'protocol',
+  'exam_date',
+  'age',
+  'sex',
+  'CTDIvol',
+  'diameter',
+  'diameter_type',
+  'SSDE',
+  'DLP',
+  'DLPc',
+  'effective_dose',
+]
