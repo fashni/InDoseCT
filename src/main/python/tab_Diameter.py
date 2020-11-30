@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
-from diameters import get_dw_value, get_deff_value, get_label, get_label_pos, get_image
+from image_processing import get_dw_value, get_deff_value, get_label, get_label_pos, get_image
 from custom_widgets import VSeparator
 from constants import *
 from Plot import PlotDialog

@@ -158,19 +158,29 @@ def get_label_pos(label):
   pos = get_coord(edges, True)-1
   return pos
 
-def get_patient_info():
-  pass
-
+def windowing(img, window_width, window_level):
+  img_min = window_level - (window_width//2)
+  img_max = window_level + (window_width//2)
+  win = img.copy()
+  win[win < img_min] = img_min
+  win[win > img_max] = img_max
+  return win
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
     sys.exit(-1)
-  dicom_pixels, ref, pat_info = get_images(sys.argv[1], True)
-  area, _, _ = get_deff_value(dicom_pixels[0], ref, 'area')
-  center, _, _ = get_deff_value(dicom_pixels[0], ref, 'center')
-  _max, _, _ = get_deff_value(dicom_pixels[0], ref, 'max')
-  dw = get_dw_value(dicom_pixels[0], get_label(dicom_pixels[0]), ref)
+  print(sys.argv[1])
+  ds = get_dicom(sys.argv[1])
+  ref, _ = get_reference(sys.argv[1])
+  dicom_pixels = get_image(ds)
+  area, _, _ = get_deff_value(dicom_pixels, ref['dimension'], ref['reconst_diameter'], 'area')
+  center, _, _ = get_deff_value(dicom_pixels, ref['dimension'], ref['reconst_diameter'], 'center')
+  _max, _, _ = get_deff_value(dicom_pixels, ref['dimension'], ref['reconst_diameter'], 'max')
+  dw = get_dw_value(dicom_pixels, get_label(dicom_pixels), ref['dimension'], ref['reconst_diameter'])
   print(f'deff area = {area: #.2f} cm')
   print(f'deff center = {center: #.2f} cm')
   print(f'deff max = {_max: #.2f} cm')
   print(f'dw = {dw: #.2f} cm')
+
+  bone = windowing(dicom_pixels, 2000,400)
+  brain = windowing(dicom_pixels, 70,35)

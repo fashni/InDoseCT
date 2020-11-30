@@ -3,9 +3,9 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressDialog, QMessageBox,
                              QComboBox, QDesktopWidget, QSpinBox, QAbstractSpinBox,
-                             QPushButton, QSizePolicy)
+                             QPushButton, QSizePolicy, QLineEdit)
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon, QFont, QIntValidator
 from PyQt5.QtSql import QSqlTableModel
 from pydicom.errors import InvalidDicomError
 import numpy as np
@@ -14,7 +14,7 @@ import os
 import json
 import Plot as plt
 from dicomtree import DicomTree
-from diameters import get_image, get_dicom
+from image_processing import get_image, get_dicom, windowing
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
 from tab_Diameter import DiameterTab
@@ -40,6 +40,8 @@ class MainWindow(QMainWindow):
     self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
+    self.window_width = 'WW'
+    self.window_level = 'WL'
 
   def initUI(self):
     self.title = TITLE
@@ -68,6 +70,9 @@ class MainWindow(QMainWindow):
     self.sigConnect()
 
   def sigConnect(self):
+    self.windowing_cb.activated[int].connect(self._get_windowing_parameters)
+    self.window_level_edit.editingFinished.connect(self.on_custom_windowing)
+    self.window_width_edit.editingFinished.connect(self.on_custom_windowing)
     self.phantom_cb.activated[int].connect(self.on_phantom_update)
     self.phantom_cb.setCurrentIndex(0)
     self.on_phantom_update(0)
@@ -161,14 +166,30 @@ class MainWindow(QMainWindow):
     self.addToolBar(view)
 
     self.windowing_cb = QComboBox()
-    self.windowing_cb.tag = 'wd'
-    # self.windowing_cb.addItems()
-    self.windowing_cb.activated[str].connect(self._set_windowing)
+    self.window_width_edit = QLineEdit('WW')
+    self.window_level_edit = QLineEdit('WL')
+
+    self.window_width_edit.setAlignment(Qt.AlignCenter)
+    self.window_width_edit.setMaximumWidth(50)
+    self.window_width_edit.setEnabled(False)
+    self.window_width_edit.setValidator(QIntValidator())
+
+    self.window_level_edit.setAlignment(Qt.AlignCenter)
+    self.window_level_edit.setMaximumWidth(50)
+    self.window_level_edit.setEnabled(False)
+    self.window_level_edit.setValidator(QIntValidator())
+
+    self.windowing_cb.setEnabled(False)
+    self.windowing_cb.setModel(self.ctx.windowing_model)
+    self.windowing_cb.setModelColumn(self.ctx.windowing_model.fieldIndex('Name'))
+    self.windowing_cb.addItem('Custom')
     self.windowing_cb.setPlaceholderText('Windowing')
-    self.windowing_cb.setCurrentIndex(-1)
+    self.windowing_cb.setCurrentIndex(0)
 
     view.addWidget(QLabel('Windowing: '))
     view.addWidget(self.windowing_cb)
+    view.addWidget(self.window_width_edit)
+    view.addWidget(self.window_level_edit)
 
     opts = QToolBar('Options')
     self.addToolBar(opts)
@@ -182,7 +203,6 @@ class MainWindow(QMainWindow):
     self.phantom_cb.setModel(self.ctx.phantom_model)
     self.phantom_cb.setModelColumn(self.ctx.phantom_model.fieldIndex('Protocol'))
     self.phantom_cb.setPlaceholderText('Phantom')
-    self.phantom_cb.setCurrentIndex(-1)
 
     opts.addWidget(spacer)
     opts.addWidget(QLabel('Phantom: '))
@@ -307,6 +327,7 @@ class MainWindow(QMainWindow):
     self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
     self.close_img_btn.setEnabled(True)
+    self.windowing_cb.setEnabled(True)
 
   def get_patient_info(self):
     ref = self.ctx.dicoms[0]
@@ -331,7 +352,11 @@ class MainWindow(QMainWindow):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.getImg())
+    if isinstance(self.window_width, str) or isinstance(self.window_level, str):
+      self.ctx.axes.imshow(self.ctx.getImg())
+    else:
+      window_img = windowing(self.ctx.getImg(), self.window_width, self.window_level)
+      self.ctx.axes.imshow(window_img)
     self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[self.ctx.current_img-1].ReconstructionDiameter)
 
@@ -356,6 +381,8 @@ class MainWindow(QMainWindow):
 
   def on_close_image(self):
     self.initVar()
+    self.windowing_cb.setCurrentIndex(0)
+    self._get_windowing_parameters(0)
     self.current_lbl.setText(str(self.ctx.current_img))
     self.total_lbl.setText(str(self.ctx.total_img))
     self.go_to_slice_sb.setValue(self.ctx.current_img)
@@ -365,9 +392,33 @@ class MainWindow(QMainWindow):
     self.ctx.axes.clearAll()
     self.dcmtree_btn.setEnabled(False)
     self.close_img_btn.setEnabled(False)
+    self.windowing_cb.setEnabled(False)
 
-  def _set_windowing(self, sel):
-    pass
+  def _get_windowing_parameters(self, idx):
+    id = self.ctx.windowing_model.record(idx).value("id")
+    window_width = self.ctx.windowing_model.record(idx).value("windowwidth")
+    window_level = self.ctx.windowing_model.record(idx).value("windowlevel")
+    if id == 0:
+      window_width = self.window_width
+      window_level = self.window_level
+      self.window_width_edit.setEnabled(True)
+      self.window_level_edit.setEnabled(True)
+    else:
+      self.window_width_edit.setEnabled(False)
+      self.window_level_edit.setEnabled(False)
+    self.window_width = window_width
+    self.window_level = window_level
+    self.window_width_edit.setText(str(self.window_width))
+    self.window_level_edit.setText(str(self.window_level))
+
+    if self.ctx.isImage:
+      self.update_image()
+
+  def on_custom_windowing(self):
+    if self.sender().hasFocus():
+      self.window_width = int(self.window_width_edit.text())
+      self.window_level = int(self.window_level_edit.text())
+      self.update_image()
 
   def on_dcmtree(self):
     if not self.ctx.isImage:
@@ -423,7 +474,7 @@ class MainWindow(QMainWindow):
       ids = [i+1 for i, x in enumerate(recs) if x == None]
       items = np.array(PAT_RECS_FIELDS)
       emp_f = items[ids]
-      btn_reply = QMessageBox.question(self, 'Empty field(s)', f'The following fields are empty: {", ".join(emp_f)}\nSave it anyway?')
+      btn_reply = QMessageBox.question(self, 'Empty field(s)', f'The following fields are empty: {", ".join(emp_f)}\nDo you want to save it anyway?')
       if btn_reply == QMessageBox.No:
         return
     insert_patient(recs, self.ctx.patients_database())
@@ -438,10 +489,13 @@ class AppContext(ApplicationContext):
     if not check:
       return
     self.initVar()
-    self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db, patient=self.patients_database())
+    self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db, patient=self.patients_database(), windowing=self.windowing_db)
     self.phantom_model = QSqlTableModel(db=self.database.ssde_db)
     self.phantom_model.setTable("Protocol_Group")
     self.phantom_model.select()
+    self.windowing_model = QSqlTableModel(db=self.database.windowing_db)
+    self.windowing_model.setTable("Parameter")
+    self.windowing_model.select()
     self.app_data = AppData()
     self.axes = plt.Axes(lock_aspect=True)
     self.main_window.show()
@@ -564,6 +618,10 @@ class AppContext(ApplicationContext):
   @cached_property
   def ctdi_db(self):
     return self.get_resource("assets/db/ctdi.db")
+
+  @cached_property
+  def windowing_db(self):
+    return self.get_resource("assets/db/windowing.db")
 
   @cached_property
   def default_patients_database(self):
