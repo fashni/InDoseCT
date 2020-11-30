@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
 import pyqtgraph as pg
 import numpy as np
-from custom_widgets import HSeparator, VSeparator, Label
+from custom_widgets import HSeparator, Label
 from constants import *
 from Plot import PlotDialog, AxisItem
 

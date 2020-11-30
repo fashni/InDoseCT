@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox, QMessageBox
+from PyQt5.QtWidgets import (QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout,
+                             QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QGroupBox,
+                             QButtonGroup, QCheckBox, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
 import numpy as np
-from custom_widgets import HSeparator, VSeparator
+from custom_widgets import HSeparator
 from constants import *
 from db import get_records
 from Plot import PlotDialog
@@ -73,6 +75,7 @@ class SSDETab(QWidget):
     self.calc_btn = QPushButton('Calculate')
     self.save_btn = QPushButton('Save')
 
+    self.diameter_label = QLabel('<b>Diameter (cm)</b>')
     self.ctdiv_edit = QLineEdit(f'{self.ctx.app_data.CTDIv}')
     self.diameter_edit = QLineEdit(f'{self.ctx.app_data.diameter}')
     self.convf_edit = QLineEdit(f'{self.ctx.app_data.convf}')
@@ -81,47 +84,46 @@ class SSDETab(QWidget):
     self.dlpc_edit = QLineEdit(f'{self.ctx.app_data.DLPc}')
     self.effdose_edit = QLineEdit(f'{self.ctx.app_data.effdose}')
 
-    self.ctdiv_edit.setReadOnly(True)
-    self.diameter_edit.setReadOnly(True)
-    self.convf_edit.setReadOnly(True)
-    self.ssde_edit.setReadOnly(True)
-    self.dlp_edit.setReadOnly(True)
-    self.dlpc_edit.setReadOnly(True)
-    self.effdose_edit.setReadOnly(True)
+    edits = [
+      self.ctdiv_edit,
+      self.diameter_edit,
+      self.convf_edit,
+      self.ssde_edit,
+      self.dlp_edit,
+      self.dlpc_edit,
+      self.effdose_edit,
+    ]
 
-    self.diameter_label = QLabel('<b>Diameter (cm)</b>')
+    [edit.setReadOnly(True) for edit in edits]
+    [edit.setAlignment(Qt.AlignRight) for edit in edits]
 
-    grid = QGridLayout()
-    grid.setHorizontalSpacing(20)
-    grid.setVerticalSpacing(15)
+    left_grpbox = QGroupBox()
+    left_layout = QFormLayout()
+    left_layout.addRow(QLabel('<b>CTDIvol (mGy)</b>'), self.ctdiv_edit)
+    left_layout.addRow(self.diameter_label, self.diameter_edit)
+    left_layout.addRow(QLabel('<b>Conv Factor</b>'), self.convf_edit)
+    left_layout.addRow(QLabel('<b>SSDE (mGy)</b>'), self.ssde_edit)
+    left_grpbox.setLayout(left_layout)
 
-    grid.addWidget(QLabel('<b>CTDIvol (mGy)</b>'), 0, 0)
-    grid.addWidget(self.diameter_label, 1, 0)
-    grid.addWidget(QLabel('<b>Conv Factor</b>'), 2, 0)
-    grid.addWidget(QLabel('<b>SSDE (mGy)</b>'), 3, 0)
-    grid.addWidget(QLabel('<b>DLP (mGy-cm)</b>'), 0, 2)
-    grid.addWidget(QLabel('<b>DLP<sub>c</sub> (mGy-cm)</b>'), 1, 2)
-    grid.addWidget(QLabel('<b>Effective Dose (mSv)</b>'), 3, 2)
-    grid.addWidget(self.ctdiv_edit, 0, 1)
-    grid.addWidget(self.diameter_edit, 1, 1)
-    grid.addWidget(self.convf_edit, 2, 1)
-    grid.addWidget(self.ssde_edit, 3, 1)
-    grid.addWidget(self.dlp_edit, 0, 3)
-    grid.addWidget(self.dlpc_edit, 1, 3)
-    grid.addWidget(self.effdose_edit, 3, 3)
+    right_grpbox = QGroupBox()
+    right_layout = QFormLayout()
+    right_layout.addRow(QLabel('<b>DLP (mGy-cm)</b>'), self.dlp_edit)
+    right_layout.addRow(QLabel('<b>DLP<sub>c</sub> (mGy-cm)</b>'), self.dlpc_edit)
+    right_layout.addRow(QLabel(''))
+    right_layout.addRow(QLabel('<b>Effective Dose (mSv)</b>'), self.effdose_edit)
+    right_grpbox.setLayout(right_layout)
 
     h = QHBoxLayout()
-    h.addWidget(self.save_btn)
-    h.addStretch()
+    h.addWidget(left_grpbox)
+    h.addWidget(right_grpbox)
 
     main_layout = QVBoxLayout()
     main_layout.addWidget(QLabel('Protocol:'))
     main_layout.addWidget(self.protocol)
-    main_layout.addWidget(self.calc_btn)
     main_layout.addWidget(HSeparator())
-    main_layout.addLayout(grid)
-    main_layout.addStretch()
     main_layout.addLayout(h)
+    main_layout.addWidget(self.calc_btn)
+    main_layout.addWidget(self.save_btn)
     main_layout.addStretch()
 
     self.setLayout(main_layout)
