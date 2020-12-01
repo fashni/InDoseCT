@@ -28,17 +28,22 @@ class Axes(pg.PlotWidget):
     self.addItem(self.linePlot)
     self.addItem(self.scatterPlot)
     self.rois = []
+    self.alt_image = None
 
   def setupConnect(self):
     self.image.hoverEvent = self.imageHoverEvent
 
-  def imshow(self, data):
-    if data is None:
+  def imshow(self, img):
+    if img is None:
       return
-    self.imagedata = data
+    self.imagedata = img
     self.invertY(True)
-    self.image.setImage(data)
+    self.image.setImage(img)
     self.autoRange()
+
+  def add_alt_view(self, img):
+    self.alt_image = img
+    self.image.setImage(img)
 
   def scatter(self, *args, **kwargs):
     self.scatterPlot.setData(*args, **kwargs)
@@ -67,6 +72,7 @@ class Axes(pg.PlotWidget):
     self.imagedata = None
     self.invertY(False)
     self.image.clear()
+    self.alt_image = None
 
   def clearGraph(self):
     self.linePlot.clear()
@@ -85,6 +91,16 @@ class Axes(pg.PlotWidget):
     self.clearGraph()
     self.clearLines()
     self.clearShapes()
+
+  def clearROIs(self):
+    self.image.clear()
+    self.clearGraph()
+    self.clearLines()
+    self.clearShapes()
+    if self.alt_image is not None:
+      self.add_alt_view(self.alt_image)
+    else:
+      self.imshow(self.imagedata)
 
   def clearLines(self):
     try:
@@ -122,17 +138,15 @@ class Axes(pg.PlotWidget):
     val = self.imagedata[j, i]
     self.setTitle(f"pixel: ({i:#d}, {j:#d})  value: {val:#g}")
 
-  def addLAT(self):
+  def addLAT(self, p1, p2):
     if self.lineLAT==None and self.imagedata is not None:
-      x,y = self.imagedata.shape
-      self.lineLAT = pg.LineSegmentROI([((x/2)-0.25*x, y/2), ((x/2)+0.25*x, y/2)])
+      self.lineLAT = pg.LineSegmentROI([p1, p2], pen={'color': "00FF7F"})
       self.addItem(self.lineLAT)
       self.rois.append('lineLAT')
 
-  def addAP(self):
+  def addAP(self, p1, p2):
     if self.lineAP==None and self.imagedata is not None:
-      x,y = self.imagedata.shape
-      self.lineAP = pg.LineSegmentROI([((x/2), (y/2)-0.25*y), ((x/2), (y/2)+0.25*y)])
+      self.lineAP = pg.LineSegmentROI([p1, p2], pen={'color': "00FF7F"})
       self.addItem(self.lineAP)
       self.rois.append('lineAP')
 
@@ -140,7 +154,7 @@ class Axes(pg.PlotWidget):
     if self.ellipse==None and self.imagedata is not None:
       x,y = self.imagedata.shape
       unit = np.sqrt(x*y)/4
-      self.ellipse = pg.EllipseROI(pos=[(x/2)-unit, (y/2)-unit*1.5],size=[unit*2,unit*3])
+      self.ellipse = pg.EllipseROI(pos=[(x/2)-unit, (y/2)-unit*1.5],size=[unit*2,unit*3], pen={'color': "00FF7F"})
       self.addItem(self.ellipse)
       self.rois.append('ellipse')
 
@@ -286,7 +300,7 @@ class XLSXExporter(pg.exporters.CSVExporter):
     self.item = item
     self.xheader = xheader
     self.yheader = yheader
-  
+
   def export(self, fileName=None):
     if fileName is None:
       self.fileSaveDialog(filter=["*.xlsx"])
@@ -311,17 +325,17 @@ class XLSXExporter(pg.exporters.CSVExporter):
         xName = 'x%d' % i
         yName = 'y%d' % i
       header.extend([xName, yName])
-    
+
     # create and open workbook
     workbook = Workbook(fileName)
     worksheet = workbook.add_worksheet()
     bold = workbook.add_format({'bold': True})
     numCols = len(data)*2
-    
+
     # write header
     for col in range(numCols):
       worksheet.write(0, col, header[col], bold)
-    
+
     # write data
     for i, d in enumerate(data):
       numCols = len(d)
@@ -332,7 +346,7 @@ class XLSXExporter(pg.exporters.CSVExporter):
             worksheet.write(row, col, d[col-i*2][row-1])
           except:
             continue
-    
+
     # close workbook
     workbook.close()
 
@@ -343,7 +357,7 @@ class CSVExporter(pg.exporters.CSVExporter):
     self.item = item
     self.xheader = xheader
     self.yheader = yheader
-  
+
   def export(self, fileName=None):
     if fileName is None:
       self.fileSaveDialog(filter=["*.csv"])

@@ -1,11 +1,11 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox,
                              QLineEdit, QPushButton, QScrollArea, QRadioButton,
                              QButtonGroup, QCheckBox, QProgressDialog, QSpinBox,
-                             QStackedWidget, QMessageBox)
+                             QStackedWidget, QMessageBox, QFormLayout)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
-from image_processing import get_dw_value, get_deff_value, get_label, get_label_pos, get_image
+from image_processing import get_dw_value, get_deff_value, get_mask, get_mask_pos, get_image
 from custom_widgets import VSeparator
 from constants import *
 from Plot import PlotDialog
@@ -166,6 +166,7 @@ class DiameterTab(QWidget):
     opt1 = QPushButton('Polygon')
     opt2 = QPushButton('Ellipse')
     opt3 = QPushButton('Clear')
+    opt1.clicked.connect(self._addPolygon)
     opt2.clicked.connect(self._addEllipse)
     opt3.clicked.connect(self._clearROIs)
     inner = QVBoxLayout()
@@ -229,6 +230,18 @@ class DiameterTab(QWidget):
     opt1 = QRadioButton('Area')
     opt2 = QRadioButton('Center')
     opt3 = QRadioButton('Max')
+    self.ap_lbl = QLabel('AP')
+    self.lat_lbl = QLabel('LAT')
+    self.ap_edit = QLineEdit('0 cm')
+    self.lat_edit = QLineEdit('0 cm')
+    self.ap_edit.setMaximumWidth(60)
+    self.lat_edit.setMaximumWidth(60)
+    self.ap_edit.setReadOnly(True)
+    self.lat_edit.setReadOnly(True)
+    self.ap_edit.setVisible(False)
+    self.lat_edit.setVisible(False)
+    self.ap_lbl.setVisible(False)
+    self.lat_lbl.setVisible(False)
     self.btn_grp = QButtonGroup()
     self.btn_grp.addButton(opt1)
     self.btn_grp.addButton(opt2)
@@ -237,11 +250,16 @@ class DiameterTab(QWidget):
     opt2.toggled.connect(self._def_auto_switch)
     opt3.toggled.connect(self._def_auto_switch)
     opt1.setChecked(True)
+    form = QFormLayout()
+    form.addRow(self.ap_lbl, self.ap_edit)
+    form.addRow(self.lat_lbl, self.lat_edit)
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
     inner.addWidget(opt1)
     inner.addWidget(opt2)
     inner.addWidget(opt3)
+    inner.addWidget(QLabel(''))
+    inner.addLayout(form)
     inner.addStretch()
     self.opt.setLayout(inner)
 
@@ -298,7 +316,7 @@ class DiameterTab(QWidget):
 
   def _ui_def_img_manual(self):
     self.def_img_man_edit1 = QLineEdit(f'{self.lineLAT:#.2f} cm') if self.lineLAT else QLineEdit('0 cm')
-    self.def_img_man_edit2 = QLineEdit(f'{self.lineAP:#.2f} cm') if self.lineLAT else QLineEdit('0 cm')
+    self.def_img_man_edit2 = QLineEdit(f'{self.lineAP:#.2f} cm') if self.lineAP else QLineEdit('0 cm')
     self.def_img_man_edit1.setMaximumWidth(60)
     self.def_img_man_edit2.setMaximumWidth(60)
     self.def_img_man_edit1.setReadOnly(True)
@@ -319,8 +337,8 @@ class DiameterTab(QWidget):
     h2.addStretch()
     inner = QVBoxLayout()
     inner.addWidget(QLabel('Options:'))
-    inner.addLayout(h1)
     inner.addLayout(h2)
+    inner.addLayout(h1)
     inner.addWidget(opt3)
     inner.addStretch()
     self.opt.setLayout(inner)
@@ -481,6 +499,22 @@ class DiameterTab(QWidget):
     sel = self.sender()
     if sel.isChecked():
       self._def_auto_method = sel.text().lower()
+      self._clearROIs()
+      try:
+        self.ap_edit.setText('0 cm')
+        self.lat_edit.setText('0 cm')
+        if self._def_auto_method == 'area':
+          self.ap_lbl.setVisible(False)
+          self.lat_lbl.setVisible(False)
+          self.ap_edit.setVisible(False)
+          self.lat_edit.setVisible(False)
+        else:
+          self.ap_lbl.setVisible(True)
+          self.lat_lbl.setVisible(True)
+          self.ap_edit.setVisible(True)
+          self.lat_edit.setVisible(True)
+      except:
+        pass
       print(self._def_auto_method)
     self.d_out.setText('0')
 
@@ -500,30 +534,32 @@ class DiameterTab(QWidget):
 
   def _auto(self):
     img = self.ctx.getImg()
+    mask = get_mask(img)
     if img is None:
       return
     dims = self.ctx.img_dims
     rd = self.ctx.recons_dim
-    pos = get_label_pos(get_label(img))+0.5
+    pos = get_mask_pos(mask)+.5
     pos_col = pos[:,1]
     pos_row = pos[:,0]
     self.ctx.axes.clearGraph()
     self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
     if self.based_on == 0: # deff
-      dval, row, col = get_deff_value(img, dims, rd, self._def_auto_method)
+      dval, row, col, lat, ap = get_deff_value(img, dims, rd, self._def_auto_method)
       if self._def_auto_method != 'area':
-        print(row, col)
-        col += 0.5
-        row += 0.5
+        col += .5
+        row += .5
         id_row = [id for id, el in enumerate(pos_col) if el==col]
         id_col = [id for id, el in enumerate(pos_row) if el==row]
         line_v = np.array([pos_col[id_row], pos_row[id_row]]).T
         line_h = np.array([pos_col[id_col], pos_row[id_col]]).T
+        self.ap_edit.setText(f'{ap:#.2f} cm')
+        self.lat_edit.setText(f'{lat:#.2f} cm')
         self.ctx.axes.addPlot(line_v, pen={'color': "00FF7F", 'width': 2}, symbol=None)
         self.ctx.axes.addPlot(line_h, pen={'color': "00FF7F", 'width': 2}, symbol=None)
         self.ctx.axes.addPlot([col], [row], pen=None, symbol='o', symbolPen=None, symbolSize=10, symbolBrush=(255, 127, 0, 255))
     elif self.based_on == 1:
-      dval = get_dw_value(img, get_label(img), dims, rd, self.is_truncated)
+      dval = get_dw_value(img, mask, dims, rd, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
     self.ctx.app_data.diameter = dval
 
@@ -535,10 +571,11 @@ class DiameterTab(QWidget):
     progress.setMinimumDuration(1000)
     for idx, dcm in enumerate(imgs):
       img = get_image(dcm)
+      mask = get_mask(img)
       if self.based_on == 0:
-        d, _, _ = get_deff_value(img, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
+        d, _, _, _, _ = get_deff_value(img, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
       else:
-        d = get_dw_value(img, get_label(img), self.ctx.img_dims, self.ctx.recons_dim, self.is_truncated)
+        d = get_dw_value(img, mask, self.ctx.img_dims, self.ctx.recons_dim, self.is_truncated)
       self.d_vals.append(d)
       dval += d
       progress.setValue(idx)
@@ -676,8 +713,7 @@ class DiameterTab(QWidget):
     if len(self.ctx.axes.rois) == 0:
       return
     print(self.ctx.axes.rois)
-    self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.getImg())
+    self.ctx.axes.clearROIs()
     try:
       self.def_img_man_edit1.setText('0 cm')
       self.def_img_man_edit2.setText('0 cm')
@@ -688,23 +724,30 @@ class DiameterTab(QWidget):
     self.lineAP = 0
     self.ctx.app_data.diameter = 0
 
-  def _get_dist(self, pts):
+  def _get_dist(self, p1, p2):
     try:
       col,row = self.ctx.getImg().shape
     except:
       return
     rd = self.ctx.recons_dim
-    x1, y1 = pts[0].pos().x(), pts[0].pos().y()
-    x2, y2 = pts[1].pos().x(), pts[1].pos().y()
-    return (0.1*rd/col)*np.sqrt((x2-x1)**2+(y2-y1)**2)
+    x1, y1 = p1
+    x2, y2 = p2
+    return np.sqrt((x2-x1)**2+(y2-y1)**2) * (0.1*rd/col)
+
+  def _roi_handle_to_tuple(self, handle):
+    return (handle.pos().x(), handle.pos().y())
 
   def _addLAT(self):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first.")
       return
-    self.ctx.axes.addLAT()
+    x, y = self.ctx.getImg().shape
+    self.ctx.axes.addLAT(((x/2)-0.25*x, y/2), ((x/2)+0.25*x, y/2))
     self.ctx.axes.lineLAT.sigRegionChanged.connect(self._getLATfromLine)
-    self.lineLAT = self._get_dist(self.ctx.axes.lineLAT.getHandles())
+    pts = self.ctx.axes.lineLAT.getHandles()
+    p1 = self._roi_handle_to_tuple(pts[0])
+    p2 = self._roi_handle_to_tuple(pts[1])
+    self.lineLAT = self._get_dist(p1, p2)
     self.def_img_man_edit1.setText(f'{self.lineLAT:#.2f} cm')
     self._getImgManDeff()
 
@@ -712,9 +755,13 @@ class DiameterTab(QWidget):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first.")
       return
-    self.ctx.axes.addAP()
+    x, y = self.ctx.getImg().shape
+    self.ctx.axes.addAP(((x/2), (y/2)-0.25*y), ((x/2), (y/2)+0.25*y))
     self.ctx.axes.lineAP.sigRegionChanged.connect(self._getAPfromLine)
-    self.lineAP = self._get_dist(self.ctx.axes.lineAP.getHandles())
+    pts = self.ctx.axes.lineAP.getHandles()
+    p1 = self._roi_handle_to_tuple(pts[0])
+    p2 = self._roi_handle_to_tuple(pts[1])
+    self.lineAP = self._get_dist(p1, p2)
     self.def_img_man_edit2.setText(f'{self.lineAP:#.2f} cm')
     self._getImgManDeff()
 
@@ -726,15 +773,22 @@ class DiameterTab(QWidget):
     self.ctx.axes.ellipse.sigRegionChangeFinished.connect(self._getEllipseDw)
     self._getEllipseDw(self.ctx.axes.ellipse)
 
+  def _addPolygon(self):
+    QMessageBox.information(None, 'Not Available', 'This feature has not been implemented yet.')
+
   def _getLATfromLine(self, roi):
     pts = roi.getHandles()
-    self.lineLAT = self._get_dist(pts)
+    p1 = self._roi_handle_to_tuple(pts[0])
+    p2 = self._roi_handle_to_tuple(pts[1])
+    self.lineLAT = self._get_dist(p1, p2)
     self.def_img_man_edit1.setText(f'{self.lineLAT:#.2f} cm')
     self._getImgManDeff()
 
   def _getAPfromLine(self, roi):
     pts = roi.getHandles()
-    self.lineAP = self._get_dist(pts)
+    p1 = self._roi_handle_to_tuple(pts[0])
+    p2 = self._roi_handle_to_tuple(pts[1])
+    self.lineAP = self._get_dist(p1, p2)
     self.def_img_man_edit2.setText(f'{self.lineAP:#.2f} cm')
     self._getImgManDeff()
 

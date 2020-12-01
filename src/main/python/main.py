@@ -32,6 +32,7 @@ class MainWindow(QMainWindow):
     super(MainWindow, self).__init__()
     self.ctx = ctx
     self.initVar()
+    self.initModel()
     self.initUI()
 
   def initVar(self):
@@ -40,8 +41,19 @@ class MainWindow(QMainWindow):
     self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
-    self.window_width = 'WW'
-    self.window_level = 'WL'
+    self.window_width = self.ctx.windowing_model.record(0).value("windowwidth")
+    self.window_level = self.ctx.windowing_model.record(0).value("windowlevel")
+
+  def initModel(self):
+    record = self.ctx.windowing_model.record()
+    record.setValue('id', 0)
+    record.setValue('Name', 'Custom')
+    record.setNull('WindowWidth')
+    record.setNull('WindowLevel')
+    self.ctx.windowing_model.insertRecord(-1, record)
+    record.setValue('Name', 'None')
+    record.setValue('id', -1)
+    self.ctx.windowing_model.insertRecord(-1, record)
 
   def initUI(self):
     self.title = TITLE
@@ -166,8 +178,8 @@ class MainWindow(QMainWindow):
     self.addToolBar(view)
 
     self.windowing_cb = QComboBox()
-    self.window_width_edit = QLineEdit('WW')
-    self.window_level_edit = QLineEdit('WL')
+    self.window_width_edit = QLineEdit(str(self.window_width))
+    self.window_level_edit = QLineEdit(str(self.window_level))
 
     self.window_width_edit.setAlignment(Qt.AlignCenter)
     self.window_width_edit.setMaximumWidth(50)
@@ -182,7 +194,6 @@ class MainWindow(QMainWindow):
     self.windowing_cb.setEnabled(False)
     self.windowing_cb.setModel(self.ctx.windowing_model)
     self.windowing_cb.setModelColumn(self.ctx.windowing_model.fieldIndex('Name'))
-    self.windowing_cb.addItem('Custom')
     self.windowing_cb.setPlaceholderText('Windowing')
     self.windowing_cb.setCurrentIndex(0)
 
@@ -302,32 +313,30 @@ class MainWindow(QMainWindow):
     self.total_lbl.setText(str(self.ctx.total_img))
     self.total_lbl.adjustSize()
     self.ctx.current_img = 1
-    self.current_lbl.setText(str(self.ctx.current_img))
-    self.current_lbl.adjustSize()
-
-    self.ctx.img_dims = (int(self.ctx.dicoms[0].Rows), int(self.ctx.dicoms[0].Columns))
-    self.ctx.recons_dim = float(self.ctx.dicoms[0].ReconstructionDiameter)
+    self.update_image()
 
     self.go_to_slice_sb.setValue(self.ctx.current_img)
     self.go_to_slice_sb.setMinimum(self.ctx.current_img)
     self.go_to_slice_sb.setMaximum(self.ctx.total_img)
 
-    self.ctx.axes.clearAll()
-    self.ctx.axes.imshow(self.ctx.getImg())
     self.get_patient_info()
     self.info_panel.setInfo(self.patient_info)
-    if self.diameter_tab.slices:
-      self.diameter_tab.slices.setValue(self.ctx.current_img)
-      self.diameter_tab.slices.setMaximum(self.ctx.total_img)
-      self.diameter_tab.slices.setMinimum(1)
-    if self.diameter_tab.slices2:
-      self.diameter_tab.slices2.setValue(self.ctx.current_img)
-      self.diameter_tab.slices2.setMaximum(self.ctx.total_img)
-      self.diameter_tab.slices2.setMinimum(1)
     self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
     self.close_img_btn.setEnabled(True)
     self.windowing_cb.setEnabled(True)
+    try:
+      self.diameter_tab.slices.setValue(self.ctx.current_img)
+      self.diameter_tab.slices.setMaximum(self.ctx.total_img)
+      self.diameter_tab.slices.setMinimum(1)
+    except:
+      pass
+    try:
+      self.diameter_tab.slices2.setValue(self.ctx.current_img)
+      self.diameter_tab.slices2.setMaximum(self.ctx.total_img)
+      self.diameter_tab.slices2.setMinimum(1)
+    except:
+      pass
 
   def get_patient_info(self):
     ref = self.ctx.dicoms[0]
@@ -352,11 +361,11 @@ class MainWindow(QMainWindow):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
-    if isinstance(self.window_width, str) or isinstance(self.window_level, str):
-      self.ctx.axes.imshow(self.ctx.getImg())
-    else:
-      window_img = windowing(self.ctx.getImg(), self.window_width, self.window_level)
-      self.ctx.axes.imshow(window_img)
+    self.image_data = self.ctx.getImg()
+    self.ctx.axes.imshow(self.image_data)
+    if isinstance(self.window_width, int) or isinstance(self.window_level, int):
+      window_img = windowing(self.image_data, self.window_width, self.window_level)
+      self.ctx.axes.add_alt_view(window_img)
     self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[self.ctx.current_img-1].ReconstructionDiameter)
 
@@ -406,6 +415,9 @@ class MainWindow(QMainWindow):
     else:
       self.window_width_edit.setEnabled(False)
       self.window_level_edit.setEnabled(False)
+      if id < 0:
+        window_width = 'WW'
+        window_level = 'WL'
     self.window_width = window_width
     self.window_level = window_level
     self.window_width_edit.setText(str(self.window_width))
@@ -495,6 +507,7 @@ class AppContext(ApplicationContext):
     self.phantom_model.select()
     self.windowing_model = QSqlTableModel(db=self.database.windowing_db)
     self.windowing_model.setTable("Parameter")
+    self.windowing_model.setEditStrategy(QSqlTableModel.OnManualSubmit)
     self.windowing_model.select()
     self.app_data = AppData()
     self.axes = plt.Axes(lock_aspect=True)
