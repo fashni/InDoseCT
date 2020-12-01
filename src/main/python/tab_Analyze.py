@@ -161,8 +161,8 @@ class AnalyzeTab(QWidget):
     sql = "SELECT * FROM PATIENTS LIMIT 1"
     self.query_model.setQuery(sql, self.ctx.database.patient_db)
 
-    self.x_opts = ['Record ID', 'CTDIvol', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc']
-    self.y_opts = ['CTDIvol', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc', 'Frequency']
+    self.x_opts = ['Record ID', 'CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc']
+    self.y_opts = ['CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc', 'Frequency']
     self.x_cb.clear()
     self.y_cb.clear()
     self.x_cb.addItems(self.x_opts)
@@ -224,11 +224,11 @@ class AnalyzeTab(QWidget):
     self.bins = self.bins_cb.value()
 
   def get_data(self):
-    if self.x_opt==self.x_opts[0]:
+    if self.x_opt == 'Record ID':
       x = 'id'
-    elif self.x_opt==self.x_opts[5]:
+    elif self.x_opt == 'Effective Dose':
       x = 'effective_dose'
-    elif self.x_opt==self.x_opts[2] or self.x_opt==self.x_opts[3]:
+    elif self.x_opt == 'Deff' or self.x_opt == 'Dw':
       x = 'diameter'
       if self.filter:
         self.filter += ' AND '
@@ -236,14 +236,14 @@ class AnalyzeTab(QWidget):
     else:
       x = self.x_opt
 
-    if self.y_opt==self.y_opts[4]:
+    if self.y_opt == 'Effective Dose':
       y = 'effective_dose'
-    elif self.y_opt==self.y_opts[1] or self.y_opt==self.y_opts[2]:
+    elif self.y_opt == 'Deff' or self.y_opt == 'Dw':
       y = 'diameter'
       if self.filter:
         self.filter += ' AND '
       self.filter += f'diameter_type="{self.y_opt}"'
-    elif self.y_opt==self.y_opts[7]:
+    elif self.y_opt == 'Frequency':
       y = 'NULL'
     else:
       y = self.y_opt
@@ -252,7 +252,7 @@ class AnalyzeTab(QWidget):
     self.data_query_model.setQuery(sql, self.ctx.database.patient_db)
     self.x_data = np.array([self.data_query_model.record(n).value(x) for n in range(self.data_query_model.rowCount())])
 
-    if self.y_opt!=self.y_opts[7]:
+    if self.y_opt!='Frequency':
       self.y_data = np.array([self.data_query_model.record(n).value(y) for n in range(self.data_query_model.rowCount())])
     else:
       hist, bin_edges = np.histogram(self.x_data, bins=self.bins)
@@ -296,7 +296,7 @@ class AnalyzeTab(QWidget):
 
   def plot(self):
     self.figure = PlotDialog()
-    if self.y_opt==self.y_opts[7]:
+    if self.y_opt=='Frequency':
       self.figure.plot(self.x_data, self.y_data, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     else:
       self.figure.plot(self.x_data, self.y_data, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
