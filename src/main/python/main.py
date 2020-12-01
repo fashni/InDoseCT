@@ -100,6 +100,7 @@ class MainWindow(QMainWindow):
     self.close_img_btn.triggered.connect(self.on_close_image)
     self.go_to_slice_btn.clicked.connect(self.on_go_to_slice)
     self.go_to_slice_sb.editingFinished.connect(self.on_go_to_slice_edit_finish)
+    self.sort_btn.clicked.connect(self.on_sort)
     self.ssde_tab.save_btn.clicked.connect(self.on_save_db)
 
   def setToolbar(self):
@@ -154,6 +155,8 @@ class MainWindow(QMainWindow):
     self.close_img_btn = QAction(self.ctx.close_img_icon, 'Close Images', self)
     self.close_img_btn.setStatusTip('Close all images')
     self.close_img_btn.setEnabled(False)
+    self.sort_btn = QPushButton('Sort Images')
+    self.sort_btn.setEnabled(False)
     self.current_lbl = QLabel('0')
     self.total_lbl = QLabel('0')
     self.go_to_slice_sb = QSpinBox()
@@ -166,6 +169,8 @@ class MainWindow(QMainWindow):
     self.go_to_slice_btn = QPushButton('Go to slice')
 
     img_ctrl.addAction(self.close_img_btn)
+    img_ctrl.addWidget(self.sort_btn)
+    img_ctrl.addSeparator()
     img_ctrl.addAction(self.prev_btn)
     img_ctrl.addWidget(self.current_lbl)
     img_ctrl.addWidget(QLabel('/'))
@@ -277,6 +282,21 @@ class MainWindow(QMainWindow):
     else:
       QMessageBox.information(None, "Info", "No DICOM files in sample directory.")
 
+  def reslice(self, dcms):
+    slices = []
+    skipcount = 0
+    for dcm in dcms:
+      if hasattr(dcm, 'SliceLocation'):
+        slices.append(dcm)
+      else:
+        skipcount +=1
+
+    if skipcount>0:
+      QMessageBox.information(None, "Info", f"Skipped {skipcount} files with no SliceLocation.")
+
+    slices = sorted(slices, key=lambda s: s.SliceLocation)
+    return slices
+
   def _load_files(self, fnames):
     self.statusBar().showMessage('Loading Images')
     self.on_close_image()
@@ -284,13 +304,14 @@ class MainWindow(QMainWindow):
     progress = QProgressDialog(f"Loading {n} images...", "Cancel", 0, n, self)
     progress.setWindowModality(Qt.WindowModal)
     progress.setMinimumDuration(1000) # operation shorter than 1 sec will not open progress dialog
+    files = []
     for idx, filename in enumerate(fnames):
       try:
         dcm = get_dicom(filename)
       except InvalidDicomError as e:
         excpt_msg = str(e)
         continue
-      self.ctx.dicoms.append(dcm)
+      files.append(dcm)
       progress.setValue(idx)
       if progress.wasCanceled():
         break
@@ -299,7 +320,7 @@ class MainWindow(QMainWindow):
     if 'excpt_msg' in locals():
       QMessageBox.information(None, "Info", f"Exception occured while loading the files: \n{excpt_msg}")
 
-    if not self.ctx.dicoms:
+    if not files:
       progress.cancel()
       if self.fsource=='dir':
         QMessageBox.information(None, "Info", "No DICOM files in the selected directory.")
@@ -309,9 +330,9 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(None, "Info", "The specified file is not a valid DICOM file.")
       return
 
+    self.ctx.dicoms = files
     self.ctx.total_img = len(self.ctx.dicoms)
     self.total_lbl.setText(str(self.ctx.total_img))
-    self.total_lbl.adjustSize()
     self.ctx.current_img = 1
     self.update_image()
 
@@ -325,6 +346,7 @@ class MainWindow(QMainWindow):
     self.dcmtree_btn.setEnabled(True)
     self.close_img_btn.setEnabled(True)
     self.windowing_cb.setEnabled(True)
+    self.sort_btn.setEnabled(True)
     try:
       self.diameter_tab.slices.setValue(self.ctx.current_img)
       self.diameter_tab.slices.setMaximum(self.ctx.total_img)
@@ -359,7 +381,6 @@ class MainWindow(QMainWindow):
 
   def update_image(self):
     self.current_lbl.setText(str(self.ctx.current_img))
-    self.current_lbl.adjustSize()
     self.ctx.axes.clearAll()
     self.image_data = self.ctx.getImg()
     self.ctx.axes.imshow(self.image_data)
@@ -376,6 +397,13 @@ class MainWindow(QMainWindow):
       self.ctx.current_img = self.ctx.total_img
     else:
       self.ctx.current_img -= 1
+    self.update_image()
+
+  def on_sort(self):
+    self.ctx.dicoms = self.reslice(self.ctx.dicoms)
+    self.ctx.total_img = len(self.ctx.dicoms)
+    self.total_lbl.setText(str(self.ctx.total_img))
+    self.ctx.current_img = 1
     self.update_image()
 
   def on_go_to_slice(self):
@@ -402,6 +430,7 @@ class MainWindow(QMainWindow):
     self.dcmtree_btn.setEnabled(False)
     self.close_img_btn.setEnabled(False)
     self.windowing_cb.setEnabled(False)
+    self.sort_btn.setEnabled(False)
 
   def _get_windowing_parameters(self, idx):
     id = self.ctx.windowing_model.record(idx).value("id")
