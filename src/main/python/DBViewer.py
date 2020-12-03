@@ -106,8 +106,7 @@ class DBViewer(QWidget):
       for col in range(self.queryModel.record(row).count()):
         if row==0:
           worksheet.write(row, col, self.queryModel.record().fieldName(col), bold)
-        else:
-          worksheet.write(row, col, self.queryModel.record(row).value(col))
+        worksheet.write(row+1, col, self.queryModel.record(row).value(col))
     workbook.close()
     QMessageBox.information(self, "Success", "Records can be found in "+filename+" .")
 
