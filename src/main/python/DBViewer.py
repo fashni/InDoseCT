@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel, QSqlQueryModel
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon, QIntValidator
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
                              QTableView, QLabel, QPushButton, QLineEdit,
@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
 from xlsxwriter.workbook import Workbook
 
 class DBViewer(QWidget):
+  resized = pyqtSignal(object)
   def __init__(self, ctx):
     super(DBViewer, self).__init__()
     self.ctx = ctx
@@ -36,8 +37,8 @@ class DBViewer(QWidget):
     self.totalRecordCount = None
     self.pageRecordCount = 20
 
-    self.initUI()
     self.initModel()
+    self.initUI()
     self.setUpConnect()
     self.updateStatus()
 
@@ -47,8 +48,7 @@ class DBViewer(QWidget):
     self.toolbar.addWidget(self.exportXLS)
     self.layout.addWidget(self.toolbar)
 
-    self.tableView.horizontalHeader().setStretchLastSection(False)
-    self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+    self.tableView.resizeColumnsToContents()
     self.layout.addWidget(self.tableView)
 
     hLayout = QHBoxLayout()
@@ -77,6 +77,8 @@ class DBViewer(QWidget):
     self.switchPageLineEdit.editingFinished.connect(self.onSwitchPage)
     self.refreshButton.clicked.connect(self.onRefresh)
     self.exportXLS.clicked.connect(self.onExport)
+    self.resized.connect(self.on_window_resize)
+    self.tableView.horizontalHeader().sectionResized.connect(self.on_column_resize)
 
   def initModel(self):
     # Query all records
@@ -166,3 +168,21 @@ class DBViewer(QWidget):
       self.nextButton.setEnabled(False)
     else:
       self.nextButton.setEnabled(True)
+
+  def on_column_resize(self, id, oldsize, size):
+    width = self.size().width()
+    self.column_ratio[id] = size/width
+
+  def on_window_resize(self, event):
+    old_width = event.oldSize().width()
+    width = event.size().width()
+    if old_width == -1:
+      self.column_ratio = [self.tableView.columnWidth(c)/width for c in range(self.tableView.model().columnCount())]
+    else:
+      self.tableView.horizontalHeader().sectionResized.disconnect(self.on_column_resize)
+      [self.tableView.setColumnWidth(c, r*width) for c, r in enumerate(self.column_ratio)]
+      self.tableView.horizontalHeader().sectionResized.connect(self.on_column_resize)
+
+  def resizeEvent(self, event):
+    self.resized.emit(event)
+    return super(DBViewer, self).resizeEvent(event)

@@ -479,10 +479,7 @@ class MainWindow(QMainWindow):
     self.organ_tab.on_protocol_changed(self.organ_tab.protocol.currentIndex())
 
   def on_open_viewer(self):
-    if self.rec_viewer is None:
-      self.rec_viewer = DBViewer(self.ctx)
-    else:
-      self.rec_viewer.onRefresh()
+    self.rec_viewer = DBViewer(self.ctx)
     self.rec_viewer.show()
 
   def on_open_config(self):
