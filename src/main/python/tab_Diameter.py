@@ -20,6 +20,8 @@ class DiameterTab(QWidget):
     self.slices = None
     self.slices2 = None
     self.initVar()
+    self.initModel()
+    self.initData()
     self.initUI()
     self._update_methods('Get from Image')
     self._set_options()
@@ -37,8 +39,6 @@ class DiameterTab(QWidget):
       'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
       'Input Manually': ['Manual'],
     }
-    self.initModel()
-    self.initData()
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -805,3 +805,11 @@ class DiameterTab(QWidget):
     dval = get_dw_value(img, mask, dims, rd)
     self.d_out.setText(f'{dval:#.2f}')
     self.ctx.app_data.diameter = dval
+
+  def reset_fields(self):
+    self.initVar()
+    self.based_on_cb.setCurrentIndex(0)
+    self.src_cb.setCurrentIndex(0)
+    self.method_cb.setCurrentIndex(0)
+    self._update_methods('Get from Image')
+    self._set_options()

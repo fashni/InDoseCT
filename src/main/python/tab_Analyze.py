@@ -28,8 +28,9 @@ class AnalyzeTab(QWidget):
     self.age_sb2.valueChanged.connect(self.on_age2_changed)
     self.date_edit1.dateChanged.connect(self.on_date1_changed)
     self.date_edit2.dateChanged.connect(self.on_date2_changed)
-    self.bins_cb.valueChanged.connect(self.on_bins_changed)
+    self.bins_sb.valueChanged.connect(self.on_bins_changed)
     self.generate_btn.clicked.connect(self.on_generate)
+    self.reset_btn.clicked.connect(self.set_filter)
 
   def initUI(self):
     self.x_cb = QComboBox()
@@ -41,8 +42,9 @@ class AnalyzeTab(QWidget):
     self.date_edit1 = QDateEdit()
     self.date_edit2 = QDateEdit()
     self.generate_btn = QPushButton('Generate')
-    self.bins_cb = QSpinBox()
+    self.bins_sb = QSpinBox()
     self.bins_lbl = QLabel('Bins')
+    self.reset_btn = QPushButton('Reset Filter')
 
     self.age_sb1.setSpecialValueText('-')
     self.age_sb1.setRange(-1, -1)
@@ -50,9 +52,9 @@ class AnalyzeTab(QWidget):
     self.age_sb2.setRange(-1, -1)
     self.date_edit1.setDisplayFormat('dd/MM/yyyy')
     self.date_edit2.setDisplayFormat('dd/MM/yyyy')
-    self.bins_cb.setMinimum(1)
-    self.bins_cb.setValue(self.bins)
-    self.bins_cb.setVisible(False)
+    self.bins_sb.setMinimum(1)
+    self.bins_sb.setValue(self.bins)
+    self.bins_sb.setVisible(False)
     self.bins_lbl.setVisible(False)
 
     age_layout = QHBoxLayout()
@@ -71,7 +73,7 @@ class AnalyzeTab(QWidget):
     ax_layout = QFormLayout()
     ax_layout.addRow(QLabel('x-axis'), self.x_cb)
     ax_layout.addRow(QLabel('y-axis'), self.y_cb)
-    ax_layout.addRow(self.bins_lbl, self.bins_cb)
+    ax_layout.addRow(self.bins_lbl, self.bins_sb)
     ax_layout.addWidget(self.generate_btn)
     self.axis_grpbox.setLayout(ax_layout)
 
@@ -81,6 +83,7 @@ class AnalyzeTab(QWidget):
     flt_layout.addRow(QLabel('Protocol'), self.protocol_cb)
     flt_layout.addRow(QLabel('Age'), age_layout)
     flt_layout.addRow(QLabel('Exam Date'), date_layout)
+    flt_layout.addWidget(self.reset_btn)
     self.filter_grpbox.setLayout(flt_layout)
 
     mainlayout = QHBoxLayout()
@@ -186,10 +189,10 @@ class AnalyzeTab(QWidget):
   def on_y_changed(self, sel):
     if sel=='Frequency':
       self.bins_lbl.setVisible(True)
-      self.bins_cb.setVisible(True)
+      self.bins_sb.setVisible(True)
     else:
       self.bins_lbl.setVisible(False)
-      self.bins_cb.setVisible(False)
+      self.bins_sb.setVisible(False)
     if sel=='Dw' or sel=='Deff':
       dw = self.x_cb.findText('Dw')
       de = self.x_cb.findText('Deff')
@@ -221,7 +224,7 @@ class AnalyzeTab(QWidget):
     self.date_ftr2 = self.date_edit2.date()
 
   def on_bins_changed(self):
-    self.bins = self.bins_cb.value()
+    self.bins = self.bins_sb.value()
 
   def get_data(self):
     if self.x_opt == 'Record ID':
@@ -323,3 +326,12 @@ class AnalyzeTab(QWidget):
       QMessageBox.information(None, "No Data", "Matching data not found.\nPlease try to reduce the filter.")
       return
     self.plot()
+
+  def reset_fields(self):
+    self.set_filter()
+    self.bins_sb.setValue(20)
+    self.x_cb.setCurrentIndex(0)
+    self.y_cb.setCurrentIndex(0)
+    self.on_bins_changed()
+    self.on_x_changed(self.x_cb.currentText)
+    self.on_y_changed(self.x_cb.currentText)

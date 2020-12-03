@@ -425,7 +425,8 @@ class MainWindow(QMainWindow):
     self.go_to_slice_sb.setValue(self.ctx.current_img)
     self.go_to_slice_sb.setMinimum(self.ctx.current_img)
     self.go_to_slice_sb.setMaximum(self.ctx.total_img)
-    self.info_panel.setInfo(self.patient_info)
+    self.info_panel.initVar()
+    self.info_panel.setInfo(self.info_panel.getInfo())
     self.ctx.axes.clearAll()
     self.dcmtree_btn.setEnabled(False)
     self.close_img_btn.setEnabled(False)
@@ -496,6 +497,10 @@ class MainWindow(QMainWindow):
     if btn_reply == QMessageBox.No:
       return
     self.patient_info = self.info_panel.getInfo()
+    if self.ctx.app_data.diameter:
+      d_mode = 'Deff' if self.ctx.app_data.mode else 'Dw'
+    else:
+      d_mode = None
     recs = [
       self.patient_info['name'],    # 'name'
       self.patient_info['protocol'],    # 'protocol'
@@ -504,7 +509,7 @@ class MainWindow(QMainWindow):
       self.patient_info['sex'],   # 'sex'
       self.ctx.app_data.CTDIv or None,   # 'CTDIVol'
       self.ctx.app_data.diameter or None,    # 'DE_WED'
-      'Deff' if self.ctx.app_data.mode else 'Dw',
+      d_mode,
       self.ctx.app_data.SSDE or None,   # 'SSDE'
       self.ctx.app_data.DLP or None,    # 'DLP'
       self.ctx.app_data.DLPc or None,   # 'DLPc'
@@ -519,9 +524,21 @@ class MainWindow(QMainWindow):
       if btn_reply == QMessageBox.No:
         return
     insert_patient(recs, self.ctx.patients_database())
-    QMessageBox.information(self, "Success", "Record has been saved in database.")
     self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
     self.analyze_tab.set_filter()
+    self.app_reset()
+
+  def app_reset(self):
+    self.on_close_image()
+    self.ctx.app_data.init_var()
+    self.phantom_cb.setCurrentIndex(0)
+    self.on_phantom_update(0)
+    self.ctdiv_tab.reset_fields()
+    self.diameter_tab.reset_fields()
+    self.ssde_tab.reset_fields()
+    self.organ_tab.reset_fields()
+    # self.analyze_tab.reset_fields()
+    self.tabs.setCurrentIndex(0)
 
 
 class AppContext(ApplicationContext):
@@ -689,6 +706,9 @@ class AppData(QObject):
 
   def __init__(self, parent=None):
     super(AppData, self).__init__(parent)
+    self.init_var()
+
+  def init_var(self):
     self._mode = DEFF_IMAGE
     self._diameter = 0
     self._CTDIv = 0

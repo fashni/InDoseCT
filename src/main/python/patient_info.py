@@ -7,15 +7,18 @@ class InfoPanel(QWidget):
   def __init__(self, ctx, *args, **kwargs):
     super(InfoPanel, self).__init__(*args, **kwargs)
     self.ctx = ctx
-    self.id = None
-    self.name = None
-    self.protocol = None
-    self.date = None
-    self.age = -1
-    self.sex = None
+    self.initVar()
     self.initUI()
     self.setUpConnect()
     self.setInfo(self.getInfo())
+
+  def initVar(self):
+    self.id = None
+    self.name = None
+    self.protocol = None
+    self.date = QDate.currentDate().toString('yyyyMMdd')
+    self.age = -1
+    self.sex = None
 
   def setUpConnect(self):
     self.name_edit.textChanged.connect(self.on_name_changed)

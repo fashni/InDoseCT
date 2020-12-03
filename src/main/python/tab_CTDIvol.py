@@ -426,3 +426,27 @@ class CTDIVolTab(QWidget):
   def set_app_data(self):
     self.ctx.app_data.CTDIv = self.CTDIv
     self.ctx.app_data.DLP = self.DLP
+
+  def reset_fields(self):
+    self.initVar()
+    self.opts.setCurrentIndex(0)
+    self.brand_cb.setCurrentIndex(0)
+    self.scanner_cb.setCurrentIndex(0)
+    self.volt_cb.setCurrentIndex(0)
+    self.coll_cb.setCurrentIndex(0)
+    self.on_brand_changed(0)
+    self.scan_length_d_edit.setText(f'{self.scan_length:#.2f}')
+    self.on_set_method(0)
+    self.ctdiv_m_edit.setText('0')
+    self.dlp_m_edit.setText('0')
+    self.ctdiv_d_edit.setText('0')
+    self.dlp_d_edit.setText('0')
+    self.tube_current_edit.setText(f'{self.tube_current:#.2f}')
+    self.rotation_time_edit.setText(f'{self.rotation_time:#.2f}')
+    self.pitch_edit.setText(f'{self.pitch:#.2f}')
+    self.scan_length_c_edit.setText(f'{self.scan_length:#.2f}')
+    self.mas_edit.setText(f'{self.mAs:#.2f}')
+    self.mas_eff_edit.setText(f'{self.eff_mAs:#.2f}')
+    self.ctdiw_edit.setText(f'{self.CTDIw:#.2f}')
+    self.ctdiv_c_edit.setText(f'{self.CTDIv:#.2f}')
+    self.dlp_c_edit.setText(f'{self.DLP:#.2f}')

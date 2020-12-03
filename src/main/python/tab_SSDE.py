@@ -192,3 +192,14 @@ class SSDETab(QWidget):
     self.dlpc_edit.setText(f'{self.ctx.app_data.DLPc:#.4f}')
     self.effdose_edit.setText(f'{self.ctx.app_data.effdose:#.4f}')
     self.plot(data)
+
+  def reset_fields(self):
+    self.protocol.setCurrentIndex(0)
+    self.on_protocol_changed(0)
+    self.ctdiv_edit.setText(f'{self.ctx.app_data.CTDIv}')
+    self.diameter_edit.setText(f'{self.ctx.app_data.diameter}')
+    self.convf_edit.setText(f'{self.ctx.app_data.convf}')
+    self.ssde_edit.setText(f'{self.ctx.app_data.SSDE}')
+    self.dlp_edit.setText(f'{self.ctx.app_data.DLP}')
+    self.dlpc_edit.setText(f'{self.ctx.app_data.DLPc}')
+    self.effdose_edit.setText(f'{self.ctx.app_data.effdose}')

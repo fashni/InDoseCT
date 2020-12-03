@@ -112,3 +112,8 @@ class OrganTab(QWidget):
     self.organ_dose = self.ctx.app_data.CTDIv * np.exp(self.alfas*self.ctx.app_data.diameter + self.betas)
     [self.organ_edits[idx].setText(f'{dose:#.4f}') for idx, dose in enumerate(self.organ_dose)]
     self.plot()
+
+  def reset_fields(self):
+    [organ_edit.setText('0') for organ_edit in self.organ_edits]
+    self.protocol.setCurrentIndex(0)
+    self.on_protocol_changed(0)
