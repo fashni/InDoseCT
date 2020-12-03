@@ -248,6 +248,13 @@ class AnalyzeTab(QWidget):
     else:
       y = self.y_opt
 
+    if self.filter:
+      self.filter += ' AND '
+    if self.y_opt!='Frequency':
+      self.filter += f'{x} is NOT NULL AND {y} is NOT NULL'
+    else:
+      self.filter += f'{x} is NOT NULL'
+
     sql = f"SELECT {x}, {y} FROM PATIENTS WHERE {self.filter} ORDER BY {x}"
     self.data_query_model.setQuery(sql, self.ctx.database.patient_db)
     self.x_data = np.array([self.data_query_model.record(n).value(x) for n in range(self.data_query_model.rowCount())])
@@ -271,7 +278,10 @@ class AnalyzeTab(QWidget):
     if self.protocol_ftr!='All':
       if self.filter:
         self.filter += ' AND '
-      self.filter += f'protocol="{self.protocol_ftr}"'
+      if self.protocol_ftr=='Unspecified':
+        self.filter += 'protocol is NULL'
+      else:
+        self.filter += f'protocol="{self.protocol_ftr}"'
 
     if self.age_ftr1 != -1 and self.age_ftr2 != -1:
       if self.age_ftr1 <= self.age_ftr2:
@@ -299,7 +309,7 @@ class AnalyzeTab(QWidget):
     if self.y_opt=='Frequency':
       self.figure.plot(self.x_data, self.y_data, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     else:
-      self.figure.plot(self.x_data, self.y_data, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+      self.figure.plot(self.x_data, self.y_data, pen=None, symbol='o', symbolSize=8, symbolPen=None, symbolBrush=(255, 145, 0, 255))
     self.figure.axes.showGrid(True,True)
     self.figure.setLabels(self.x_opt, self.y_opt)
     self.figure.setTitle(f'{self.x_opt} - {self.y_opt}')
@@ -308,4 +318,8 @@ class AnalyzeTab(QWidget):
   def on_generate(self):
     self.apply_filter()
     self.get_data()
+    isempty = lambda arr: arr.size==0
+    if isempty(self.x_data) or isempty(self.y_data):
+      QMessageBox.information(None, "No Data", "Matching data not found.\nPlease try to reduce the filter.")
+      return
     self.plot()
