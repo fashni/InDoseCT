@@ -115,6 +115,9 @@ class CTDIVolTab(QWidget):
     self.dlp_d_edit = QLineEdit('0')
 
     self.tcm_btn = QPushButton('TCM')
+    self.next_tab_btn = QPushButton('Next')
+    self.prev_tab_btn = QPushButton('Previous')
+    self.prev_tab_btn.setVisible(False)
 
     self.brand_cb.setPlaceholderText('[Unavailable]')
     self.scanner_cb.setPlaceholderText('[Unavailable]')
@@ -208,10 +211,16 @@ class CTDIVolTab(QWidget):
     self.stacks.addWidget(manual_grpbox)
     self.stacks.addWidget(dicom_grpbox)
 
+    tab_nav = QHBoxLayout()
+    tab_nav.addWidget(self.prev_tab_btn)
+    tab_nav.addStretch()
+    tab_nav.addWidget(self.next_tab_btn)
+
     main_layout = QVBoxLayout()
     main_layout.addWidget(QLabel('Options:'))
     main_layout.addWidget(self.opts)
     main_layout.addLayout(self.stacks)
+    main_layout.addLayout(tab_nav)
 
     self.setLayout(main_layout)
 

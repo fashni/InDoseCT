@@ -84,6 +84,10 @@ class SSDETab(QWidget):
     self.dlpc_edit = QLineEdit(f'{self.ctx.app_data.DLPc}')
     self.effdose_edit = QLineEdit(f'{self.ctx.app_data.effdose}')
 
+    self.next_tab_btn = QPushButton('Next')
+    self.prev_tab_btn = QPushButton('Previous')
+    self.next_tab_btn.setVisible(False)
+
     edits = [
       self.ctdiv_edit,
       self.diameter_edit,
@@ -117,6 +121,11 @@ class SSDETab(QWidget):
     h.addWidget(left_grpbox)
     h.addWidget(right_grpbox)
 
+    tab_nav = QHBoxLayout()
+    tab_nav.addWidget(self.prev_tab_btn)
+    tab_nav.addStretch()
+    tab_nav.addWidget(self.next_tab_btn)
+
     main_layout = QVBoxLayout()
     main_layout.addWidget(QLabel('Protocol:'))
     main_layout.addWidget(self.protocol)
@@ -125,6 +134,7 @@ class SSDETab(QWidget):
     main_layout.addWidget(self.calc_btn)
     main_layout.addWidget(self.save_btn)
     main_layout.addStretch()
+    main_layout.addLayout(tab_nav)
 
     self.setLayout(main_layout)
 

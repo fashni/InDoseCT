@@ -122,6 +122,9 @@ class DiameterTab(QWidget):
     self.d_out.textChanged.connect(self._d_changed)
     self.d_out.setReadOnly(True)
 
+    self.next_tab_btn = QPushButton('Next')
+    self.prev_tab_btn = QPushButton('Previous')
+
     out = QHBoxLayout()
     out.addWidget(self.calc_btn)
     out.addWidget(d_lbl)
@@ -145,12 +148,21 @@ class DiameterTab(QWidget):
     inner.addStretch()
     self.opt.setLayout(inner)
 
-    self.main_layout = QHBoxLayout()
-    self.main_layout.addLayout(vbox)
-    self.main_layout.addWidget(VSeparator())
-    self.main_layout.addWidget(self.opt)
-    self.main_layout.addStretch()
-    self.setLayout(self.main_layout)
+    tab_nav = QHBoxLayout()
+    tab_nav.addWidget(self.prev_tab_btn)
+    tab_nav.addStretch()
+    tab_nav.addWidget(self.next_tab_btn)
+
+    inner_layout = QHBoxLayout()
+    inner_layout.addLayout(vbox)
+    inner_layout.addWidget(VSeparator())
+    inner_layout.addWidget(self.opt)
+    inner_layout.addStretch()
+
+    main_layout = QVBoxLayout()
+    main_layout.addLayout(inner_layout)
+    main_layout.addLayout(tab_nav)
+    self.setLayout(main_layout)
 
   def _update_methods(self, sel):
     self.method_cb.clear()

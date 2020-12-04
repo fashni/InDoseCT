@@ -102,6 +102,12 @@ class MainWindow(QMainWindow):
     self.go_to_slice_sb.editingFinished.connect(self.on_go_to_slice_edit_finish)
     self.sort_btn.clicked.connect(self.on_sort)
     self.ssde_tab.save_btn.clicked.connect(self.on_save_db)
+    self.ctdiv_tab.next_tab_btn.clicked.connect(self.on_next_tab)
+    self.ctdiv_tab.prev_tab_btn.clicked.connect(self.on_prev_tab)
+    self.diameter_tab.next_tab_btn.clicked.connect(self.on_next_tab)
+    self.diameter_tab.prev_tab_btn.clicked.connect(self.on_prev_tab)
+    self.ssde_tab.next_tab_btn.clicked.connect(self.on_next_tab)
+    self.ssde_tab.prev_tab_btn.clicked.connect(self.on_prev_tab)
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
@@ -524,6 +530,12 @@ class MainWindow(QMainWindow):
     self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
     self.analyze_tab.set_filter()
     self.app_reset()
+
+  def on_next_tab(self):
+    self.tabs.setCurrentIndex(self.tabs.currentIndex()+1)
+
+  def on_prev_tab(self):
+    self.tabs.setCurrentIndex(self.tabs.currentIndex()-1)
 
   def app_reset(self):
     self.on_close_image()
