@@ -312,6 +312,7 @@ class AnalyzeTab(QWidget):
     if self.y_opt=='Frequency':
       self.figure.plot(self.x_data, self.y_data, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     else:
+      self.figure.actionEnabled(True)
       self.figure.plot(self.x_data, self.y_data, pen=None, symbol='o', symbolSize=8, symbolPen=None, symbolBrush=(255, 145, 0, 255))
     self.figure.axes.showGrid(True,True)
     self.figure.setLabels(self.x_opt, self.y_opt)

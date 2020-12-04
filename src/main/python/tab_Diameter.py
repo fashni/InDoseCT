@@ -632,10 +632,9 @@ class DiameterTab(QWidget):
     xlabel = 'Dw' if self.based_on else 'Deff'
     title = 'Water Equivalent Diameter' if self.based_on else 'Effective Diameter'
     self.figure = PlotDialog()
+    self.figure.actionEnabled(True)
     self.figure.axes.scatterPlot.clear()
     self.figure.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-    self.figure.avgLine(self.ctx.app_data.diameter)
-    self.figure.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.ctx.app_data.diameter), text=f'Avg {xlabel}: {self.ctx.app_data.diameter:#.2f} cm')
     self.figure.axes.showGrid(True,True)
     self.figure.setLabels('slice',xlabel,None,'cm')
     self.figure.setTitle(f'Slice - {title}')
@@ -711,6 +710,7 @@ class DiameterTab(QWidget):
       self.d_out.setText(f'{dval:#.2f}')
       self.ctx.app_data.diameter = dval
       self.figure = PlotDialog()
+      self.figure.actionEnabled(True)
       self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
       self.figure.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
       self.figure.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')

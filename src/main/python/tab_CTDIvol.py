@@ -228,9 +228,8 @@ class CTDIVolTab(QWidget):
     xlabel = 'TCM'
     title = 'Tube Current'
     self.figure = PlotDialog()
+    self.figure.actionEnabled(True)
     self.figure.plot(self.idxs, self.current, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-    self.figure.avgLine(self.tube_current)
-    self.figure.annotate(pos=(self.idxs[int(len(self.idxs)/2)], self.tube_current), text=f'Avg {xlabel}: {self.tube_current:#.2f} mA')
     self.figure.axes.showGrid(True,True)
     self.figure.setLabels('slice',xlabel,None,'mA')
     self.figure.setTitle(f'Slice - {title}')

@@ -73,7 +73,10 @@ class SSDETab(QWidget):
     self.protocol.setModel(self.protocol_model)
     self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))
     self.calc_btn = QPushButton('Calculate')
+    self.plot_btn = QPushButton('Plot Result')
     self.save_btn = QPushButton('Save')
+    self.plot_btn.setEnabled(False)
+    self.plot_btn.setVisible(False)
 
     self.diameter_label = QLabel('<b>Diameter (cm)</b>')
     self.ctdiv_edit = QLineEdit(f'{self.ctx.app_data.CTDIv}')
@@ -83,6 +86,8 @@ class SSDETab(QWidget):
     self.dlp_edit = QLineEdit(f'{self.ctx.app_data.DLP}')
     self.dlpc_edit = QLineEdit(f'{self.ctx.app_data.DLPc}')
     self.effdose_edit = QLineEdit(f'{self.ctx.app_data.effdose}')
+
+    self.diameter_mode_handle(DEFF_IMAGE)
 
     self.next_tab_btn = QPushButton('Next')
     self.prev_tab_btn = QPushButton('Previous')
@@ -132,6 +137,7 @@ class SSDETab(QWidget):
     main_layout.addWidget(HSeparator())
     main_layout.addLayout(h)
     main_layout.addWidget(self.calc_btn)
+    main_layout.addWidget(self.plot_btn)
     main_layout.addWidget(self.save_btn)
     main_layout.addStretch()
     main_layout.addLayout(tab_nav)
@@ -145,6 +151,7 @@ class SSDETab(QWidget):
     self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
     self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
     self.ctx.app_data.DLPValueChanged.connect(self.dlp_handle)
+    self.plot_btn.clicked.connect(self.on_plot)
 
   def plot(self, data):
     x = self.ctx.app_data.diameter
@@ -152,6 +159,7 @@ class SSDETab(QWidget):
     xlabel = 'Dw' if self.ctx.app_data.mode==DW else 'Deff'
     title = 'Water Equivalent Diameter' if self.ctx.app_data.mode==DW else 'Effective Diameter'
     self.figure = PlotDialog()
+    self.figure.actionEnabled(True)
     self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
     self.figure.scatter([x], [y], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
     self.figure.annotate(pos=(x,y), text=f'{xlabel}: {x:#.2f} cm\nConv. Factor: {y:#.2f}', anchor=(0,1))
@@ -183,13 +191,13 @@ class SSDETab(QWidget):
 
   def on_calculate(self):
     if self.ctx.app_data.mode == DEFF_AP:
-      data = self.head_ap_data if self.ctx.phantom == HEAD else self.thorax_ap_data
+      self.data = self.head_ap_data if self.ctx.phantom == HEAD else self.thorax_ap_data
       interp = self.head_ap_interp if self.ctx.phantom == HEAD else self.thorax_ap_interp
     elif self.ctx.app_data.mode == DEFF_LAT:
-      data = self.head_lat_data if self.ctx.phantom == HEAD else self.thorax_lat_data
+      self.data = self.head_lat_data if self.ctx.phantom == HEAD else self.thorax_lat_data
       interp = self.head_lat_interp if self.ctx.phantom == HEAD else self.thorax_lat_interp
     else:
-      data = self.head_e_data if self.ctx.phantom == HEAD else self.thorax_e_data
+      self.data = self.head_e_data if self.ctx.phantom == HEAD else self.thorax_e_data
       interp = self.head_e_interp if self.ctx.phantom == HEAD else self.thorax_e_interp
 
     self.ctx.app_data.convf = float(interpolate.splev(self.ctx.app_data.diameter, interp))
@@ -201,11 +209,16 @@ class SSDETab(QWidget):
     self.ssde_edit.setText(f'{self.ctx.app_data.SSDE:#.4f}')
     self.dlpc_edit.setText(f'{self.ctx.app_data.DLPc:#.4f}')
     self.effdose_edit.setText(f'{self.ctx.app_data.effdose:#.4f}')
-    self.plot(data)
+    self.plot_btn.setEnabled(True)
+    self.on_plot()
+
+  def on_plot(self):
+    self.plot(self.data)
 
   def reset_fields(self):
     self.protocol.setCurrentIndex(0)
     self.on_protocol_changed(0)
+    self.plot_btn.setEnabled(False)
     self.ctdiv_edit.setText(f'{self.ctx.app_data.CTDIv}')
     self.diameter_edit.setText(f'{self.ctx.app_data.diameter}')
     self.convf_edit.setText(f'{self.ctx.app_data.convf}')
