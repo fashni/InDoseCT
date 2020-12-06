@@ -3,6 +3,7 @@ import numpy as np
 import pyqtgraph.exporters
 import sys
 from xlsxwriter.workbook import Workbook
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QWidget, QApplication, QFileDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox
 
 class Axes(pg.PlotWidget):
@@ -163,9 +164,13 @@ class Axes(pg.PlotWidget):
       pass
 
 
-class PlotDialog(QWidget):
+class PlotDialog(QDialog):
   def __init__(self, size=(640, 480), straxis=None):
     super(PlotDialog, self).__init__()
+    self.setAttribute(Qt.WA_DeleteOnClose)
+    self.setWindowFlags(self.windowFlags() |
+                        Qt.WindowSystemMenuHint |
+                        Qt.WindowMinMaxButtonsHint)
     self.size = size
     if straxis is None:
       self.axes = Axes()
@@ -186,15 +191,21 @@ class PlotDialog(QWidget):
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
 
+    self.avgline_btn = QPushButton('Mean')
+    self.stddev_btn = QPushButton('Standard Deviation')
+    self.trendline_btn = QPushButton('Trendline')
+
     self.buttons.button(QDialogButtonBox.Close).setAutoDefault(True)
     self.buttons.button(QDialogButtonBox.Close).setDefault(True)
     self.buttons.button(QDialogButtonBox.Save).setText('Save Plot')
     self.buttons.button(QDialogButtonBox.Save).setAutoDefault(False)
     self.buttons.button(QDialogButtonBox.Save).setDefault(False)
-
-    self.avgline_btn = QPushButton('Mean')
-    self.stddev_btn = QPushButton('Standard Deviation')
-    self.trendline_btn = QPushButton('Trendline')
+    self.avgline_btn.setAutoDefault(False)
+    self.stddev_btn.setAutoDefault(False)
+    self.trendline_btn.setAutoDefault(False)
+    self.avgline_btn.setDefault(False)
+    self.stddev_btn.setDefault(False)
+    self.trendline_btn.setDefault(False)
 
     self.actionEnabled(False)
 
@@ -209,7 +220,8 @@ class PlotDialog(QWidget):
     self.layout.addLayout(btn_layout)
     self.setLayout(self.layout)
     self.resize(self.size[0], self.size[1])
-    self.crosshair()
+    # self.crosshair()
+    self.axis_line()
 
   def sigConnect(self):
     self.buttons.rejected.connect(self.on_close)
@@ -256,9 +268,18 @@ class PlotDialog(QWidget):
     self.clearAvgLine()
 
   def actionEnabled(self, state):
+    self.meanActionEnabled(state)
+    self.stddevActionEnabled(state)
+    self.trendActionEnabled(state)
+
+  def meanActionEnabled(self, state):
     self.avgline_btn.setEnabled(state)
-    self.stddev_btn.setEnabled(state)
+
+  def trendActionEnabled(self, state):
     self.trendline_btn.setEnabled(state)
+
+  def stddevActionEnabled(self, state):
+    self.stddev_btn.setEnabled(state)
 
   def on_avgline(self):
     if self.mean is not None:
@@ -332,6 +353,12 @@ class PlotDialog(QWidget):
     if self.mean:
       self.axes.removeItem(self.mean)
       self.mean = None
+
+  def axis_line(self):
+    self.y_axis = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
+    self.x_axis = pg.InfiniteLine(angle=0, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
+    self.axes.addItem(self.y_axis, ignoreBounds=True)
+    self.axes.addItem(self.x_axis, ignoreBounds=True)
 
   def crosshair(self):
     self.vLine = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
