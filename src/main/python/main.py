@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
                              QToolBar, QAction, QLabel, QFileDialog, QWidget,
                              QTabWidget, QSplitter, QProgressDialog, QMessageBox,
                              QComboBox, QDesktopWidget, QSpinBox, QAbstractSpinBox,
-                             QPushButton, QSizePolicy, QLineEdit)
+                             QPushButton, QSizePolicy, QLineEdit, QShortcut)
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon, QFont, QIntValidator
 from PyQt5.QtSql import QSqlTableModel
@@ -107,6 +107,8 @@ class MainWindow(QMainWindow):
     self.diameter_tab.prev_tab_btn.clicked.connect(self.on_prev_tab)
     self.ssde_tab.next_tab_btn.clicked.connect(self.on_next_tab)
     self.ssde_tab.prev_tab_btn.clicked.connect(self.on_prev_tab)
+    QShortcut(Qt.Key_Right, self, self.on_next5_img)
+    QShortcut(Qt.Key_Left, self, self.on_prev5_img)
 
   def setToolbar(self):
     toolbar = QToolBar('Main Toolbar')
@@ -153,10 +155,10 @@ class MainWindow(QMainWindow):
 
     self.next_btn = QAction(self.ctx.next_icon, 'Next Slice', self)
     self.next_btn.setStatusTip('Next Slice')
-    self.next_btn.setShortcut(Qt.Key_Right)
+    self.next_btn.setShortcut(Qt.Key_Down)
     self.prev_btn = QAction(self.ctx.prev_icon, 'Previous Slice', self)
     self.prev_btn.setStatusTip('Previous Slice')
-    self.prev_btn.setShortcut(Qt.Key_Left)
+    self.prev_btn.setShortcut(Qt.Key_Up)
     self.close_img_btn = QAction(self.ctx.close_img_icon, 'Close Images', self)
     self.close_img_btn.setStatusTip('Close all images')
     self.close_img_btn.setEnabled(False)
@@ -354,14 +356,22 @@ class MainWindow(QMainWindow):
       'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None
     }
 
-  def on_next_img(self):
+  def next_img(self, step):
     if not self.ctx.total_img:
       return
     if self.ctx.current_img == self.ctx.total_img:
       self.ctx.current_img = 1
+    elif self.ctx.current_img + step > self.ctx.total_img:
+      self.ctx.current_img = self.ctx.total_img
     else:
-      self.ctx.current_img += 1
+      self.ctx.current_img += step
     self.update_image()
+
+  def on_next_img(self):
+    self.next_img(1)
+
+  def on_next5_img(self):
+    self.next_img(5)
 
   def update_image(self):
     self.current_lbl.setText(str(self.ctx.current_img))
@@ -377,14 +387,22 @@ class MainWindow(QMainWindow):
     self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[self.ctx.current_img-1].ReconstructionDiameter)
 
-  def on_prev_img(self):
+  def prev_img(self, step):
     if not self.ctx.total_img:
       return
     if self.ctx.current_img == 1:
       self.ctx.current_img = self.ctx.total_img
+    elif self.ctx.current_img - step < 1:
+      self.ctx.current_img = 1
     else:
-      self.ctx.current_img -= 1
+      self.ctx.current_img -= step
     self.update_image()
+
+  def on_prev_img(self):
+    self.prev_img(1)
+
+  def on_prev5_img(self):
+    self.prev_img(5)
 
   def on_sort(self):
     self.ctx.dicoms, self.ctx.images, skipcount = reslice(self.ctx.dicoms)
