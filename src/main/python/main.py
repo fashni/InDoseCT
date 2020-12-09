@@ -333,6 +333,8 @@ class MainWindow(QMainWindow):
     self.close_img_btn.setEnabled(True)
     self.windowing_cb.setEnabled(True)
     self.sort_btn.setEnabled(True)
+    if self.ctdiv_tab.mode == 2:
+      self.ctdiv_tab.calculate()
     try:
       self.diameter_tab.slices.setValue(self.ctx.current_img)
       self.diameter_tab.slices.setMaximum(self.ctx.total_img)

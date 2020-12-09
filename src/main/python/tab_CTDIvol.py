@@ -11,6 +11,8 @@ class CTDIVolTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
     super(CTDIVolTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
+    self.prev_mode = 0
+    self.mode = 0
     self.initVar()
     self.initModel()
     self.initUI()
@@ -19,8 +21,6 @@ class CTDIVolTab(QWidget):
     self.calculate()
 
   def initVar(self):
-    self.prev_mode = 0
-    self.mode = 0
     self.CTDI = 0
     self.DLP = 0
     self.tube_current = 100
@@ -88,6 +88,7 @@ class CTDIVolTab(QWidget):
     self.scan_length_d_edit.textChanged[str].connect(self.on_dicom_manual)
     self.ctdiv_d_edit.textChanged[str].connect(self.on_dicom_manual)
     self.tcm_btn.clicked.connect(self.on_get_tcm)
+    self.scn_btn.clicked.connect(self.get_scan_length_dicom)
 
   def initUI(self):
     self.opts = QComboBox()
@@ -115,6 +116,7 @@ class CTDIVolTab(QWidget):
     self.dlp_d_edit = QLineEdit('0')
 
     self.tcm_btn = QPushButton('TCM')
+    self.scn_btn = QPushButton('Scn Len')
     self.next_tab_btn = QPushButton('Next')
     self.prev_tab_btn = QPushButton('Previous')
     self.prev_tab_btn.setVisible(False)
@@ -179,15 +181,19 @@ class CTDIVolTab(QWidget):
     calci_layout.addRow(QLabel('Manufacturer'), self.brand_cb)
     calci_layout.addRow(QLabel('Scanner'), self.scanner_cb)
     calci_layout.addRow(QLabel('Voltage (kV)'), self.volt_cb)
-    h = QHBoxLayout()
-    h.addWidget(self.tube_current_edit)
-    h.addWidget(self.tcm_btn)
-    h.addStretch()
-    calci_layout.addRow(QLabel('Tube Current (mA)'), h)
+    h1 = QHBoxLayout()
+    h1.addWidget(self.tube_current_edit)
+    h1.addWidget(self.tcm_btn)
+    h1.addStretch()
+    calci_layout.addRow(QLabel('Tube Current (mA)'), h1)
     calci_layout.addRow(QLabel('Rotation Time (s)'), self.rotation_time_edit)
     calci_layout.addRow(QLabel('Pitch'), self.pitch_edit)
     calci_layout.addRow(QLabel('Collimation (mm)'), self.coll_cb)
-    calci_layout.addRow(QLabel('Scan Length (cm)'), self.scan_length_c_edit)
+    h2 = QHBoxLayout()
+    h2.addWidget(self.scan_length_c_edit)
+    h2.addWidget(self.scn_btn)
+    h2.addStretch()
+    calci_layout.addRow(QLabel('Scan Length (cm)'), h2)
     calci_grpbox.setLayout(calci_layout)
 
     calco_grpbox = QGroupBox('')
@@ -265,6 +271,10 @@ class CTDIVolTab(QWidget):
       self.CTDIv = 0
 
   def get_scan_length_dicom(self):
+    if self.mode == 0 and not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first, or input manually")
+      self.opts.setCurrentIndex(0)
+      return
     try:
       first = float(self.ctx.dicoms[0].SliceLocation)
       last = float(self.ctx.dicoms[-1].SliceLocation)
@@ -282,6 +292,8 @@ class CTDIVolTab(QWidget):
     print(lf, sf, width/10)
     scan_length = (abs((last-first)) + abs((second-first)) + width)*.1
     self.scan_length = scan_length
+    if self.mode == 0:
+      self.scan_length_c_edit.setText(f'{self.scan_length:#.2f}')
 
   def on_set_method(self, idx):
     self.prev_mode = self.mode
@@ -413,8 +425,6 @@ class CTDIVolTab(QWidget):
     elif self.mode==2:
       if not self.ctx.isImage:
         QMessageBox.warning(None, "Warning", "Open DICOM files first.")
-        self.opts.setCurrentIndex(self.prev_mode)
-        self.on_set_method(self.prev_mode)
         return
       self.get_ctdiv_dicom()
       self.get_scan_length_dicom()
@@ -438,18 +448,19 @@ class CTDIVolTab(QWidget):
 
   def reset_fields(self):
     self.initVar()
-    self.opts.setCurrentIndex(0)
-    self.brand_cb.setCurrentIndex(0)
-    self.scanner_cb.setCurrentIndex(0)
-    self.volt_cb.setCurrentIndex(0)
-    self.coll_cb.setCurrentIndex(0)
-    self.on_brand_changed(0)
-    self.scan_length_d_edit.setText(f'{self.scan_length:#.2f}')
-    self.on_set_method(0)
-    self.ctdiv_m_edit.setText('0')
-    self.dlp_m_edit.setText('0')
-    self.ctdiv_d_edit.setText('0')
-    self.dlp_d_edit.setText('0')
+    if self.mode == 0:
+      self.brand_cb.setCurrentIndex(0)
+      self.scanner_cb.setCurrentIndex(0)
+      self.volt_cb.setCurrentIndex(0)
+      self.coll_cb.setCurrentIndex(0)
+      self.on_brand_changed(0)
+    elif self.mode == 2:
+      self.scan_length_d_edit.setText(f'{self.scan_length:#.2f}')
+      self.ctdiv_d_edit.setText('0')
+      self.dlp_d_edit.setText('0')
+    else:
+      self.ctdiv_m_edit.setText('0')
+      self.dlp_m_edit.setText('0')
     self.tube_current_edit.setText(f'{self.tube_current:#.2f}')
     self.rotation_time_edit.setText(f'{self.rotation_time:#.2f}')
     self.pitch_edit.setText(f'{self.pitch:#.2f}')
