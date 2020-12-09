@@ -7,14 +7,13 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIcon, QFont, QIntValidator
 from PyQt5.QtSql import QSqlTableModel
-from pydicom.errors import InvalidDicomError
 import numpy as np
 import sys
 import os
 import json
 import Plot as plt
 from dicomtree import DicomTree
-from image_processing import get_image, get_dicom, windowing
+from image_processing import get_dicom, windowing, reslice, get_pixels_hu
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
 from tab_Diameter import DiameterTab
@@ -288,21 +287,6 @@ class MainWindow(QMainWindow):
     else:
       QMessageBox.information(None, "Info", "No DICOM files in sample directory.")
 
-  def reslice(self, dcms):
-    slices = []
-    skipcount = 0
-    for dcm in dcms:
-      if hasattr(dcm, 'SliceLocation'):
-        slices.append(dcm)
-      else:
-        skipcount +=1
-
-    if skipcount>0:
-      QMessageBox.information(None, "Info", f"Skipped {skipcount} files with no SliceLocation.")
-
-    slices = sorted(slices, key=lambda s: s.SliceLocation)
-    return slices
-
   def _load_files(self, fnames):
     self.statusBar().showMessage('Loading Images')
     self.on_close_image()
@@ -312,19 +296,12 @@ class MainWindow(QMainWindow):
     progress.setMinimumDuration(1000) # operation shorter than 1 sec will not open progress dialog
     files = []
     for idx, filename in enumerate(fnames):
-      try:
-        dcm = get_dicom(filename)
-      except InvalidDicomError as e:
-        excpt_msg = str(e)
-        continue
+      dcm = get_dicom(filename)
       files.append(dcm)
       progress.setValue(idx)
       if progress.wasCanceled():
         break
     progress.setValue(n)
-
-    if 'excpt_msg' in locals():
-      QMessageBox.information(None, "Info", f"Exception occured while loading the files: \n{excpt_msg}")
 
     if not files:
       progress.cancel()
@@ -337,6 +314,7 @@ class MainWindow(QMainWindow):
       return
 
     self.ctx.dicoms = files
+    self.ctx.images = get_pixels_hu(files)
     self.ctx.total_img = len(self.ctx.dicoms)
     self.total_lbl.setText(str(self.ctx.total_img))
     self.ctx.current_img = 1
@@ -389,6 +367,9 @@ class MainWindow(QMainWindow):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.ctx.axes.clearAll()
     self.image_data = self.ctx.getImg()
+    if self.image_data is None:
+      self.on_close_image()
+      return
     self.ctx.axes.imshow(self.image_data)
     if isinstance(self.window_width, int) or isinstance(self.window_level, int):
       window_img = windowing(self.image_data, self.window_width, self.window_level)
@@ -406,7 +387,9 @@ class MainWindow(QMainWindow):
     self.update_image()
 
   def on_sort(self):
-    self.ctx.dicoms = self.reslice(self.ctx.dicoms)
+    self.ctx.dicoms, self.ctx.images, skipcount = reslice(self.ctx.dicoms)
+    if skipcount>0:
+      QMessageBox.information(None, "Info", f"Skipped {skipcount} files with no SliceLocation.")
     self.ctx.total_img = len(self.ctx.dicoms)
     self.total_lbl.setText(str(self.ctx.total_img))
     self.ctx.current_img = 1
@@ -571,6 +554,7 @@ class AppContext(ApplicationContext):
 
   def initVar(self):
     self.dicoms = []
+    self.images = []
     self.img_dims = (0,0)
     self.recons_dim = 0
     self.current_img = 0
@@ -579,11 +563,7 @@ class AppContext(ApplicationContext):
     self.isImage = False
 
   def getImg(self):
-    img = get_image(self.dicoms[self.current_img-1])
-    if isinstance(img, str):
-      QMessageBox.warning(None, 'Exception Occured', img)
-      return None
-    return img
+    return self.images[self.current_img-1]
 
   def checkFiles(self):
     if not os.path.isfile(self.config_file()):

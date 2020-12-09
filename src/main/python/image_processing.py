@@ -1,18 +1,14 @@
 import sys
 import pydicom
 import numpy as np
+from pydicom.errors import InvalidDicomError
 from skimage.measure import label, regionprops
 from skimage.morphology import closing, erosion, disk
 from scipy import ndimage as ndi
 
-def get_images(filelist, ref=False):
-  refr, info = get_reference(filelist[0])
-  imgs = np.array([np.array(pydicom.dcmread(fname).pixel_array*refr['slope'] + refr['intercept'])
-                  for fname in filelist])
-
-  if ref:
-    return imgs, refr, info
-  return imgs
+def get_pixels_hu(scans):
+  imgs = np.stack([ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept for ds in scans])
+  return np.array(imgs, dtype=np.int16)
 
 def get_image(ds):
   try:
@@ -22,7 +18,30 @@ def get_image(ds):
     return str(e)
 
 def get_dicom(*args, **kwargs):
-  return pydicom.dcmread(*args, **kwargs)
+  try:
+    dcm = pydicom.dcmread(*args, **kwargs)
+  except InvalidDicomError as e:
+    kwargs['force'] = True
+    dcm = pydicom.dcmread(*args, **kwargs)
+  if not hasattr(dcm.file_meta, 'TransferSyntaxUID'):
+    dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2' # Implicit VR Endian
+    # dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.1' # Explicit VR Little Endian
+    # dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.1.99' # Deflated Explicit VR Little Endian
+    # dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.2' # 	Explicit VR Big Endian
+  return dcm
+
+def reslice(dcms):
+  slices = []
+  skipcount = 0
+  for dcm in dcms:
+    if hasattr(dcm, 'SliceLocation'):
+      slices.append(dcm)
+    else:
+      skipcount += 1
+
+  slices = sorted(slices, key=lambda s: s.SliceLocation)
+  images = get_pixels_hu(slices)
+  return slices, images, skipcount
 
 def get_reference(file):
   ref = pydicom.dcmread(file)
