@@ -165,7 +165,9 @@ class AnalyzeTab(QWidget):
     self.query_model.setQuery(sql, self.ctx.database.patient_db)
 
     self.x_opts = ['Record ID', 'CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc']
+    self.x_units = ['', 'mGy', 'Year', 'cm', 'cm', 'mGy', 'mSv', 'mGy-cm', 'mGy-cm']
     self.y_opts = ['CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc', 'Frequency']
+    self.y_units = ['mGy', 'Year', 'cm', 'cm', 'mGy', 'mSv', 'mGy-cm', 'mGy-cm', '']
     self.x_cb.clear()
     self.y_cb.clear()
     self.x_cb.addItems(self.x_opts)
@@ -184,6 +186,8 @@ class AnalyzeTab(QWidget):
       self.y_cb.clear()
       self.y_cb.addItems(self.y_opts)
       self.y_cb.setCurrentText(y_txt)
+    unit_idx = self.x_opts.index(sel)
+    self.x_unit = self.x_units[unit_idx]
     self.x_opt = sel
 
   def on_y_changed(self, sel):
@@ -203,6 +207,8 @@ class AnalyzeTab(QWidget):
       self.x_cb.clear()
       self.x_cb.addItems(self.x_opts)
       self.x_cb.setCurrentText(x_txt)
+    unit_idx = self.y_opts.index(sel)
+    self.y_unit = self.y_units[unit_idx]
     self.y_opt = sel
 
   def on_sex_changed(self, idx):
@@ -309,13 +315,14 @@ class AnalyzeTab(QWidget):
 
   def plot(self):
     self.figure = PlotDialog()
+    self.figure.axes.addLegend(pen='w', brush=(64,64,64,127))
     if self.y_opt=='Frequency':
       self.figure.plot(self.x_data, self.y_data, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     else:
       self.figure.actionEnabled(True)
-      self.figure.plot(self.x_data, self.y_data, pen=None, symbol='o', symbolSize=8, symbolPen=None, symbolBrush=(255, 145, 0, 255))
+      self.figure.plot(self.x_data, self.y_data, name='data points', pen=None, symbol='o', symbolSize=8, symbolPen='k', symbolBrush=(255, 255, 0, 255))
     self.figure.axes.showGrid(True,True)
-    self.figure.setLabels(self.x_opt, self.y_opt)
+    self.figure.setLabels(self.x_opt, self.y_opt, self.x_unit, self.y_unit)
     self.figure.setTitle(f'{self.x_opt} - {self.y_opt}')
     self.figure.show()
 

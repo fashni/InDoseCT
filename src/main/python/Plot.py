@@ -2,6 +2,7 @@ import pyqtgraph as pg
 import numpy as np
 import pyqtgraph.exporters
 import sys
+from scipy import stats
 from xlsxwriter.workbook import Workbook
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialog, QWidget, QApplication, QFileDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox
@@ -19,7 +20,8 @@ class Axes(pg.PlotWidget):
     self.image = pg.ImageItem()
     self.linePlot = pg.PlotDataItem()
     self.scatterPlot = pg.PlotDataItem()
-    self.graphs = []
+    self.graphs = {}
+    self.n_graphs = 0
     self.imagedata = None
     self.lineLAT = None
     self.lineAP = None
@@ -59,15 +61,25 @@ class Axes(pg.PlotWidget):
     self.rois.append('marker')
 
   def addPlot(self, *args, **kwargs):
+    if 'name' in kwargs:
+      tag = kwargs['name']
+    else:
+      tag = f'series{self.n_graphs}'
     plot = pg.PlotDataItem()
-    self.addItem(plot)
-    self.graphs.append(plot)
     plot.setData(*args, **kwargs)
+    self.addItem(plot)
+    self.graphs[tag] = plot
+    self.n_graphs += 1
 
   def bar(self, *args, **kwargs):
+    if 'name' in kwargs:
+      tag = kwargs['name']
+    else:
+      tag = f'series{self.n_graphs}'
     bargraph = pg.BarGraphItem(*args, **kwargs)
     self.addItem(bargraph)
-    self.graphs.append(bargraph)
+    self.graphs[tag] = bargraph
+    self.n_graphs += 1
 
   def clearImage(self):
     self.imagedata = None
@@ -75,13 +87,16 @@ class Axes(pg.PlotWidget):
     self.image.clear()
     self.alt_image = None
 
+  def clear_graph(self, tag):
+    self.removeItem(self.graphs[tag])
+    self.graphs.pop(tag)
+    self.n_graphs -= 1
+
   def clearGraph(self):
     self.linePlot.clear()
     self.scatterPlot.clear()
-    for plot in self.graphs:
-      self.removeItem(plot)
-      del plot
-    self.graphs = []
+    for tag in self.graphs.keys():
+      self.clear_graph(tag)
     try:
       self.rois.remove('marker')
     except:
@@ -178,6 +193,8 @@ class PlotDialog(QDialog):
       self.axes = Axes(axisItems={'bottom': straxis})
     self.xlabel = None
     self.ylabel = None
+    self.x_unit = None
+    self.y_unit = None
     self.mean = None
     self.initUI()
     self.sigConnect()
@@ -185,8 +202,9 @@ class PlotDialog(QDialog):
   def initUI(self):
     self.setWindowTitle('Plot')
     self.layout = QVBoxLayout()
-    self.txt = None
+    self.txt = {}
     self.mean = None
+    self.tr_line = False
 
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
@@ -232,40 +250,34 @@ class PlotDialog(QDialog):
     # self.proxy = pg.SignalProxy(self.axes.linePlot.scene().sigMouseMoved, rateLimit=60, slot=self.mouseMoved)
 
   def plot(self, *args, **kwargs):
-    self.clear()
-    self.axes.linePlot.clear()
-    self.axes.plot(*args, **kwargs)
-    self.setLabels(None,None,"","")
+    self.axes.addPlot(*args, **kwargs)
 
   def scatter(self, *args, **kwargs):
-    self.clear()
     self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
-    self.setLabels(None,None,"","")
 
-  def annotate(self, pos=(0,0), *args, **kwargs):
-    self.txt = pg.TextItem(*args, **kwargs)
-    self.txt.setPos(pos[0], pos[1])
-    self.axes.addItem(self.txt)
+  def annotate(self, tag, pos=(0,0), *args, **kwargs):
+    txt = pg.TextItem(*args, **kwargs)
+    txt.setPos(pos[0], pos[1])
+    self.txt[tag] = txt
+    self.axes.addItem(txt)
 
-  def clearAnnotation(self):
+  def clearAnnotation(self, tag):
     if self.txt:
-      self.axes.removeItem(self.txt)
-      self.txt = None
+      self.axes.removeItem(self.txt[tag])
+      self.txt.pop(tag)
 
   def setLabels(self, xlabel, ylabel, x_unit=None, y_unit=None, x_prefix=None, y_prefix=None):
     self.xlabel = xlabel
     self.ylabel = ylabel
+    self.x_unit = x_unit
+    self.y_unit = y_unit
     self.axes.setLabel('bottom', xlabel, x_unit, x_prefix)
     self.axes.setLabel('left', ylabel, y_unit, y_prefix)
 
   def setTitle(self, title):
     self.setWindowTitle('Graph of '+title)
     self.axes.setTitle(title)
-
-  def clear(self):
-    self.clearAnnotation()
-    self.clearAvgLine()
 
   def actionEnabled(self, state):
     self.meanActionEnabled(state)
@@ -282,9 +294,15 @@ class PlotDialog(QDialog):
     self.stddev_btn.setEnabled(state)
 
   def on_avgline(self):
-    if self.mean is not None:
-      self.clear()
-      return
+    if self.mean is None:
+      x, y = self.get_plot_data()
+      mean = y.mean()
+      self.avgLine(mean)
+      self.annotate('mean', pos=(0, mean), text=f'Mean: {mean:#.2f} {self.y_unit}')
+    else:
+      self.clearAvgLine()
+
+  def get_plot_data(self):
     max_size = 0
     max_idx = 0
     for idx, curve in enumerate(self.axes.plotItem.curves):
@@ -297,22 +315,38 @@ class PlotDialog(QDialog):
         max_idx = idx
 
     if max_size==0:
-      return
-
-    x, y = self.axes.plotItem.curves[max_idx].getData()
-    mean = y.mean()
-    self.avgLine(mean)
-    self.annotate(pos=(x[max_size//2], mean), text=f'Mean: {mean:#.2f}')
+      return None, None
+    return self.axes.plotItem.curves[max_idx].getData()
 
   def on_stddev(self):
-    QMessageBox.information(None, 'Information', 'This feature is not implemented yet.')
+    if 'std' in self.txt:
+      self.clearAnnotation('std')
+    else:
+      x, y = self.get_plot_data()
+      x_std = np.std(x)
+      y_std = np.std(y)
+      self.annotate('std', anchor=(0,1), text=f'{self.xlabel} stdev: {x_std:#.2f} {self.x_unit}\n{self.ylabel} stdev: {y_std:#.2f} {self.y_unit}')
 
   def on_trendline(self):
-    QMessageBox.information(None, 'Information', 'This feature is not implemented yet.')
+    if self.tr_line:
+      self.tr_line = False
+      self.axes.clear_graph('trendline')
+      self.clearAnnotation('tr')
+    else:
+      x, y = self.get_plot_data()
+      slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+      y_hat = intercept + slope*x
+      if intercept < 0:
+        intercept *= -1
+        operator = '-'
+      else:
+        operator = '+'
+      self.annotate('tr', pos=(x[len(x)//2],y_hat[len(y_hat)//2]), text=f'y = {slope:#.4f}x {operator} {intercept:#.4f}\nR² = {r_value**2:#.4f}')
+      self.plot(x, y_hat, name='trendline', pen={'color': "FF0000", 'width': 2.5})
+      self.tr_line = True
 
   def on_close(self):
     self.resize(640, 480)
-    self.clear()
     self.close()
 
   def on_save(self):
@@ -345,7 +379,6 @@ class PlotDialog(QDialog):
     self.mean.setPos(value)
 
   def bar(self, *args, **kwargs):
-    self.clear()
     self.axes.clearAll()
     self.axes.bar(*args, **kwargs)
 
@@ -353,6 +386,7 @@ class PlotDialog(QDialog):
     if self.mean:
       self.axes.removeItem(self.mean)
       self.mean = None
+      self.clearAnnotation('mean')
 
   def axis_line(self):
     self.y_axis = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})

@@ -637,7 +637,7 @@ class DiameterTab(QWidget):
     self.figure.axes.scatterPlot.clear()
     self.figure.plot(self.idxs, self.d_vals, pen={'color': "FFFF00", 'width': 2}, symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
     self.figure.axes.showGrid(True,True)
-    self.figure.setLabels('slice',xlabel,None,'cm')
+    self.figure.setLabels('slice',xlabel,'','cm')
     self.figure.setTitle(f'Slice - {title}')
     self.figure.show()
 
@@ -715,7 +715,7 @@ class DiameterTab(QWidget):
       self.figure.trendActionEnabled(False)
       self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
       self.figure.scatter([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-      self.figure.annotate(pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')
+      self.figure.annotate('deff', pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')
       self.figure.axes.showGrid(True,True)
       self.figure.setLabels(label,'Effective Diameter',unit,'cm')
       self.figure.setTitle(f'{label} - Deff')

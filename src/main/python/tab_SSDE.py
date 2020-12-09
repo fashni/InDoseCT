@@ -163,9 +163,9 @@ class SSDETab(QWidget):
     self.figure.trendActionEnabled(False)
     self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
     self.figure.scatter([x], [y], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-    self.figure.annotate(pos=(x,y), text=f'{xlabel}: {x:#.2f} cm\nConv. Factor: {y:#.2f}', anchor=(0,1))
+    self.figure.annotate('cf', pos=(x,y), text=f'{xlabel}: {x:#.2f} cm\nConv. Factor: {y:#.2f}', anchor=(0,1))
     self.figure.axes.showGrid(True,True)
-    self.figure.setLabels(xlabel,'Conversion Factor','cm',None)
+    self.figure.setLabels(xlabel,'Conversion Factor','cm','')
     self.figure.setTitle(f'{title} - Conversion Factor')
     self.figure.show()
 
