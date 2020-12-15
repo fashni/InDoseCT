@@ -2,13 +2,18 @@ import pyqtgraph as pg
 import numpy as np
 import pyqtgraph.exporters
 import sys
-from scipy import stats
+from scipy.optimize import curve_fit
+from sklearn.metrics import r2_score
 from xlsxwriter.workbook import Workbook
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QWidget, QApplication, QFileDialog, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox
+from PyQt5.QtWidgets import (QDialog, QWidget, QApplication, QFileDialog, QDialogButtonBox, QLabel,
+                             QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QStackedLayout,
+                             QComboBox, QCheckBox, QGroupBox, QRadioButton, QFormLayout, QSpinBox,
+                             QButtonGroup)
 
 class Axes(pg.PlotWidget):
   pg.setConfigOptions(imageAxisOrder='row-major')
+  pg.setConfigOptions(antialias=True)
   def __init__(self, lock_aspect=False, *args, **kwargs):
     super(Axes, self).__init__(*args, **kwargs)
     self.initUI()
@@ -52,7 +57,7 @@ class Axes(pg.PlotWidget):
     self.scatterPlot.setData(*args, **kwargs)
     self.autoRange()
 
-  def plot(self, *args, **kwargs):
+  def plot_(self, *args, **kwargs):
     self.linePlot.setData(*args, **kwargs)
     self.autoRange()
 
@@ -60,7 +65,7 @@ class Axes(pg.PlotWidget):
     self.scatter(*args, **kwargs)
     self.rois.append('marker')
 
-  def addPlot(self, *args, **kwargs):
+  def plot(self, *args, **kwargs):
     if 'name' in kwargs:
       tag = kwargs['name']
     else:
@@ -95,7 +100,8 @@ class Axes(pg.PlotWidget):
   def clearGraph(self):
     self.linePlot.clear()
     self.scatterPlot.clear()
-    for tag in self.graphs.keys():
+    tags = list(self.graphs.keys())
+    for tag in tags:
       self.clear_graph(tag)
     try:
       self.rois.remove('marker')
@@ -195,7 +201,7 @@ class PlotDialog(QDialog):
     self.ylabel = None
     self.x_unit = None
     self.y_unit = None
-    self.mean = None
+    self.opts_dlg = PlotOptions()
     self.initUI()
     self.sigConnect()
 
@@ -203,34 +209,25 @@ class PlotDialog(QDialog):
     self.setWindowTitle('Plot')
     self.layout = QVBoxLayout()
     self.txt = {}
-    self.mean = None
+    self.mean = {'x': None, 'y': None}
     self.tr_line = False
 
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
-
-    self.avgline_btn = QPushButton('Mean')
-    self.stddev_btn = QPushButton('Standard Deviation')
-    self.trendline_btn = QPushButton('Trendline')
+    self.opts_btn = QPushButton('Options')
 
     self.buttons.button(QDialogButtonBox.Close).setAutoDefault(True)
     self.buttons.button(QDialogButtonBox.Close).setDefault(True)
     self.buttons.button(QDialogButtonBox.Save).setText('Save Plot')
     self.buttons.button(QDialogButtonBox.Save).setAutoDefault(False)
     self.buttons.button(QDialogButtonBox.Save).setDefault(False)
-    self.avgline_btn.setAutoDefault(False)
-    self.stddev_btn.setAutoDefault(False)
-    self.trendline_btn.setAutoDefault(False)
-    self.avgline_btn.setDefault(False)
-    self.stddev_btn.setDefault(False)
-    self.trendline_btn.setDefault(False)
+    self.opts_btn.setAutoDefault(False)
+    self.opts_btn.setDefault(False)
 
     self.actionEnabled(False)
 
     btn_layout = QHBoxLayout()
-    btn_layout.addWidget(self.avgline_btn)
-    btn_layout.addWidget(self.stddev_btn)
-    btn_layout.addWidget(self.trendline_btn)
+    btn_layout.addWidget(self.opts_btn)
     btn_layout.addStretch()
     btn_layout.addWidget(self.buttons)
 
@@ -244,13 +241,14 @@ class PlotDialog(QDialog):
   def sigConnect(self):
     self.buttons.rejected.connect(self.on_close)
     self.buttons.accepted.connect(self.on_save)
-    self.avgline_btn.clicked.connect(self.on_avgline)
-    self.stddev_btn.clicked.connect(self.on_stddev)
-    self.trendline_btn.clicked.connect(self.on_trendline)
+    self.opts_btn.clicked.connect(self.on_opts_dialog)
+    [opt.stateChanged.connect(self.apply_mean_opts) for opt in self.opts_dlg.mean_chks]
+    self.opts_dlg.trdl_btngrp.buttonClicked[int].connect(self.apply_trendline_opts)
+    self.opts_dlg.poly_ordr_spn.valueChanged.connect(self.on_poly_order_changed)
     # self.proxy = pg.SignalProxy(self.axes.linePlot.scene().sigMouseMoved, rateLimit=60, slot=self.mouseMoved)
 
   def plot(self, *args, **kwargs):
-    self.axes.addPlot(*args, **kwargs)
+    self.axes.plot(*args, **kwargs)
 
   def scatter(self, *args, **kwargs):
     self.axes.scatterPlot.clear()
@@ -285,22 +283,27 @@ class PlotDialog(QDialog):
     self.trendActionEnabled(state)
 
   def meanActionEnabled(self, state):
-    self.avgline_btn.setEnabled(state)
+    [opt.setEnabled(state) for opt in self.opts_dlg.mean_chks]
 
   def trendActionEnabled(self, state):
-    self.trendline_btn.setEnabled(state)
+    [opt.setEnabled(state) for opt in self.opts_dlg.trdl_opts]
 
   def stddevActionEnabled(self, state):
-    self.stddev_btn.setEnabled(state)
+    [opt.setEnabled(state) for opt in self.opts_dlg.stdv_chks]
 
-  def on_avgline(self):
-    if self.mean is None:
-      x, y = self.get_plot_data()
-      mean = y.mean()
-      self.avgLine(mean)
-      self.annotate('mean', pos=(0, mean), text=f'Mean: {mean:#.2f} {self.y_unit}')
-    else:
-      self.clearAvgLine()
+  def on_avgline(self, axis):
+    if self.mean[axis]:
+      return
+    x, y = self.get_plot_data()
+
+    if x is None or y is None:
+      return
+    mean = x.mean() if axis=='x' else y.mean()
+    anchor = (0, 1) if axis=='x' else (0, 0)
+    pos = (mean, 0) if axis=='x' else (0, mean)
+    unit = self.x_unit if axis=='x' else self.y_unit
+    self.avgLine(mean, axis)
+    self.annotate(f'mean_{axis}', anchor=anchor, pos=pos, text=f'{axis}-mean: {mean:#.2f} {unit}')
 
   def get_plot_data(self):
     max_size = 0
@@ -320,30 +323,69 @@ class PlotDialog(QDialog):
 
   def on_stddev(self):
     if 'std' in self.txt:
-      self.clearAnnotation('std')
-    else:
-      x, y = self.get_plot_data()
-      x_std = np.std(x)
-      y_std = np.std(y)
-      self.annotate('std', anchor=(0,1), text=f'{self.xlabel} stdev: {x_std:#.2f} {self.x_unit}\n{self.ylabel} stdev: {y_std:#.2f} {self.y_unit}')
+      return
+    x, y = self.get_plot_data()
 
-  def on_trendline(self):
+    if x is None or y is None:
+      return
+    x_std = np.std(x)
+    y_std = np.std(y)
+    self.annotate('std', anchor=(0,1), text=f'{self.ylabel} stdev: {y_std:#.2f} {self.y_unit}')
+
+  def on_trendline(self, method):
+    if self.tr_line:
+      self.clear_trendline()
+
+    x, y = self.get_plot_data()
+    if x is None or y is None:
+      return
+
+    model = CurveFit(x,y)
+    if method=='linear' or method=='polynomial':
+      degree = 1 if method=='linear' else self.opts_dlg.poly_ordr_spn.value()
+      param, r2, predict = model.polyfit(degree)
+      eq = model.get_poly_eq(param)
+    elif method=='exponential':
+      param, r2, predict = model.expfit()
+      eq = model.get_exp_eq(param)
+    elif method=='logarithmic':
+      param, r2, predict = model.logfit()
+      eq = model.get_log_eq(param)
+    else:
+      return
+
+    pos = ((x[0]+x[-1])//2, (y[0]+y[-1])//2)
+    self.plot(x, predict(x), name='trendline', pen={'color': "FF0000", 'width': 2.5})
+    self.annotate('tr', pos=pos, text=f'y = {eq}\nR² = {r2:#.4f}')
+    self.tr_line = True
+
+  def clear_stddev(self):
+    if 'std' in self.txt:
+      self.clearAnnotation('std')
+
+  def clear_trendline(self):
     if self.tr_line:
       self.tr_line = False
       self.axes.clear_graph('trendline')
       self.clearAnnotation('tr')
-    else:
-      x, y = self.get_plot_data()
-      slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
-      y_hat = intercept + slope*x
-      if intercept < 0:
-        intercept *= -1
-        operator = '-'
-      else:
-        operator = '+'
-      self.annotate('tr', pos=(x[len(x)//2],y_hat[len(y_hat)//2]), text=f'y = {slope:#.4f}x {operator} {intercept:#.4f}\nR² = {r_value**2:#.4f}')
-      self.plot(x, y_hat, name='trendline', pen={'color': "FF0000", 'width': 2.5})
-      self.tr_line = True
+
+  def apply_mean_opts(self):
+    self.on_avgline('x') if self.opts_dlg.x_mean_chk.isChecked() else self.clearAvgLine('x')
+    self.on_avgline('y') if self.opts_dlg.y_mean_chk.isChecked() else self.clearAvgLine('y')
+
+  def apply_trendline_opts(self, idx):
+    button = self.opts_dlg.trdl_btngrp.button(idx)
+    method = button.text().lower()
+    print(method)
+    self.on_trendline(method)
+
+  def on_poly_order_changed(self):
+    self.on_trendline('polynomial')
+
+  def on_opts_dialog(self):
+    rect = self.frameGeometry()
+    self.opts_dlg.move(rect.topRight().x(), rect.topRight().y())
+    self.opts_dlg.show()
 
   def on_close(self):
     self.resize(640, 480)
@@ -373,20 +415,24 @@ class PlotDialog(QDialog):
       exporter = pg.exporters.SVGExporter(self.axes.plotItem)
     exporter.export(filename)
 
-  def avgLine(self, value):
-    self.mean = pg.InfiniteLine(angle=0, movable=False, pen={'color': "00FFFF", 'width': 1})
-    self.axes.addItem(self.mean)
-    self.mean.setPos(value)
+  def avgLine(self, value, axis):
+    if axis=='x' or axis=='y':
+      angle = 90 if axis=='x' else 0
+    else:
+      return
+    self.mean[axis] = pg.InfiniteLine(angle=angle, movable=False, pen={'color': "00FFFF", 'width': 1})
+    self.axes.addItem(self.mean[axis])
+    self.mean[axis].setPos(value)
 
   def bar(self, *args, **kwargs):
     self.axes.clearAll()
     self.axes.bar(*args, **kwargs)
 
-  def clearAvgLine(self):
-    if self.mean:
-      self.axes.removeItem(self.mean)
-      self.mean = None
-      self.clearAnnotation('mean')
+  def clearAvgLine(self, axis):
+    if self.mean[axis]:
+      self.axes.removeItem(self.mean[axis])
+      self.mean[axis] = None
+      self.clearAnnotation(f'mean_{axis}')
 
   def axis_line(self):
     self.y_axis = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
@@ -555,8 +601,169 @@ class AxisItem(pg.AxisItem):
       # p.restore()
 
 
+class CurveFit:
+  def __init__(self, x_data=[], y_data=[]):
+    self.set_data(x_data, y_data)
+
+  def polyfit(self, degree=2):
+    params = np.polyfit(self.x_data, self.y_data, degree)
+    predict = np.poly1d(params)
+    r2 = r2_score(self.y_data, predict(self.x_data))
+    return params, r2, predict
+
+  def expfit(self, p0=None):
+    params, cov = curve_fit(lambda t,a,b: a*np.exp(b*t), self.x_data,  self.y_data, p0=p0)
+    a,b = params
+    predict = lambda x: a*np.exp(b*x)
+    r2 = r2_score(self.y_data, predict(self.x_data))
+    return params, r2, predict
+
+  def logfit(self):
+    params, cov = curve_fit(lambda t,a,b: a+b*np.log(t),  self.x_data,  self.y_data)
+    a,b = params
+    predict = lambda x: a+b*np.log(x)
+    r2 = r2_score(self.y_data, predict(self.x_data))
+    return params, r2, predict
+
+  def set_data(self, x_data, y_data):
+    self.x_data = x_data
+    self.y_data = y_data
+
+  def get_exp_eq(self, p, var_string='x', prec=4):
+    superscript = str.maketrans("0123456789abcdefghijklmnoprstuvwxyz.", "⁰¹²³⁴⁵⁶⁷⁸⁹ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⋅")
+    numformat = '%%0.%df' % prec
+    a,b = p
+    str_a = numformat % a
+    raw_str_b = numformat % b
+    str_b = raw_str_b.translate(superscript)
+    str_var = var_string.translate(superscript)
+    return str_a + 'e' + str_b + str_var
+
+  def get_log_eq(self, p, var_string='x', prec=4):
+    numformat = '%%0.%df' % prec
+    a,b = p
+    if b<0:
+      sign = ' - '
+      b = -b
+    else:
+      sign = ' + '
+    str_a = numformat % a
+    str_b = numformat % b
+    return str_a + sign + str_b + f'ln({var_string})'
+
+  def get_poly_eq(self, p, var_string='x', prec=4):
+    res = ''
+    first_pow = len(p) - 1
+    superscript = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+    numformat = '%%0.%df' % prec
+    for i, coef in enumerate(p):
+      power = first_pow - i
+
+      if coef:
+        if coef < 0:
+          sign, coef = (' - ' if res else '- '), -coef
+        elif coef > 0: # must be true
+          sign = (' + ' if res else '')
+
+        str_coef = '' if coef == 1 and power != 0 else numformat%coef
+
+        if power == 0:
+          str_power = ''
+        elif power == 1:
+          str_power = var_string
+        else:
+          raw_str_power = var_string + str(power)
+          str_power = raw_str_power.translate(superscript)
+
+        res += sign + str_coef + str_power
+    return res
+
+
+class PlotOptions(QDialog):
+  def __init__(self, *args, **kwargs):
+    super(PlotOptions, self).__init__(*args, **kwargs)
+    self.initUI()
+    self.sigConnect()
+
+  def initUI(self):
+    self.setWindowTitle('Options')
+
+    self.x_mean_chk = QCheckBox('x-data')
+    self.y_mean_chk = QCheckBox('y-data')
+    self.mean_chks = [self.x_mean_chk, self.y_mean_chk]
+
+    mean_grpbox = QGroupBox('Mean')
+    mean_layout = QVBoxLayout()
+    mean_layout.addWidget(self.x_mean_chk)
+    mean_layout.addWidget(self.y_mean_chk)
+    mean_grpbox.setLayout(mean_layout)
+
+    self.x_stdv_chk = QCheckBox('x-data')
+    self.y_stdv_chk = QCheckBox('y-data')
+    self.stdv_chks = [self.x_stdv_chk, self.y_stdv_chk]
+
+    stdv_grpbox = QGroupBox('Standard Deviation')
+    stdv_layout = QVBoxLayout()
+    stdv_layout.addWidget(self.x_stdv_chk)
+    stdv_layout.addWidget(self.y_stdv_chk)
+    stdv_grpbox.setLayout(stdv_layout)
+
+    self.none_trdl_btn = QRadioButton('None')
+    self.linr_trdl_btn = QRadioButton('Linear')
+    self.poly_trdl_btn = QRadioButton('Polynomial')
+    self.exp_trdl_btn = QRadioButton('Exponential')
+    self.log_trdl_btn = QRadioButton('Logarithmic')
+    self.poly_ordr_spn = QSpinBox()
+    self.trdl_btngrp = QButtonGroup()
+    self.trdl_opts = [self.none_trdl_btn, self.linr_trdl_btn, self.poly_trdl_btn, self.poly_ordr_spn, self.exp_trdl_btn, self.log_trdl_btn]
+
+    self.trdl_btngrp.addButton(self.none_trdl_btn)
+    self.trdl_btngrp.addButton(self.linr_trdl_btn)
+    self.trdl_btngrp.addButton(self.poly_trdl_btn)
+    self.trdl_btngrp.addButton(self.exp_trdl_btn)
+    self.trdl_btngrp.addButton(self.log_trdl_btn)
+
+    self.none_trdl_btn.setChecked(True)
+    self.poly_ordr_spn.setValue(2)
+    self.poly_ordr_spn.setMinimum(2)
+    self.poly_ordr_spn.setMaximumWidth(50)
+    self.poly_ordr_spn.setEnabled(False)
+
+    trdl_grpbox = QGroupBox('Trendline')
+    trdl_layout = QFormLayout()
+    trdl_layout.addRow(self.none_trdl_btn, QLabel(''))
+    trdl_layout.addRow(self.linr_trdl_btn, QLabel(''))
+    trdl_layout.addRow(self.poly_trdl_btn, self.poly_ordr_spn)
+    trdl_layout.addRow(self.exp_trdl_btn, QLabel(''))
+    trdl_layout.addRow(self.log_trdl_btn, QLabel(''))
+    trdl_grpbox.setLayout(trdl_layout)
+
+    self.buttons = QDialogButtonBox(QDialogButtonBox.Close)
+
+    layout = QVBoxLayout()
+    layout.addWidget(mean_grpbox)
+    layout.addWidget(stdv_grpbox)
+    layout.addWidget(trdl_grpbox)
+    layout.addWidget(self.buttons)
+
+    self.setLayout(layout)
+
+  def sigConnect(self):
+    self.buttons.rejected.connect(self.reject)
+    self.none_trdl_btn.toggled.connect(self.on_trdl_changed)
+    self.linr_trdl_btn.toggled.connect(self.on_trdl_changed)
+    self.poly_trdl_btn.toggled.connect(self.on_trdl_changed)
+
+  def on_trdl_changed(self):
+    if self.sender().text().lower() == 'polynomial':
+      self.poly_ordr_spn.setEnabled(True)
+    else:
+      self.poly_ordr_spn.setEnabled(False)
+
+
 if __name__ == '__main__':
   app = QApplication(sys.argv)
   dialog = PlotDialog()
+  dialog.actionEnabled(True)
   dialog.show()
   sys.exit(app.exec_())

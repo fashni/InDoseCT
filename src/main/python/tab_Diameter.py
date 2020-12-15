@@ -586,9 +586,9 @@ class DiameterTab(QDialog):
         line_h = np.array([pos_col[id_col], pos_row[id_col]]).T
         self.ap_edit.setText(f'{ap:#.2f} cm')
         self.lat_edit.setText(f'{lat:#.2f} cm')
-        self.ctx.axes.addPlot(line_v, pen={'color': "00FF7F", 'width': 2}, symbol=None)
-        self.ctx.axes.addPlot(line_h, pen={'color': "00FF7F", 'width': 2}, symbol=None)
-        self.ctx.axes.addPlot([col], [row], pen=None, symbol='o', symbolPen=None, symbolSize=10, symbolBrush=(255, 127, 0, 255))
+        self.ctx.axes.plot(line_v, pen={'color': "00FF7F", 'width': 2}, symbol=None)
+        self.ctx.axes.plot(line_h, pen={'color': "00FF7F", 'width': 2}, symbol=None)
+        self.ctx.axes.plot([col], [row], pen=None, symbol='o', symbolPen=None, symbolSize=10, symbolBrush=(255, 127, 0, 255))
     elif self.based_on == 1:
       dval = get_dw_value(img, mask, dims, rd, self.is_truncated)
     self.d_out.setText(f'{dval:#.2f}')
