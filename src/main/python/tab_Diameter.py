@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox,
                              QLineEdit, QPushButton, QScrollArea, QRadioButton,
                              QButtonGroup, QCheckBox, QProgressDialog, QSpinBox,
-                             QStackedWidget, QMessageBox, QFormLayout)
+                             QStackedWidget, QMessageBox, QFormLayout, QDialog)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
@@ -13,12 +13,20 @@ from scipy import interpolate
 import sip
 import numpy as np
 
-class DiameterTab(QWidget):
+class DiameterTab(QDialog):
   def __init__(self, ctx, *args, **kwargs):
     super(DiameterTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
     self.slices = None
     self.slices2 = None
+    self._def_auto_method = 'area'
+    self._def_manual_method = 'deff'
+    self._3d_method = 'slice step'
+    self.is_truncated = False
+    self.src_method = {
+      'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
+      'Input Manually': ['Manual'],
+    }
     self.initVar()
     self.initModel()
     self.initData()
@@ -31,14 +39,6 @@ class DiameterTab(QWidget):
     self.d_vals = []
     self.lineLAT = 0
     self.lineAP = 0
-    self._def_auto_method = 'area'
-    self._def_manual_method = 'deff'
-    self._3d_method = 'slice step'
-    self.is_truncated = False
-    self.src_method = {
-      'Get from Image': ['Auto', 'Auto (3D)', 'Manual'],
-      'Input Manually': ['Manual'],
-    }
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -125,6 +125,13 @@ class DiameterTab(QWidget):
     self.next_tab_btn = QPushButton('Next')
     self.prev_tab_btn = QPushButton('Previous')
 
+    self.next_tab_btn.setAutoDefault(True)
+    self.next_tab_btn.setDefault(True)
+    self.prev_tab_btn.setAutoDefault(False)
+    self.prev_tab_btn.setDefault(False)
+    self.calc_btn.setAutoDefault(False)
+    self.calc_btn.setDefault(False)
+
     out = QHBoxLayout()
     out.addWidget(self.calc_btn)
     out.addWidget(d_lbl)
@@ -178,6 +185,12 @@ class DiameterTab(QWidget):
     opt1 = QPushButton('Polygon')
     opt2 = QPushButton('Ellipse')
     opt3 = QPushButton('Clear')
+    opt1.setAutoDefault(False)
+    opt1.setDefault(False)
+    opt2.setAutoDefault(False)
+    opt2.setDefault(False)
+    opt3.setAutoDefault(False)
+    opt3.setDefault(False)
     opt1.clicked.connect(self._addPolygon)
     opt2.clicked.connect(self._addEllipse)
     opt3.clicked.connect(self._clearROIs)
@@ -336,6 +349,12 @@ class DiameterTab(QWidget):
     opt1 = QPushButton('LAT')
     opt2 = QPushButton('AP')
     opt3 = QPushButton('Clear')
+    opt1.setAutoDefault(False)
+    opt1.setDefault(False)
+    opt2.setAutoDefault(False)
+    opt2.setDefault(False)
+    opt3.setAutoDefault(False)
+    opt3.setDefault(False)
     opt1.clicked.connect(self._addLAT)
     opt2.clicked.connect(self._addAP)
     opt3.clicked.connect(self._clearROIs)
@@ -822,8 +841,4 @@ class DiameterTab(QWidget):
 
   def reset_fields(self):
     self.initVar()
-    self.based_on_cb.setCurrentIndex(0)
-    self.src_cb.setCurrentIndex(0)
-    self.method_cb.setCurrentIndex(0)
-    self._update_methods('Get from Image')
     self._set_options()

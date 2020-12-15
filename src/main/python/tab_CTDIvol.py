@@ -1,13 +1,13 @@
 from PyQt5.QtGui import QFont, QDoubleValidator
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QHBoxLayout, QVBoxLayout, QFormLayout, QStackedLayout, QLineEdit, QPushButton,
-                             QLabel, QWidget, QComboBox, QMessageBox, QGroupBox)
+                             QLabel, QWidget, QComboBox, QMessageBox, QGroupBox, QDialog)
 from PyQt5.QtSql import QSqlTableModel
 from custom_widgets import HSeparator, VSeparator
 from constants import *
 from Plot import PlotDialog
 
-class CTDIVolTab(QWidget):
+class CTDIVolTab(QDialog):
   def __init__(self, ctx, *args, **kwargs):
     super(CTDIVolTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
@@ -152,6 +152,15 @@ class CTDIVolTab(QWidget):
     self.ctdiw_edit.setReadOnly(True)
     self.ctdiv_c_edit.setReadOnly(True)
     self.dlp_c_edit.setReadOnly(True)
+
+    self.next_tab_btn.setAutoDefault(True)
+    self.next_tab_btn.setDefault(True)
+    self.prev_tab_btn.setAutoDefault(False)
+    self.prev_tab_btn.setDefault(False)
+    self.tcm_btn.setAutoDefault(False)
+    self.tcm_btn.setDefault(False)
+    self.scn_btn.setAutoDefault(False)
+    self.scn_btn.setDefault(False)
 
     self.set_layout()
 
@@ -393,16 +402,17 @@ class CTDIVolTab(QWidget):
         self.scan_length = float(self.scan_length_c_edit.text())
       self.mAs = self.tube_current*self.rotation_time
       try:
-        self.eff_mAs = self.tube_current/self.pitch
+        self.eff_mAs = self.mAs/self.pitch
       except ZeroDivisionError:
-        self.eff_mAs = self.tube_current
+        self.eff_mAs = self.mAs
       try:
         self.CTDIw = self.coll*self.CTDI*self.mAs / 100
       except TypeError:
         self.CTDIw = 0
       try:
-        self.CTDIv = self.coll*self.CTDI*self.eff_mAs / 100
-      except TypeError:
+        # self.CTDIv = self.coll*self.CTDI*self.eff_mAs / 100
+        self.CTDIv = self.CTDIw / self.pitch
+      except:
         self.CTDIv = 0
       self.DLP = self.CTDIv*self.scan_length
 

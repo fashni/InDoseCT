@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import (QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout,
+from PyQt5.QtWidgets import (QDialog, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QGroupBox,
                              QButtonGroup, QCheckBox, QMessageBox)
 from PyQt5.QtCore import Qt
@@ -10,7 +10,7 @@ from db import get_records
 from Plot import PlotDialog
 from scipy import interpolate
 
-class SSDETab(QWidget):
+class SSDETab(QDialog):
   def __init__(self, ctx, *args, **kwargs):
     super(SSDETab, self).__init__(*args, **kwargs)
     self.ctx = ctx
