@@ -335,6 +335,9 @@ class MainWindow(QMainWindow):
     self.sort_btn.setEnabled(True)
     if self.ctdiv_tab.mode == 2:
       self.ctdiv_tab.calculate()
+    self.adjust_slices()
+
+  def adjust_slices(self):
     try:
       self.diameter_tab.slices.setValue(self.ctx.current_img)
       self.diameter_tab.slices.setMaximum(self.ctx.total_img)
@@ -441,6 +444,7 @@ class MainWindow(QMainWindow):
     self.close_img_btn.setEnabled(False)
     self.windowing_cb.setEnabled(False)
     self.sort_btn.setEnabled(False)
+    self.adjust_slices()
 
   def _get_windowing_parameters(self, idx):
     id = self.ctx.windowing_model.record(idx).value("id")

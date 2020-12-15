@@ -841,4 +841,19 @@ class DiameterTab(QDialog):
 
   def reset_fields(self):
     self.initVar()
-    self._set_options()
+    self.d_out.setText(f'{self.ctx.app_data.diameter:#.2f}')
+    try:
+      self.ap_edit.setText('0 cm')
+      self.lat_edit.setText('0 cm')
+    except:
+      pass
+    try:
+      self.def_img_man_edit1.setText('0 cm')
+      self.def_img_man_edit2.setText('0 cm')
+    except:
+      pass
+    try:
+      self.def_man_opt1.clear()
+      self.def_man_opt2.clear()
+    except:
+      pass
