@@ -376,19 +376,26 @@ class PlotDialog(QDialog):
   def apply_trendline_opts(self, idx):
     button = self.opts_dlg.trdl_btngrp.button(idx)
     method = button.text().lower()
-    print(method)
     self.on_trendline(method)
 
   def on_poly_order_changed(self):
     self.on_trendline('polynomial')
 
   def on_opts_dialog(self):
+    if self.opts_dlg.isVisible():
+       self.opts_dlg.close()
+       return
     rect = self.frameGeometry()
-    self.opts_dlg.move(rect.topRight().x(), rect.topRight().y())
+    x, y = rect.topLeft().x(), rect.topLeft().y()
     self.opts_dlg.show()
+    if x-self.opts_dlg.width() < 0:
+      self.opts_dlg.move(x, y)
+    else:
+      self.opts_dlg.move(x-self.opts_dlg.width(), y)
 
   def on_close(self):
-    self.resize(640, 480)
+    if self.opts_dlg.isVisible():
+      self.opts_dlg.close()
     self.close()
 
   def on_save(self):
@@ -715,7 +722,7 @@ class PlotOptions(QDialog):
     self.log_trdl_btn = QRadioButton('Logarithmic')
     self.poly_ordr_spn = QSpinBox()
     self.trdl_btngrp = QButtonGroup()
-    self.trdl_opts = [self.none_trdl_btn, self.linr_trdl_btn, self.poly_trdl_btn, self.poly_ordr_spn, self.exp_trdl_btn, self.log_trdl_btn]
+    self.trdl_opts = [self.none_trdl_btn, self.linr_trdl_btn, self.poly_trdl_btn, self.exp_trdl_btn, self.log_trdl_btn]
 
     self.trdl_btngrp.addButton(self.none_trdl_btn)
     self.trdl_btngrp.addButton(self.linr_trdl_btn)
@@ -750,15 +757,10 @@ class PlotOptions(QDialog):
 
   def sigConnect(self):
     self.buttons.rejected.connect(self.reject)
-    self.none_trdl_btn.toggled.connect(self.on_trdl_changed)
-    self.linr_trdl_btn.toggled.connect(self.on_trdl_changed)
-    self.poly_trdl_btn.toggled.connect(self.on_trdl_changed)
+    [button.toggled.connect(self.on_trdl_changed) for button in self.trdl_btngrp.buttons()]
 
   def on_trdl_changed(self):
-    if self.sender().text().lower() == 'polynomial':
-      self.poly_ordr_spn.setEnabled(True)
-    else:
-      self.poly_ordr_spn.setEnabled(False)
+    self.poly_ordr_spn.setEnabled(self.sender().text().lower() == 'polynomial')
 
 
 if __name__ == '__main__':
