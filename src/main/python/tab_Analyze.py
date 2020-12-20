@@ -317,7 +317,7 @@ class AnalyzeTab(QWidget):
     self.figure = PlotDialog()
     self.figure.axes.addLegend(pen='w', brush=(64,64,64,127))
     if self.y_opt=='Frequency':
-      self.figure.plot(self.x_data, self.y_data, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
+      self.figure.plot(self.x_data, self.y_data, name=f'{self.x_opt} {self.y_opt}', stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     else:
       self.figure.actionEnabled(True)
       self.figure.plot(self.x_data, self.y_data, name='data points', pen=None, symbol='o', symbolSize=8, symbolPen='k', symbolBrush=(255, 255, 0, 255))
