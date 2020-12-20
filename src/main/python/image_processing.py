@@ -75,47 +75,36 @@ def get_coord(grid, x):
   list_of_coordinates = np.array(tuple(zip(where[0], where[1])))
   return list_of_coordinates
 
-def get_px_area(roi):
-  return roi[0].area
-
-def get_avg_intensity(roi):
-  return roi[0].mean_intensity
-
-def get_roi(img, mask):
-  return regionprops(mask.astype(int), intensity_image=img)
+def get_regprops(mask, img=None):
+  r_props = regionprops(mask.astype(int), intensity_image=img)
+  r_props.sort(key=lambda reg: reg.area, reverse=True)
+  return r_props
 
 def get_dw_value(img, mask, dims, rd, is_truncated=False):
   r,c = dims
-  roi = get_roi(img, mask)
-  px_area = get_px_area(roi)
+  roi = get_regprops(mask, img)
+  px_area = roi[0].area
   area = px_area*(rd**2)/(r*c)
-  avg = get_avg_intensity(roi)
+  avg = roi[0].mean_intensity
   dw = 0.1*2*np.sqrt(((avg/1000)+1)*(area/np.pi))
   if is_truncated:
     percent = truncation(mask)
     dw *= np.exp(1.14e-6 * percent**3)
   return dw
 
-def get_deff_value(img, mask, dims, rd, method):
+def get_deff_value(mask, dims, rd, method):
   r,c = dims
-  roi = get_roi(img, mask)
-  px_area = get_px_area(roi)
-  cen_row = None
-  cen_col = None
-  len_row = None
-  len_col = None
+  roi = get_regprops(mask)
+  px_area = roi[0].area
+  cen_row = cen_col = len_row = len_col = None
+  row, col = mask.shape
   if method == 'area':
     area = px_area*(rd**2)/(r*c)
     deff = 2*0.1*np.sqrt(area/np.pi)
   elif method == 'center':
-    pos = get_coord(mask, True)
-    N = len(pos)
-    xpos = sum(pos[:, 0])
-    ypos = sum(pos[:, 1])
-    cen_row = xpos//N
-    cen_col = ypos//N
+    cen_row, cen_col = roi[0].centroid
+    cen_row, cen_col = int(cen_row), int(cen_col)
 
-    row, col = mask.shape
     nrow1 = sum(mask[cen_row, :])
     ncol1 = sum(mask[:, cen_col])
 
@@ -124,15 +113,13 @@ def get_deff_value(img, mask, dims, rd, method):
 
     deff = np.sqrt(len_row*len_col)
   elif method == 'max':
-    row, col = mask.shape
-    len_cols = np.array([sum(mask[r, :] for r in range(row))]).flatten()
-    len_rows = np.array([sum(mask[:, c] for c in range(col))]).flatten()
+    min_row, min_col, max_row, max_col = roi[0].bbox
 
-    len_col = np.max(len_cols) * (0.1*rd/col)
-    len_row = np.max(len_rows) * (0.1*rd/row)
+    len_row = (max_row-min_row) * (0.1*rd/row) #ver
+    len_col = (max_col-min_col) * (0.1*rd/col) #hor
 
-    cen_col = np.argmax(len_cols)
-    cen_row = np.argmax(len_rows)
+    cen_row = min_row + (max_row-min_row)//2
+    cen_col = min_col + (max_col-min_col)//2
 
     deff = np.sqrt(len_row*len_col)
   else:

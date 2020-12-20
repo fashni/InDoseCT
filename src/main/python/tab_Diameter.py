@@ -566,7 +566,8 @@ class DiameterTab(QDialog):
   def _auto(self):
     img = self.ctx.getImg()
     mask = get_mask(img)
-    if img is None:
+    if mask is None:
+      QMessageBox.warning(None, 'Segmentation Failed', 'No object found during segmentation process.')
       return
     dims = self.ctx.img_dims
     rd = self.ctx.recons_dim
@@ -576,7 +577,7 @@ class DiameterTab(QDialog):
     self.ctx.axes.clearGraph()
     self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
     if self.based_on == 0: # deff
-      dval, row, col, lat, ap = get_deff_value(img, mask, dims, rd, self._def_auto_method)
+      dval, row, col, lat, ap = get_deff_value(mask, dims, rd, self._def_auto_method)
       if self._def_auto_method != 'area':
         col += .5
         row += .5
@@ -603,7 +604,7 @@ class DiameterTab(QDialog):
     for idx, img in enumerate(imgs):
       mask = get_mask(img)
       if self.based_on == 0:
-        d, _, _, _, _ = get_deff_value(img, mask, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
+        d, _, _, _, _ = get_deff_value(mask, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
       else:
         d = get_dw_value(img, mask, self.ctx.img_dims, self.ctx.recons_dim, self.is_truncated)
       self.d_vals.append(d)
