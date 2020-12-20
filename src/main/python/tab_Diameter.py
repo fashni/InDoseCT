@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,QComboBox
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
-from image_processing import get_dw_value, get_deff_value, get_mask, get_mask_pos, get_image
+from image_processing import get_dw_value, get_deff_value, get_mask, get_mask_pos
 from custom_widgets import VSeparator
 from constants import *
 from Plot import PlotDialog
@@ -576,7 +576,7 @@ class DiameterTab(QDialog):
     self.ctx.axes.clearGraph()
     self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
     if self.based_on == 0: # deff
-      dval, row, col, lat, ap = get_deff_value(img, dims, rd, self._def_auto_method)
+      dval, row, col, lat, ap = get_deff_value(img, mask, dims, rd, self._def_auto_method)
       if self._def_auto_method != 'area':
         col += .5
         row += .5
@@ -600,11 +600,10 @@ class DiameterTab(QDialog):
     progress = QProgressDialog(f"Calculating diameter of {n} images...", "Stop", 0, n, self)
     progress.setWindowModality(Qt.WindowModal)
     progress.setMinimumDuration(1000)
-    for idx, dcm in enumerate(imgs):
-      img = get_image(dcm)
+    for idx, img in enumerate(imgs):
       mask = get_mask(img)
       if self.based_on == 0:
-        d, _, _, _, _ = get_deff_value(img, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
+        d, _, _, _, _ = get_deff_value(img, mask, self.ctx.img_dims, self.ctx.recons_dim, self._def_auto_method)
       else:
         d = get_dw_value(img, mask, self.ctx.img_dims, self.ctx.recons_dim, self.is_truncated)
       self.d_vals.append(d)
@@ -620,7 +619,7 @@ class DiameterTab(QDialog):
     self.d_vals = []
     self.idxs = []
     nslice = self.slices.value()
-    dcms = np.array(self.ctx.dicoms)
+    dcms = self.ctx.images
     index = list(range(len(dcms)))
 
     if self._3d_method == 'slice step':

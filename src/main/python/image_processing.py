@@ -10,13 +10,6 @@ def get_pixels_hu(scans):
   imgs = np.stack([ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept for ds in scans])
   return np.array(imgs, dtype=np.int16)
 
-def get_image(ds):
-  try:
-    img_hu = np.array(ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept)
-    return img_hu
-  except Exception as e:
-    return str(e)
-
 def get_dicom(*args, **kwargs):
   try:
     dcm = pydicom.dcmread(*args, **kwargs)
@@ -100,12 +93,10 @@ def get_dw_value(img, mask, dims, rd, is_truncated=False):
   dw = 0.1*2*np.sqrt(((avg/1000)+1)*(area/np.pi))
   if is_truncated:
     percent = truncation(mask)
-    correction = np.exp(1.14e-6 * percent**3)
-    dw *= correction
+    dw *= np.exp(1.14e-6 * percent**3)
   return dw
 
-def get_deff_value(img, dims, rd, method):
-  mask = get_mask(img)
+def get_deff_value(img, mask, dims, rd, method):
   r,c = dims
   roi = get_roi(img, mask)
   px_area = get_px_area(roi)
@@ -149,25 +140,13 @@ def get_deff_value(img, dims, rd, method):
   return deff, cen_row, cen_col, len_row, len_col
 
 def truncation(mask):
-  pos = get_mask_pos(mask)
   row, col = mask.shape
-  uniq_row, count_row = np.unique(pos[:,0], return_counts=True)
-  uniq_col, count_col = np.unique(pos[:,1], return_counts=True)
-  n = 0
-  if 0 in uniq_row:
-    idx = np.where(uniq_row==0)
-    n += int(count_row[idx])
-  if 0 in uniq_col:
-    idx = np.where(uniq_col==0)
-    n += int(count_col[idx])
-  if row-1 in uniq_row:
-    idx = np.where(uniq_row==row-1)
-    n += int(count_row[idx])
-  if col-1 in uniq_col:
-    idx = np.where(uniq_col==col-1)
-    n += int(count_col[idx])
-  m = len(pos)
-  return (n/m) * 100
+  pos = get_mask_pos(mask)
+  edge_row = (pos[:,0]==0) | (pos[:,0]==row-1)
+  edge_col = (pos[:,1]==0) | (pos[:,1]==col-1)
+  edge_area = edge_row.sum() + edge_col.sum()
+  area = len(pos)
+  return (n_edge/area) * 100
 
 def get_mask_pos(mask):
   pad = np.zeros((mask.shape[0]+2, mask.shape[1]+2))
@@ -190,15 +169,16 @@ if __name__ == "__main__":
   print(sys.argv[1])
   ds = get_dicom(sys.argv[1])
   ref, _ = get_reference(sys.argv[1])
-  dicom_pixels = get_image(ds)
-  area, _, _ = get_deff_value(dicom_pixels, ref['dimension'], ref['reconst_diameter'], 'area')
-  center, _, _ = get_deff_value(dicom_pixels, ref['dimension'], ref['reconst_diameter'], 'center')
-  _max, _, _ = get_deff_value(dicom_pixels, ref['dimension'], ref['reconst_diameter'], 'max')
-  dw = get_dw_value(dicom_pixels, get_mask(dicom_pixels), ref['dimension'], ref['reconst_diameter'])
+  dicom_pixels = get_pixels_hu([ds])
+  img = dicom_pixels[0]
+  area, _, _, _, _ = get_deff_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'], 'area')
+  center, _, _, _, _ = get_deff_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'], 'center')
+  _max, _, _, _, _ = get_deff_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'], 'max')
+  dw = get_dw_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'])
   print(f'deff area = {area: #.2f} cm')
   print(f'deff center = {center: #.2f} cm')
   print(f'deff max = {_max: #.2f} cm')
   print(f'dw = {dw: #.2f} cm')
 
-  bone = windowing(dicom_pixels, 2000,400)
-  brain = windowing(dicom_pixels, 70,35)
+  bone = windowing(img, 2000,400)
+  brain = windowing(img, 70,35)
