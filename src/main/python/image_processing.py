@@ -105,8 +105,8 @@ def get_deff_value(mask, dims, rd, method):
     cen_row, cen_col = roi[0].centroid
     cen_row, cen_col = int(cen_row), int(cen_col)
 
-    nrow1 = sum(mask[cen_row, :])
-    ncol1 = sum(mask[:, cen_col])
+    nrow1 = sum(mask[:, cen_col])
+    ncol1 = sum(mask[cen_row, :])
 
     len_row = nrow1 * (0.1*rd/row)
     len_col = ncol1 * (0.1*rd/col)

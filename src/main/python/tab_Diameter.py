@@ -577,7 +577,7 @@ class DiameterTab(QDialog):
     self.ctx.axes.clearGraph()
     self.ctx.axes.immarker(pos_col, pos_row, pen=None, symbol='s', symbolPen=None, symbolSize=3, symbolBrush=(255, 0, 0, 255))
     if self.based_on == 0: # deff
-      dval, row, col, lat, ap = get_deff_value(mask, dims, rd, self._def_auto_method)
+      dval, row, col, ap, lat = get_deff_value(mask, dims, rd, self._def_auto_method)
       if self._def_auto_method != 'area':
         col += .5
         row += .5
