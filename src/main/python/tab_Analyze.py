@@ -153,8 +153,6 @@ class AnalyzeTab(QWidget):
     except:
       date_min = QDate(2000,1,1)
 
-    self.date_edit1.setDateRange(date_min, date_max)
-    self.date_edit2.setDateRange(date_min, date_max)
     self.date_edit1.setDate(date_min)
     self.date_edit2.setDate(date_max)
     self.date_ftr1 = date_min
