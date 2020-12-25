@@ -6,9 +6,13 @@ from skimage.measure import label, regionprops
 from skimage.morphology import closing, erosion, disk
 from scipy import ndimage as ndi
 
-def get_pixels_hu(scans):
-  imgs = np.stack([ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept for ds in scans])
-  return np.array(imgs, dtype=np.int16)
+def get_hu_imgs(scans):
+  imgs = np.stack([get_hu_img(ds) for ds in scans])
+  return imgs
+
+def get_hu_img(ds):
+  img = ds.pixel_array*ds.RescaleSlope + ds.RescaleIntercept
+  return np.array(img, dtype=np.int16)
 
 def get_dicom(*args, **kwargs):
   try:
@@ -23,7 +27,7 @@ def get_dicom(*args, **kwargs):
     # dcm.file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.2' # 	Explicit VR Big Endian
   return dcm
 
-def reslice(dcms):
+def reslice(dcms, reverse=False):
   slices = []
   skipcount = 0
   for dcm in dcms:
@@ -32,9 +36,8 @@ def reslice(dcms):
     else:
       skipcount += 1
 
-  slices = sorted(slices, key=lambda s: s.SliceLocation)
-  images = get_pixels_hu(slices)
-  return slices, images, skipcount
+  slices = sorted(slices, key=lambda s: s.SliceLocation, reverse=reverse)
+  return slices, skipcount
 
 def get_reference(file):
   ref = pydicom.dcmread(file)
@@ -56,19 +59,30 @@ def get_reference(file):
   }
   return ref_data, patient_info
 
-def get_mask(img, threshold=-200):
+def get_mask(img, threshold=-200, minimum_area=500, num_of_objects=5, largest_only=False, return_label=False):
+  if largest_only:
+    num_of_objects = 1
   thres = img>threshold
-  pad = np.zeros((thres.shape[0]+2, thres.shape[1]+2))
-  pad[1:thres.shape[0]+1, 1:thres.shape[1]+1] = thres
-  fill = ndi.binary_fill_holes(pad)
-  largest_segment = get_largest_obj(fill)
-  return largest_segment[1:thres.shape[0]+1, 1:thres.shape[1]+1]
+  fill = ndi.binary_fill_holes(thres)
+  labels = label(fill)
+  if labels.max() == 0:
+    return (None, None) if return_label else None
 
-def get_largest_obj(img):
-  labels = label(img)
-  assert(labels.max() != 0)
-  largest = labels == np.argmax(np.bincount(labels.flat)[1:])+1
-  return largest
+  regprops = get_regprops(labels)
+
+  obj_count = 0
+  segments = np.zeros_like(labels, dtype=bool)
+  for region in regprops:
+    if region.centroid[0] < labels.shape[0]*7//10 and region.area >= minimum_area:
+      segments = segments | (labels==region.label)
+      obj_count += 1
+    if obj_count == num_of_objects:
+      break
+  if obj_count == 0:
+    return (None, None) if return_label else None
+
+  labels = label(segments)
+  return (segments, labels) if return_label else segments
 
 def get_coord(grid, x):
   where = np.where(grid==x)
@@ -80,12 +94,19 @@ def get_regprops(mask, img=None):
   r_props.sort(key=lambda reg: reg.area, reverse=True)
   return r_props
 
-def get_dw_value(img, mask, dims, rd, is_truncated=False):
+def get_dw_value(img, mask, dims, rd, is_truncated=False, largest_only=False):
   r,c = dims
-  roi = get_regprops(mask, img)
-  px_area = roi[0].area
+  lbl = label(mask)
+  roi = get_regprops(lbl, img)
+  if largest_only:
+    px_area = roi[0].area
+    avg = roi[0].mean_intensity
+  else:
+    objs_area = [reg.area for reg in roi]
+    objs_avg = [reg.mean_intensity for reg in roi]
+    px_area = sum(objs_area)
+    avg = sum(objs_avg)/len(objs_avg)
   area = px_area*(rd**2)/(r*c)
-  avg = roi[0].mean_intensity
   dw = 0.1*2*np.sqrt(((avg/1000)+1)*(area/np.pi))
   if is_truncated:
     percent = truncation(mask)
@@ -93,20 +114,25 @@ def get_dw_value(img, mask, dims, rd, is_truncated=False):
   return dw
 
 def get_deff_value(mask, dims, rd, method):
+  lbl = label(mask)
   r,c = dims
-  roi = get_regprops(mask)
+  roi = get_regprops(lbl)
   px_area = roi[0].area
+  bb = roi[0].image
   cen_row = cen_col = len_row = len_col = None
-  row, col = mask.shape
+  row, col = lbl.shape
   if method == 'area':
     area = px_area*(rd**2)/(r*c)
     deff = 2*0.1*np.sqrt(area/np.pi)
   elif method == 'center':
+    bb_cen_row, bb_cen_col = roi[0].local_centroid
+    bb_cen_row, bb_cen_col = int(bb_cen_row), int(bb_cen_col)
+
+    nrow1 = sum(bb[:, bb_cen_col])
+    ncol1 = sum(bb[bb_cen_row, :])
+
     cen_row, cen_col = roi[0].centroid
     cen_row, cen_col = int(cen_row), int(cen_col)
-
-    nrow1 = sum(mask[:, cen_col])
-    ncol1 = sum(mask[cen_row, :])
 
     len_row = nrow1 * (0.1*rd/row)
     len_col = ncol1 * (0.1*rd/col)
@@ -115,11 +141,15 @@ def get_deff_value(mask, dims, rd, method):
   elif method == 'max':
     min_row, min_col, max_row, max_col = roi[0].bbox
 
-    len_row = (max_row-min_row) * (0.1*rd/row) #ver
-    len_col = (max_col-min_col) * (0.1*rd/col) #hor
+    bbrow, bbcol = bb.shape
+    len_rows = np.array([bb[:, c].sum() for c in range(bbcol)])
+    len_cols = np.array([bb[r, :].sum() for r in range(bbrow)])
 
-    cen_row = min_row + (max_row-min_row)//2
-    cen_col = min_col + (max_col-min_col)//2
+    len_row = np.max(len_rows) * (0.1*rd/row)
+    len_col = np.max(len_cols) * (0.1*rd/col)
+
+    cen_row = np.argmax(len_cols) + min_row
+    cen_col = np.argmax(len_rows) + min_col
 
     deff = np.sqrt(len_row*len_col)
   else:
@@ -133,7 +163,7 @@ def truncation(mask):
   edge_col = (pos[:,1]==0) | (pos[:,1]==col-1)
   edge_area = edge_row.sum() + edge_col.sum()
   area = len(pos)
-  return (n_edge/area) * 100
+  return (edge_area/area) * 100
 
 def get_mask_pos(mask):
   pad = np.zeros((mask.shape[0]+2, mask.shape[1]+2))
@@ -156,11 +186,10 @@ if __name__ == "__main__":
   print(sys.argv[1])
   ds = get_dicom(sys.argv[1])
   ref, _ = get_reference(sys.argv[1])
-  dicom_pixels = get_pixels_hu([ds])
-  img = dicom_pixels[0]
-  area, _, _, _, _ = get_deff_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'], 'area')
-  center, _, _, _, _ = get_deff_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'], 'center')
-  _max, _, _, _, _ = get_deff_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'], 'max')
+  img = get_hu_img(ds)
+  area, _, _, _, _ = get_deff_value(get_mask(img), ref['dimension'], ref['reconst_diameter'], 'area')
+  center, _, _, _, _ = get_deff_value(get_mask(img), ref['dimension'], ref['reconst_diameter'], 'center')
+  _max, _, _, _, _ = get_deff_value(get_mask(img), ref['dimension'], ref['reconst_diameter'], 'max')
   dw = get_dw_value(img, get_mask(img), ref['dimension'], ref['reconst_diameter'])
   print(f'deff area = {area: #.2f} cm')
   print(f'deff center = {center: #.2f} cm')

@@ -13,7 +13,7 @@ import os
 import json
 import Plot as plt
 from dicomtree import DicomTree
-from image_processing import get_dicom, windowing, reslice, get_pixels_hu
+from image_processing import get_dicom, windowing, reslice, get_hu_imgs, get_hu_img
 from patient_info import InfoPanel
 from tab_CTDIvol import CTDIVolTab
 from tab_Diameter import DiameterTab
@@ -290,8 +290,9 @@ class MainWindow(QMainWindow):
       QMessageBox.information(None, "Info", "No DICOM files in sample directory.")
 
   def _load_files(self, fnames):
+    if self.ctx.isImage:
+      self.on_close_image()
     self.statusBar().showMessage('Loading Images')
-    self.on_close_image()
     n = len(fnames)
     progress = QProgressDialog(f"Loading {n} images...", "Cancel", 0, n, self)
     progress.setWindowModality(Qt.WindowModal)
@@ -316,7 +317,6 @@ class MainWindow(QMainWindow):
       return
 
     self.ctx.dicoms = files
-    self.ctx.images = get_pixels_hu(files)
     self.ctx.total_img = len(self.ctx.dicoms)
     self.total_lbl.setText(str(self.ctx.total_img))
     self.ctx.current_img = 1
@@ -338,18 +338,12 @@ class MainWindow(QMainWindow):
     self.adjust_slices()
 
   def adjust_slices(self):
-    try:
-      self.diameter_tab.slices.setValue(self.ctx.current_img)
-      self.diameter_tab.slices.setMaximum(self.ctx.total_img)
-      self.diameter_tab.slices.setMinimum(1)
-    except:
-      pass
-    try:
-      self.diameter_tab.slices2.setValue(self.ctx.current_img)
-      self.diameter_tab.slices2.setMaximum(self.ctx.total_img)
-      self.diameter_tab.slices2.setMinimum(1)
-    except:
-      pass
+    self.diameter_tab.slice1_sb.setValue(self.ctx.current_img)
+    self.diameter_tab.slice1_sb.setMaximum(self.ctx.total_img)
+    self.diameter_tab.slice1_sb.setMinimum(1)
+    self.diameter_tab.slice2_sb.setValue(self.ctx.current_img)
+    self.diameter_tab.slice2_sb.setMaximum(self.ctx.total_img)
+    self.diameter_tab.slice2_sb.setMinimum(1)
 
   def get_patient_info(self):
     ref = self.ctx.dicoms[0]
@@ -381,7 +375,7 @@ class MainWindow(QMainWindow):
   def update_image(self):
     self.current_lbl.setText(str(self.ctx.current_img))
     self.ctx.axes.clearAll()
-    self.image_data = self.ctx.getImg()
+    self.image_data = self.ctx.get_current_img()
     if self.image_data is None:
       self.on_close_image()
       return
@@ -410,7 +404,7 @@ class MainWindow(QMainWindow):
     self.prev_img(5)
 
   def on_sort(self):
-    self.ctx.dicoms, self.ctx.images, skipcount = reslice(self.ctx.dicoms)
+    self.ctx.dicoms, skipcount = reslice(self.ctx.dicoms)
     if skipcount>0:
       QMessageBox.information(None, "Info", f"Skipped {skipcount} files with no SliceLocation.")
     self.ctx.total_img = len(self.ctx.dicoms)
@@ -445,6 +439,7 @@ class MainWindow(QMainWindow):
     self.windowing_cb.setEnabled(False)
     self.sort_btn.setEnabled(False)
     self.adjust_slices()
+    self.app_reset()
 
   def _get_windowing_parameters(self, idx):
     id = self.ctx.windowing_model.record(idx).value("id")
@@ -536,7 +531,8 @@ class MainWindow(QMainWindow):
     insert_patient(recs, self.ctx.patients_database())
     self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
     self.analyze_tab.set_filter()
-    self.app_reset()
+    self.on_close_image()
+    self.tabs.setCurrentIndex(0)
 
   def on_next_tab(self):
     self.tabs.setCurrentIndex(self.tabs.currentIndex()+1)
@@ -545,16 +541,12 @@ class MainWindow(QMainWindow):
     self.tabs.setCurrentIndex(self.tabs.currentIndex()-1)
 
   def app_reset(self):
-    self.on_close_image()
     self.ctx.app_data.init_var()
-    self.phantom_cb.setCurrentIndex(0)
-    self.on_phantom_update(0)
     self.ctdiv_tab.reset_fields()
     self.diameter_tab.reset_fields()
     self.ssde_tab.reset_fields()
     self.organ_tab.reset_fields()
     # self.analyze_tab.reset_fields()
-    self.tabs.setCurrentIndex(0)
 
 
 class AppContext(ApplicationContext):
@@ -574,6 +566,7 @@ class AppContext(ApplicationContext):
     self.app_data = AppData()
     self.axes = plt.Axes(lock_aspect=True)
     self.main_window.show()
+    self.phantom = HEAD
     return self.app.exec_()
 
   def initVar(self):
@@ -583,11 +576,13 @@ class AppContext(ApplicationContext):
     self.recons_dim = 0
     self.current_img = 0
     self.total_img = 0
-    self.phantom = HEAD
     self.isImage = False
 
-  def getImg(self):
-    return self.images[self.current_img-1]
+  def get_current_img(self):
+    return get_hu_img(self.dicoms[self.current_img-1])
+
+  def get_img_from_ds(self, ds):
+    return get_hu_img(ds)
 
   def checkFiles(self):
     if not os.path.isfile(self.config_file()):
@@ -719,10 +714,10 @@ class AppData(QObject):
 
   def __init__(self, parent=None):
     super(AppData, self).__init__(parent)
+    self._mode = DEFF_IMAGE
     self.init_var()
 
   def init_var(self):
-    self._mode = DEFF_IMAGE
     self._diameter = 0
     self._CTDIv = 0
     self._DLP = 0
