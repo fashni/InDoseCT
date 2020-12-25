@@ -197,7 +197,6 @@ class DiameterTab(QDialog):
 
     self.deff_auto_info_grpbox = QGroupBox('Info', self)
     self.deff_auto_info_grpbox.setLayout(info_form)
-    self.deff_auto_info_grpbox.setVisible(False)
 
     deff_auto_method_grpbox = QGroupBox('Method', self)
     deff_auto_method_layout = QVBoxLayout()
@@ -205,19 +204,12 @@ class DiameterTab(QDialog):
     deff_auto_method_layout.addStretch()
     deff_auto_method_grpbox.setLayout(deff_auto_method_layout)
 
-    deff_auto_options_grpbox = QGroupBox('Options', self)
-    deff_auto_options_layout = QFormLayout()
-    deff_auto_options_layout.addRow(QLabel('Threshold (HU)'), self.deff_threshold_sb)
-    deff_auto_options_layout.addRow(QLabel('Min. pixel area'), self.deff_minimum_area_sb)
-    deff_auto_options_layout.addRow(deff_auto_method_grpbox)
-    deff_auto_options_grpbox.setLayout(deff_auto_options_layout)
-
-    self.deff_auto_grpbox = QWidget(self)
-    layout = QVBoxLayout()
-    layout.addWidget(deff_auto_options_grpbox)
-    layout.addWidget(self.deff_auto_info_grpbox)
-    layout.setContentsMargins(0,0,0,0)
-    self.deff_auto_grpbox.setLayout(layout)
+    self.deff_auto_grpbox = QGroupBox('Options', self)
+    deff_auto_layout = QFormLayout()
+    deff_auto_layout.addRow(QLabel('Threshold (HU)'), self.deff_threshold_sb)
+    deff_auto_layout.addRow(QLabel('Min. pixel area'), self.deff_minimum_area_sb)
+    deff_auto_layout.addRow(deff_auto_method_grpbox)
+    self.deff_auto_grpbox.setLayout(deff_auto_layout)
 
   def _deff_img_manual_ui(self):
     self.deff_ap_edit = QLineEdit(f'{self.lineAP:#.2f} cm') if self.lineAP else QLineEdit('0 cm')
@@ -348,12 +340,17 @@ class DiameterTab(QDialog):
     self.opts_stack.addWidget(self.dw_auto_grpbox)
     self.opts_stack.addWidget(self.dw_img_manual_grpbox)
 
+    self.info_3d_stack = QStackedWidget()
+    self.info_3d_stack.addWidget(self.deff_auto_info_grpbox)
+    self.info_3d_stack.addWidget(self.d_3d_grpbox)
+
     self.opts_layout = QVBoxLayout()
     self.opts_layout.addWidget(self.opts_stack)
-    self.opts_layout.addWidget(self.d_3d_grpbox)
+    self.opts_layout.addWidget(self.info_3d_stack)
     self.opts_layout.addStretch()
 
-    self.d_3d_grpbox.setVisible(False)
+    self.info_3d_stack.setVisible(False)
+    self.info_3d_stack.setCurrentIndex(0)
 
   def _set_layout(self):
     menu_layout = QHBoxLayout()
@@ -420,8 +417,9 @@ class DiameterTab(QDialog):
     if sel.isChecked():
       self.deff_auto_method = sel.text().lower()
       if self.baseon == 0 and self.method == 0:
+        self.info_3d_stack.setCurrentIndex(0)
         is_area = self.deff_auto_method == 'area'
-        self.deff_auto_info_grpbox.setVisible(not is_area)
+        self.info_3d_stack.setVisible(not is_area)
       print(self.deff_auto_method)
 
   def on_3d_opts_changed(self):
@@ -440,7 +438,7 @@ class DiameterTab(QDialog):
   def on_set_opts_panel(self):
     self.clearROIs()
     self.opts_stack.setVisible(True)
-    self.d_3d_grpbox.setVisible(False)
+    self.info_3d_stack.setVisible(False)
     self.d_edit.setReadOnly(True)
     self.baseon = self.baseon_cb.currentIndex()
     self.source = self.source_cb.currentIndex()
@@ -462,16 +460,21 @@ class DiameterTab(QDialog):
       if self.baseon == 0: # deff
         if self.method == 0 or self.method == 1:
           self.opts_stack.setCurrentIndex(0)
+          self.info_3d_stack.setCurrentIndex(self.method)
+          if self.method == 1:
+            self.info_3d_stack.setVisible(True)
+          else:
+            self.info_3d_stack.setVisible(self.deff_auto_method != 'area')
         elif self.method == 2:
           self.opts_stack.setCurrentIndex(1)
-        self.d_3d_grpbox.setVisible(self.method == 1)
         self.ctx.app_data.mode = DEFF_IMAGE
       else:
         if self.method == 0 or self.method == 1:
           self.opts_stack.setCurrentIndex(3)
+          self.info_3d_stack.setVisible(self.method == 1)
+          self.info_3d_stack.setCurrentIndex(1)
         elif self.method == 2:
           self.opts_stack.setCurrentIndex(4)
-        self.d_3d_grpbox.setVisible(self.method == 1)
         self.ctx.app_data.mode = DW
     self.d_edit.setText('0')
 
