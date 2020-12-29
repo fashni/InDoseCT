@@ -3,7 +3,6 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QHBoxLayout, QVBoxLayout, QFormLayout, QStackedLayout, QLineEdit, QPushButton,
                              QLabel, QWidget, QComboBox, QMessageBox, QGroupBox, QDialog)
 from PyQt5.QtSql import QSqlTableModel
-from custom_widgets import HSeparator, VSeparator
 from constants import *
 from Plot import PlotDialog
 

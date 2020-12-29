@@ -1,9 +1,8 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QButtonGroup, QCheckBox
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QGroupBox, QFormLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
 import pyqtgraph as pg
 import numpy as np
-from custom_widgets import HSeparator, Label
 from constants import *
 from Plot import PlotDialog, AxisItem
 
@@ -43,42 +42,43 @@ class OrganTab(QWidget):
     self.calc_btn.clicked.connect(self.on_calculate)
 
   def initUI(self):
-    prot_lbl = QLabel('Protocol:')
     self.protocol = QComboBox()
     self.protocol.setModel(self.protocol_model)
     self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))
     self.calc_btn = QPushButton('Calculate')
 
+    self.organ_labels = []
     self.organ_edits = [QLineEdit('0') for i in range(28)]
     [organ_edit.setMaximumWidth(70) for organ_edit in self.organ_edits]
     [organ_edit.setReadOnly(True) for organ_edit in self.organ_edits]
     [organ_edit.setAlignment(Qt.AlignRight) for organ_edit in self.organ_edits]
 
-    self.organ_labels = []
+    left = QFormLayout()
+    right = QFormLayout()
+    for idx, organ_edit in enumerate(self.organ_edits):
+      name = self.organ_model.record(idx).value('name')
+      self.organ_names.append(name[0])
+      label = QLabel(name)
+      label.setMaximumWidth(100)
+      self.organ_labels.append(label)
+      left.addRow(label, organ_edit) if idx<14 else right.addRow(label, organ_edit)
 
-    grid = QGridLayout()
-    grid.setHorizontalSpacing(0)
-    grid.setVerticalSpacing(1)
+    grid = QHBoxLayout()
+    grid.addLayout(left)
+    grid.addLayout(right)
 
-    for col in range(2):
-      for row in range(14):
-        grid.addWidget(self.organ_edits[14*col+row], row, 2*col+1)
+    organ_grpbox = QGroupBox('Organ Dose')
+    organ_grpbox.setLayout(grid)
 
-    for col in range(2):
-      for row in range(14):
-        name = self.organ_model.record(14*col+row).value('name')
-        self.organ_names.append(name[0])
-        label = Label(100, name)
-        label.adjustSize()
-        self.organ_labels.append(label)
-        grid.addWidget(self.organ_labels[14*col+row], row, 2*col)
+    scroll = QScrollArea()
+    scroll.setWidget(organ_grpbox)
+    scroll.setWidgetResizable(True)
 
     main_layout = QVBoxLayout()
-    main_layout.addWidget(prot_lbl)
+    main_layout.addWidget(QLabel('Protocol:'))
     main_layout.addWidget(self.protocol)
     main_layout.addWidget(self.calc_btn)
-    main_layout.addWidget(HSeparator())
-    main_layout.addLayout(grid)
+    main_layout.addWidget(scroll)
     main_layout.addStretch()
 
     self.setLayout(main_layout)
