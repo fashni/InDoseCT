@@ -24,6 +24,9 @@ class AnalyzeTab(QWidget):
     self.y_cb.activated[str].connect(self.on_y_changed)
     self.sex_cb.activated[int].connect(self.on_sex_changed)
     self.protocol_cb.activated[int].connect(self.on_protocol_changed)
+    self.instn_cb.activated[int].connect(self.on_instn_changed)
+    self.brand_cb.activated[int].connect(self.on_brand_changed)
+    self.scanner_cb.activated[int].connect(self.on_scanner_changed)
     self.age_sb1.valueChanged.connect(self.on_age1_changed)
     self.age_sb2.valueChanged.connect(self.on_age2_changed)
     self.date_edit1.dateChanged.connect(self.on_date1_changed)
@@ -45,6 +48,9 @@ class AnalyzeTab(QWidget):
     self.bins_sb = QSpinBox()
     self.bins_lbl = QLabel('Bins')
     self.reset_btn = QPushButton('Reset Filter')
+    self.brand_cb = QComboBox()
+    self.scanner_cb = QComboBox()
+    self.instn_cb = QComboBox()
 
     self.age_sb1.setSpecialValueText('-')
     self.age_sb1.setRange(-1, -1)
@@ -79,8 +85,11 @@ class AnalyzeTab(QWidget):
 
     self.filter_grpbox = QGroupBox('Filter')
     flt_layout = QFormLayout()
-    flt_layout.addRow(QLabel('Sex'), self.sex_cb)
+    flt_layout.addRow(QLabel('Institution'), self.instn_cb)
+    flt_layout.addRow(QLabel('Manufacturer'), self.brand_cb)
+    flt_layout.addRow(QLabel('Scanner'), self.scanner_cb)
     flt_layout.addRow(QLabel('Protocol'), self.protocol_cb)
+    flt_layout.addRow(QLabel('Sex'), self.sex_cb)
     flt_layout.addRow(QLabel('Age'), age_layout)
     flt_layout.addRow(QLabel('Exam Date'), date_layout)
     flt_layout.addWidget(self.reset_btn)
@@ -92,10 +101,55 @@ class AnalyzeTab(QWidget):
     self.setLayout(mainlayout)
 
   def set_filter(self):
+    self.set_instn()
+    self.set_brand()
+    self.set_scanner()
     self.set_protocol()
     self.set_sex()
     self.set_age_range()
     self.set_date_range()
+
+  def set_instn(self):
+    sql = "SELECT DISTINCT institution FROM PATIENTS"
+    self.query_model.setQuery(sql, self.ctx.database.patient_db)
+    self.instns = [self.query_model.record(idx).value('Institution') for idx in range(self.query_model.rowCount())]
+    try:
+      self.instns[self.instns.index('')] = 'Unspecified'
+    except:
+      pass
+    self.instns.insert(0, 'All')
+    self.instn_cb.clear()
+    self.instn_cb.addItems(self.instns)
+    self.on_instn_changed(0)
+
+  def set_brand(self):
+    sql = "SELECT DISTINCT manufacturer FROM PATIENTS"
+    self.query_model.setQuery(sql, self.ctx.database.patient_db)
+    self.brands = [self.query_model.record(idx).value('Manufacturer') for idx in range(self.query_model.rowCount())]
+    try:
+      self.brands[self.brands.index('')] = 'Unspecified'
+    except:
+      pass
+    self.brands.insert(0, 'All')
+    self.brand_cb.clear()
+    self.brand_cb.addItems(self.brands)
+    self.on_brand_changed(0)
+
+  def set_scanner(self, filter=None):
+    if filter is not None:
+      sql = f'SELECT DISTINCT model FROM PATIENTS WHERE manufacturer="{filter}"'
+      self.query_model.setQuery(sql, self.ctx.database.patient_db)
+      self.scanners = [self.query_model.record(idx).value('Model') for idx in range(self.query_model.rowCount())]
+      try:
+        self.scanners[self.scanners.index('')] = 'Unspecified'
+      except:
+        print('gagal')
+    else:
+      self.scanners = ['Unspecified']
+    self.scanners.insert(0, 'All')
+    self.scanner_cb.clear()
+    self.scanner_cb.addItems(self.scanners)
+    self.on_scanner_changed(0)
 
   def set_protocol(self):
     sql = "SELECT DISTINCT protocol FROM PATIENTS"
@@ -209,6 +263,16 @@ class AnalyzeTab(QWidget):
     self.y_unit = self.y_units[unit_idx]
     self.y_opt = sel
 
+  def on_instn_changed(self, idx):
+    self.instn_ftr = self.instns[idx]
+
+  def on_brand_changed(self, idx):
+    self.brand_ftr = self.brands[idx]
+    self.set_scanner(self.brand_ftr if idx!=0 else None)
+
+  def on_scanner_changed(self, idx):
+    self.scanner_ftr = self.scanners[idx]
+
   def on_sex_changed(self, idx):
     self.sex_ftr = self.sexes[idx]
 
@@ -290,6 +354,30 @@ class AnalyzeTab(QWidget):
       else:
         self.filter += f'protocol="{self.protocol_ftr}"'
 
+    if self.instn_ftr!='All':
+      if self.filter:
+        self.filter += ' AND '
+      if self.instn_ftr=='Unspecified':
+        self.filter += 'institution is NULL'
+      else:
+        self.filter += f'institution="{self.instn_ftr}"'
+
+    if self.brand_ftr!='All':
+      if self.filter:
+        self.filter += ' AND '
+      if self.brand_ftr=='Unspecified':
+        self.filter += 'manufacturer is NULL'
+      else:
+        self.filter += f'manufacturer="{self.brand_ftr}"'
+
+    if self.scanner_ftr!='All':
+      if self.filter:
+        self.filter += ' AND '
+      if self.scanner_ftr=='Unspecified':
+        self.filter += 'model is NULL'
+      else:
+        self.filter += f'model="{self.scanner_ftr}"'
+
     if self.age_ftr1 != -1 and self.age_ftr2 != -1:
       if self.age_ftr1 <= self.age_ftr2:
         lo_age = self.age_ftr1
@@ -310,6 +398,7 @@ class AnalyzeTab(QWidget):
       lo_date = self.date_ftr2.toString('yyyyMMdd')
       hi_date = self.date_ftr1.toString('yyyyMMdd')
     self.filter += f'exam_date BETWEEN {lo_date} and {hi_date}'
+    print(self.filter)
 
   def plot(self):
     self.figure = PlotDialog()

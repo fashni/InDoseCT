@@ -57,18 +57,18 @@ class MainWindow(QMainWindow):
   def initUI(self):
     self.title = TITLE
     self.icon = None
-    self.top = 0
-    self.left = 0
-    self.width = 1280
-    self.height = 576
+    self._top = 0
+    self._left = 0
+    self._width = 1280
+    self._height = 680
     self.setUIComponents()
 
   def setUIComponents(self):
     self.setWindowTitle(self.title)
-    self.setGeometry(self.top, self.left, self.width, self.height)
+    self.setGeometry(self._top, self._left, self._width, self._height)
     rect = self.frameGeometry()
     rect.moveCenter(QDesktopWidget().availableGeometry().center())
-    self.move(rect.topLeft().x(), rect.topLeft().y()-50)
+    self.move(rect.topLeft().x(), rect.topLeft().y()-25)
     self.main_widget = QWidget()
 
     self.setToolbar()
@@ -239,6 +239,7 @@ class MainWindow(QMainWindow):
 
     right_panel = QWidget()
     right_panel.setLayout(vbox)
+    right_panel.setContentsMargins(0,0,0,0)
 
     hbox = QHBoxLayout()
     splitter = QSplitter(Qt.Horizontal)
@@ -347,12 +348,19 @@ class MainWindow(QMainWindow):
 
   def get_patient_info(self):
     ref = self.ctx.dicoms[0]
+    brand = str(ref.Manufacturer) if 'Manufacturer' in ref else ''
+    model = str(ref.ManufacturerModelName) if 'ManufacturerModelName' in ref else ''
+    scanner = brand + '-' + model
     self.patient_info = {
       'name': str(ref.PatientName) if 'PatientName' in ref else None,
       'sex': str(ref.PatientSex) if 'PatientSex' in ref else None,
       'age': int(str(ref.PatientAge)[:3]) if 'PatientAge' in ref else None,
       'protocol': str(ref.BodyPartExamined) if 'BodyPartExamined' in ref else None,
-      'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None
+      'date': str(ref.AcquisitionDate) if 'AcquisitionDate' in ref else None,
+      'brand': brand or None,
+      'model': model or None,
+      'scanner': scanner if scanner!='-' else None,
+      'instn': str(ref.InstitutionName) if 'InstitutionName' in ref else None,
     }
 
   def next_img(self, step):
@@ -508,10 +516,13 @@ class MainWindow(QMainWindow):
       d_mode = None
     recs = [
       self.patient_info['name'],    # 'name'
-      self.patient_info['protocol'],    # 'protocol'
-      self.patient_info['date'],    # 'date'
       self.patient_info['age'],   # 'age'
       self.patient_info['sex'],   # 'sex'
+      self.patient_info['date'],    # 'date'
+      self.patient_info['instn'],   # institution
+      self.patient_info['brand'],
+      self.patient_info['model'],
+      self.patient_info['protocol'],    # 'protocol'
       self.ctx.app_data.CTDIv or None,   # 'CTDIVol'
       self.ctx.app_data.diameter or None,    # 'DE_WED'
       d_mode,
@@ -565,8 +576,8 @@ class AppContext(ApplicationContext):
     self.windowing_model.select()
     self.app_data = AppData()
     self.axes = plt.Axes(lock_aspect=True)
-    self.main_window.show()
     self.phantom = HEAD
+    self.main_window.show()
     return self.app.exec_()
 
   def initVar(self):
@@ -698,7 +709,7 @@ class AppContext(ApplicationContext):
     return os.path.join(self.app_data_dir(), 'config.json')
 
   def app_data_dir(self):
-    return os.path.join(os.environ['USERPROFILE'], 'Documents', 'IndoseCT')
+    return os.path.join(os.path.expanduser('~'), 'Documents', 'IndoseCT')
 
   def patients_database(self):
     with open(self.config_file(), 'r') as f:
