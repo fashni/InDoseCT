@@ -6,7 +6,7 @@ from PyQt5.QtGui import QIcon, QIntValidator
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
                              QTableView, QLabel, QPushButton, QLineEdit,
                              QHeaderView, QToolBar, QAction, QFileDialog,
-                             QMessageBox)
+                             QMessageBox, QDesktopWidget)
 from xlsxwriter.workbook import Workbook
 
 class DBViewer(QWidget):
@@ -68,7 +68,11 @@ class DBViewer(QWidget):
     self.setLayout(self.layout)
 
     self.setWindowTitle("Patients Record")
-    self.resize(900, 600)
+    wds = [self.tableView.columnWidth(c) for c in range(self.tableView.model().columnCount())]
+    self.resize(sum(wds)+40, 600)
+    rect = self.frameGeometry()
+    rect.moveCenter(QDesktopWidget().availableGeometry().center())
+    self.move(rect.topLeft().x(), rect.topLeft().y())
 
   def setUpConnect(self):
     self.prevButton.clicked.connect(self.onPrevPage)
