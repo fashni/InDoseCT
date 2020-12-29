@@ -32,6 +32,7 @@ class CTDIVolTab(QDialog):
     self.CTDIw = 0
     self.CTDIv = 0
     self.current = []
+    self.disable_warning = False
 
   def initModel(self):
     self.brand_query = QSqlTableModel(db=self.ctx.database.ctdi_db)
@@ -251,7 +252,7 @@ class CTDIVolTab(QDialog):
     self.figure.show()
 
   def on_get_tcm(self):
-    if not self.ctx.isImage:
+    if not self.ctx.isImage and not self.disable_warning:
       QMessageBox.warning(None, "Warning", "Open DICOM files first, or input manually")
       self.opts.setCurrentIndex(0)
       return
@@ -264,7 +265,8 @@ class CTDIVolTab(QDialog):
     except Exception as e:
       self.current = []
       self.idxs = []
-      QMessageBox.warning(None, 'Exception Occured', str(e))
+      if not self.disable_warning:
+        QMessageBox.warning(None, 'Exception Occured', str(e))
       return
     tube_current = sum(self.current)/self.ctx.total_img
     self.tube_current_edit.setText(f'{tube_current:#.2f}')
@@ -275,11 +277,12 @@ class CTDIVolTab(QDialog):
     try:
       self.CTDIv = float(self.ctx.dicoms[0].CTDIvol)
     except:
-      QMessageBox.warning(None, "Warning", "The DICOM does not contain the value of CTDIvol.\nPlease try different method.")
+      if not self.disable_warning:
+        QMessageBox.warning(None, "Warning", "The DICOM does not contain the value of CTDIvol.\nPlease try different method.")
       self.CTDIv = 0
 
   def get_scan_length_dicom(self):
-    if self.mode == 0 and not self.ctx.isImage:
+    if self.mode == 0 and not self.ctx.isImage and not self.disable_warning:
       QMessageBox.warning(None, "Warning", "Open DICOM files first, or input manually")
       self.opts.setCurrentIndex(0)
       return
@@ -292,7 +295,8 @@ class CTDIVolTab(QDialog):
       except:
         second = last
     except Exception as e:
-      QMessageBox.warning(None, 'Exception Occured', str(e))
+      if not self.disable_warning:
+        QMessageBox.warning(None, 'Exception Occured', str(e))
       return
 
     lf = abs(0.1*(last-first))
@@ -304,6 +308,7 @@ class CTDIVolTab(QDialog):
       self.scan_length_c_edit.setText(f'{self.scan_length:#.2f}')
 
   def on_set_method(self, idx):
+    self.disable_warning = False
     self.prev_mode = self.mode
     self.mode = idx
     self.stacks.setCurrentIndex(idx)
@@ -432,7 +437,7 @@ class CTDIVolTab(QDialog):
         self.DLP = 0
 
     elif self.mode==2:
-      if not self.ctx.isImage:
+      if not self.ctx.isImage and not self.disable_warning:
         QMessageBox.warning(None, "Warning", "Open DICOM files first.")
         return
       self.get_ctdiv_dicom()
@@ -457,6 +462,7 @@ class CTDIVolTab(QDialog):
 
   def reset_fields(self):
     self.initVar()
+    self.disable_warning = True
     if self.mode == 0:
       self.brand_cb.setCurrentIndex(0)
       self.scanner_cb.setCurrentIndex(0)
@@ -479,3 +485,4 @@ class CTDIVolTab(QDialog):
     self.ctdiw_edit.setText(f'{self.CTDIw:#.2f}')
     self.ctdiv_c_edit.setText(f'{self.CTDIv:#.2f}')
     self.dlp_c_edit.setText(f'{self.DLP:#.2f}')
+    self.disable_warning = False
