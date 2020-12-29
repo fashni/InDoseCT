@@ -355,7 +355,8 @@ class PlotDialog(QDialog):
       return
 
     pos = ((x[0]+x[-1])//2, (y[0]+y[-1])//2)
-    self.plot(x, predict(x), name='trendline', pen={'color': "FF0000", 'width': 2.5})
+    x_trend = np.arange(x[0],x[-1]+0.01,0.01)
+    self.plot(x_trend, predict(x_trend), name='trendline', pen={'color': "FF0000", 'width': 2.5})
     self.annotate('tr', pos=pos, text=f'y = {eq}\nR² = {r2:#.4f}')
     self.tr_line = True
 
