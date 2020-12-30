@@ -91,6 +91,7 @@ class CTDIVolTab(QDialog):
     self.scn_btn.clicked.connect(self.get_scan_length_dicom)
 
   def initUI(self):
+    self.figure = PlotDialog()
     self.opts = QComboBox()
     self.opts.addItems(['Calculation', 'Input Manually', 'Get from DICOM'])
 

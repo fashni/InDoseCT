@@ -42,6 +42,7 @@ class OrganTab(QWidget):
     self.calc_btn.clicked.connect(self.on_calculate)
 
   def initUI(self):
+    self.figure = PlotDialog()
     self.protocol = QComboBox()
     self.protocol.setModel(self.protocol_model)
     self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))

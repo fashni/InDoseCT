@@ -36,6 +36,7 @@ class AnalyzeTab(QWidget):
     self.reset_btn.clicked.connect(self.set_filter)
 
   def initUI(self):
+    self.figure = PlotDialog()
     self.x_cb = QComboBox()
     self.y_cb = QComboBox()
     self.sex_cb = QComboBox()

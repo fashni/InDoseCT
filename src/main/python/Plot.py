@@ -464,6 +464,9 @@ class PlotDialog(QDialog):
       self.vLine.setPos(mousePoint.x())
       self.hLine.setPos(mousePoint.y())
 
+  def closeEvent(self, event):
+    self.on_close()
+
 
 class XLSXExporter(pg.exporters.CSVExporter):
   def __init__(self, item, xheader=None, yheader=None):

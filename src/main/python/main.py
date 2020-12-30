@@ -30,14 +30,15 @@ class MainWindow(QMainWindow):
   def __init__(self, ctx):
     super(MainWindow, self).__init__()
     self.ctx = ctx
+    self.configs = AppConfig(self.ctx)
+    self.rec_viewer = DBViewer(self.ctx)
+    self.dt = DicomTree()
     self.initVar()
     self.initModel()
     self.initUI()
 
   def initVar(self):
     self.ctx.initVar()
-    self.rec_viewer = None
-    self.configs = AppConfig(self.ctx)
     pat_field = ['name', 'sex', 'age', 'protocol', 'date']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
     self.window_width = self.ctx.windowing_model.record(0).value("windowwidth")
@@ -482,7 +483,7 @@ class MainWindow(QMainWindow):
     if not self.ctx.isImage:
       QMessageBox.warning(None, "Warning", "Open DICOM files first.")
       return
-    self.dt = DicomTree(self.ctx.dicoms[self.ctx.current_img-1])
+    self.dt.set_ds(self.ctx.dicoms[self.ctx.current_img-1])
     self.dt.show()
 
   def on_phantom_update(self, idx):
@@ -495,7 +496,6 @@ class MainWindow(QMainWindow):
     self.organ_tab.on_protocol_changed(self.organ_tab.protocol.currentIndex())
 
   def on_open_viewer(self):
-    self.rec_viewer = DBViewer(self.ctx)
     self.rec_viewer.show()
 
   def on_open_config(self):
@@ -558,6 +558,15 @@ class MainWindow(QMainWindow):
     self.ssde_tab.reset_fields()
     self.organ_tab.reset_fields()
     # self.analyze_tab.reset_fields()
+
+  def closeEvent(self, event):
+    self.rec_viewer.close() if self.rec_viewer.isVisible() else None
+    self.dt.close() if self.dt.isVisible() else None
+    for idx in range(self.tabs.count()):
+      try:
+        if self.tabs.widget(idx).figure.isVisible(): self.tabs.widget(idx).figure.close()
+      except:
+        continue
 
 
 class AppContext(ApplicationContext):

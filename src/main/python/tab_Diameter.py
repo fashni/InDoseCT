@@ -35,6 +35,7 @@ class DiameterTab(QDialog):
     self.on_set_opts_panel()
 
   def initUI(self):
+    self.figure = PlotDialog()
     self._menu_ui()
     self._opts_ui()
     self._set_layout()

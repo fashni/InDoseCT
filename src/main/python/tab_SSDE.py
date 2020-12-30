@@ -69,6 +69,7 @@ class SSDETab(QDialog):
     self.thorax_e_interp = interpolate.splrep(self.thorax_e_data[:,0], self.thorax_e_data[:,1])
 
   def initUI(self):
+    self.figure = PlotDialog()
     self.protocol = QComboBox()
     self.protocol.setModel(self.protocol_model)
     self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))

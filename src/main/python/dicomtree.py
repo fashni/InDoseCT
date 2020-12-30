@@ -5,12 +5,17 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem, QFont
 import collections
 
 class DicomTree(QDialog):
-  def __init__(self, ds, *args, **kwargs):
+  def __init__(self, ds=None, *args, **kwargs):
     super(DicomTree, self).__init__()
-    self.ds = ds
-    self.initModel()
     self.initUI()
     self.sigConnect()
+    if ds:
+      self.set_ds(ds)
+
+  def set_ds(self, ds):
+    self.ds = ds
+    self.initModel()
+    self.tree.setModel(self.model)
 
   def initUI(self):
     self.font = QFont('Courier', 8)
@@ -18,7 +23,6 @@ class DicomTree(QDialog):
     self.layout = QVBoxLayout()
     self.tree = QTreeView()
     self.tree.setFont(self.font)
-    self.tree.setModel(self.model)
 
     btns = QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
