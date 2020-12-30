@@ -31,7 +31,7 @@ class MainWindow(QMainWindow):
     super(MainWindow, self).__init__()
     self.ctx = ctx
     self.configs = AppConfig(self.ctx)
-    self.rec_viewer = DBViewer(self.ctx)
+    self.rec_viewer = None
     self.dt = DicomTree()
     self.initVar()
     self.initModel()
@@ -496,13 +496,19 @@ class MainWindow(QMainWindow):
     self.organ_tab.on_protocol_changed(self.organ_tab.protocol.currentIndex())
 
   def on_open_viewer(self):
+    self.rec_viewer = DBViewer(self.ctx, self)
     self.rec_viewer.show()
 
   def on_open_config(self):
     accepted = self.configs.exec()
     if accepted:
       self.ctx.database.update_connection('patient', self.ctx.patients_database())
-      self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
+      try:
+        self.rec_viewer.on_refresh()
+      except:
+        pass
+      self.ctx.records_count = get_records_num(self.ctx.patients_database(), 'PATIENTS')
+      self.info_panel.no_edit.setText(str(self.ctx.records_count+1))
       self.analyze_tab.set_filter()
 
   def on_save_db(self):
@@ -540,7 +546,8 @@ class MainWindow(QMainWindow):
       if btn_reply == QMessageBox.No:
         return
     insert_patient(recs, self.ctx.patients_database())
-    self.info_panel.no_edit.setText(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
+    self.ctx.records_count += 1
+    self.info_panel.no_edit.setText(str(self.ctx.records_count+1))
     self.analyze_tab.set_filter()
     self.on_close_image()
     self.tabs.setCurrentIndex(0)
@@ -560,8 +567,11 @@ class MainWindow(QMainWindow):
     # self.analyze_tab.reset_fields()
 
   def closeEvent(self, event):
-    self.rec_viewer.close() if self.rec_viewer.isVisible() else None
     self.dt.close() if self.dt.isVisible() else None
+    try:
+      self.rec_viewer.close() if self.rec_viewer.isVisible() else None
+    except:
+      pass
     for idx in range(self.tabs.count()):
       try:
         if self.tabs.widget(idx).figure.isVisible(): self.tabs.widget(idx).figure.close()
@@ -586,6 +596,7 @@ class AppContext(ApplicationContext):
     self.app_data = AppData()
     self.axes = plt.Axes(lock_aspect=True)
     self.phantom = HEAD
+    self.records_count = get_records_num(self.patients_database(), 'PATIENTS')
     self.main_window.show()
     return self.app.exec_()
 

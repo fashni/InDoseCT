@@ -13,13 +13,13 @@ class AnalyzeTab(QWidget):
     self.initUI()
     self.set_axis_opts()
     self.set_filter()
-    self.sig_connect()
+    self.sigConnect()
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
     self.data_query_model = QSqlQueryModel()
 
-  def sig_connect(self):
+  def sigConnect(self):
     self.x_cb.activated[str].connect(self.on_x_changed)
     self.y_cb.activated[str].connect(self.on_y_changed)
     self.sex_cb.activated[int].connect(self.on_sex_changed)

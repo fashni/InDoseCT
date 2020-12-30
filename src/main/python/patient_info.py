@@ -10,7 +10,7 @@ class InfoPanel(QWidget):
     self.ctx = ctx
     self.initVar()
     self.initUI()
-    self.setUpConnect()
+    self.sigConnect()
     self.setInfo(self.getInfo())
 
   def initVar(self):
@@ -23,7 +23,7 @@ class InfoPanel(QWidget):
     self.scanner = None
     self.instn = None
 
-  def setUpConnect(self):
+  def sigConnect(self):
     self.name_edit.textChanged.connect(self.on_name_changed)
     self.protocol_edit.textChanged.connect(self.on_protocol_changed)
     self.exam_date_edit.dateChanged.connect(self.on_date_changed)
