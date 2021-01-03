@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
   def setTabs(self):
     self.tabs = QTabWidget()
     self.ctdiv_tab = CTDIVolTab(self.ctx)
-    self.diameter_tab = DiameterTab(self.ctx)
+    self.diameter_tab = DiameterTab(self.ctx, self)
     self.ssde_tab = SSDETab(self.ctx)
     self.organ_tab = OrganTab(self.ctx)
     self.analyze_tab = AnalyzeTab(self.ctx)

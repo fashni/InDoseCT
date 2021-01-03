@@ -5,14 +5,14 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBo
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
-from image_processing import get_dw_value, get_deff_value, get_mask, get_mask_pos
+from image_processing import get_dw_value, get_deff_value, get_mask, get_mask_pos, get_img_no_table, windowing
 from constants import *
 from Plot import PlotDialog
 from scipy import interpolate
 import numpy as np
 
 class DiameterTab(QDialog):
-  def __init__(self, ctx, *args, **kwargs):
+  def __init__(self, ctx, par, *args, **kwargs):
     super(DiameterTab, self).__init__(*args, **kwargs)
     self.baseon_items = ['Effective Diameter (Deff)', 'Water Equivalent Diameter (Dw)']
     self.src_method_items = {
@@ -21,11 +21,13 @@ class DiameterTab(QDialog):
     }
 
     self.ctx = ctx
+    self.par = par
     self.deff_auto_method = 'area'
     self.deff_manual_method = 'deff'
     self.d_3d_method = 'slice step'
     self.is_truncated = False
     self.is_largest_only = False
+    self.is_no_table = False
 
     self.initVar()
     self.initModel()
@@ -289,10 +291,12 @@ class DiameterTab(QDialog):
     self.deff_man_unit2.setHidden(True)
 
   def _dw_auto_ui(self):
+    self.dw_minimum_area_lbl = QLabel('Min. pixel area')
     self.dw_minimum_area_sb = QSpinBox()
     self.dw_threshold_sb = QSpinBox()
     self.trunc_img_chk = QCheckBox('Truncated image')
     self.large_obj_chk = QCheckBox('Largest object only')
+    self.no_table_chk = QCheckBox('Remove table')
     self.dw_auto_grpbox = QGroupBox('Options', self)
 
     self.dw_threshold_sb.setMinimum(np.iinfo('int16').min)
@@ -303,9 +307,10 @@ class DiameterTab(QDialog):
 
     dw_auto_layout = QFormLayout()
     dw_auto_layout.addRow(QLabel('Threshold (HU)'), self.dw_threshold_sb)
-    dw_auto_layout.addRow(QLabel('Min. pixel area'), self.dw_minimum_area_sb)
+    dw_auto_layout.addRow(self.dw_minimum_area_lbl, self.dw_minimum_area_sb)
     dw_auto_layout.addRow(self.trunc_img_chk)
     dw_auto_layout.addRow(self.large_obj_chk)
+    dw_auto_layout.addRow(self.no_table_chk)
     # dw_auto_layout.addStretch()
     self.dw_auto_grpbox.setLayout(dw_auto_layout)
 
@@ -377,6 +382,7 @@ class DiameterTab(QDialog):
     self.year_sb.valueChanged.connect(self.check_age)
     self.trunc_img_chk.stateChanged.connect(self.on_truncated_check)
     self.large_obj_chk.stateChanged.connect(self.on_largest_check)
+    self.no_table_chk.stateChanged.connect(self.on_table_check)
     self.calculate_btn.clicked.connect(self.on_calculate)
     self.deff_clear_btn.clicked.connect(self.clearROIs)
     self.dw_clear_btn.clicked.connect(self.clearROIs)
@@ -406,6 +412,18 @@ class DiameterTab(QDialog):
 
   def on_largest_check(self, state):
     self.is_largest_only = state == Qt.Checked
+
+  def on_table_check(self, state):
+    self.is_no_table = state == Qt.Checked
+    if self.is_no_table:
+      self.large_obj_chk.setCheckState(Qt.Unchecked)
+      self.trunc_img_chk.setCheckState(Qt.Unchecked)
+      self.is_largest_only = False
+      self.is_truncated = False
+    self.large_obj_chk.setEnabled(not self.is_no_table)
+    self.trunc_img_chk.setEnabled(not self.is_no_table)
+    self.dw_minimum_area_lbl.setEnabled(not self.is_no_table)
+    self.dw_minimum_area_sb.setEnabled(not self.is_no_table)
 
   def on_source_changed(self, src):
     self.method_cb.clear()
@@ -566,12 +584,24 @@ class DiameterTab(QDialog):
         self.ap_edit.setText(f'{ap:#.2f} cm')
         self.lat_edit.setText(f'{lat:#.2f} cm')
     elif self.baseon == 1:
-      mask = self.get_img_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
-      if mask is None:
-        return
+      if self.is_no_table:
+        img_alt = get_img_no_table(img, threshold=self.threshold)
+        img = img_alt.copy()
+        img[img<-1000] = -1000
+        mask = np.ones_like(img,  dtype=bool)
+      else:
+        mask = self.get_img_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
+        if mask is None:
+          return
       dval = get_dw_value(img, mask, dims, rd, self.is_truncated, self.is_largest_only)
     self.d_edit.setText(f'{dval:#.2f}')
     self.ctx.app_data.diameter = dval
+    if self.baseon==1 and self.is_no_table:
+      if isinstance(self.par.window_width, int) or isinstance(self.par.window_level, int):
+        img_alt = windowing(img_alt, self.par.window_width, self.par.window_level)
+      self.ctx.axes.add_alt_view(img_alt)
+    else:
+      self.par.update_image()
     self.plot_mask(mask)
 
   def calculate_auto_3d(self):
@@ -708,7 +738,12 @@ class DiameterTab(QDialog):
         else:
           d = 0
       else:
-        mask = get_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
+        if self.is_no_table:
+          img = get_img_no_table(img, threshold=self.threshold)
+          img[img<-1000] = -1000
+          mask = np.ones_like(img,  dtype=bool)
+        else:
+          mask = get_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
         if mask is not None:
           n_seg += 1
           d = get_dw_value(img, mask, self.ctx.img_dims, self.ctx.recons_dim, self.is_truncated, self.is_largest_only)

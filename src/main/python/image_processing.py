@@ -3,7 +3,7 @@ import pydicom
 import numpy as np
 from pydicom.errors import InvalidDicomError
 from skimage.measure import label, regionprops
-from skimage.morphology import closing, erosion, disk
+from skimage.morphology import dilation, erosion, disk
 from scipy import ndimage as ndi
 
 def get_hu_imgs(scans):
@@ -59,6 +59,22 @@ def get_reference(file):
   }
   return ref_data, patient_info
 
+def get_img_no_table(img, threshold=-200):
+  thres = img>threshold
+  fill = ndi.binary_fill_holes(thres)
+  labels = label(fill)
+
+  regprops = get_regprops(labels)
+  tables = np.zeros_like(labels, dtype=bool)
+  for region in regprops:
+    if region.centroid[0] > labels.shape[0]*7.5//10:
+      tables = tables | (labels==region.label)
+
+  tables = dilation(tables, disk(10))
+  no_table = img.copy()
+  no_table[tables] = -1000
+  return no_table
+
 def get_mask(img, threshold=-200, minimum_area=500, num_of_objects=5, largest_only=False, return_label=False):
   if largest_only:
     num_of_objects = 1
@@ -69,7 +85,6 @@ def get_mask(img, threshold=-200, minimum_area=500, num_of_objects=5, largest_on
     return (None, None) if return_label else None
 
   regprops = get_regprops(labels)
-
   obj_count = 0
   segments = np.zeros_like(labels, dtype=bool)
   for region in regprops:
