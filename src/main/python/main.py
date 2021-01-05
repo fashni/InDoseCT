@@ -24,7 +24,6 @@ from db import insert_patient, get_records_num, create_patients_table, Database
 from DBViewer import DBViewer
 from AppConfig import AppConfig
 from constants import *
-import time
 
 class MainWindow(QMainWindow):
   def __init__(self, ctx):
@@ -329,6 +328,9 @@ class MainWindow(QMainWindow):
     self.go_to_slice_sb.setMaximum(self.ctx.total_img)
 
     self.get_patient_info()
+    phantom_id = int(not self.patient_info['protocol'].upper() in ['HEAD', 'HEADNECK', 'NECK']) if self.patient_info['protocol'] is not None else 1
+    self.phantom_cb.setCurrentIndex(phantom_id)
+    self.on_phantom_update(phantom_id)
     self.info_panel.setInfo(self.patient_info)
     self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
