@@ -2,6 +2,6 @@
     "app_name": "IndoseCT",
     "author": "Fahmi Rosdiansyah Mahdani",
     "main_module": "src/main/python/main.py",
-    "version": "20b-alpha.12",
-    "hidden_imports": ["pywt._extensions._cwt", "skimage.feature._orb_descriptor_positions", "scipy.linalg", "scipy.linalg.cython_blas", "scipy.linalg.cython_lapack"]
+    "version": "20b-alpha.13",
+    "hidden_imports": ["pywt._extensions._cwt", "skimage.feature._orb_descriptor_positions"]
 }
