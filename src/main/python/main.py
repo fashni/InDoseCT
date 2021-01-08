@@ -391,7 +391,7 @@ class MainWindow(QMainWindow):
       self.on_close_image()
       return
     self.ctx.axes.imshow(self.image_data)
-    if isinstance(self.window_width, int) or isinstance(self.window_level, int):
+    if isinstance(self.window_width, int) and isinstance(self.window_level, int):
       window_img = windowing(self.image_data, self.window_width, self.window_level)
       self.ctx.axes.add_alt_view(window_img)
     self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))

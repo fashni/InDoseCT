@@ -27,6 +27,7 @@ class DiameterTab(QDialog):
     self.d_3d_method = 'slice step'
     self.is_truncated = False
     self.is_largest_only = False
+    self.is_no_roi = False
     self.is_no_table = False
 
     self.initVar()
@@ -296,6 +297,7 @@ class DiameterTab(QDialog):
     self.dw_threshold_sb = QSpinBox()
     self.trunc_img_chk = QCheckBox('Truncated image')
     self.large_obj_chk = QCheckBox('Largest object only')
+    self.no_roi_chk = QCheckBox('Without ROI')
     self.no_table_chk = QCheckBox('Remove table')
     self.dw_auto_grpbox = QGroupBox('Options', self)
 
@@ -310,6 +312,7 @@ class DiameterTab(QDialog):
     dw_auto_layout.addRow(self.dw_minimum_area_lbl, self.dw_minimum_area_sb)
     dw_auto_layout.addRow(self.trunc_img_chk)
     dw_auto_layout.addRow(self.large_obj_chk)
+    dw_auto_layout.addRow(self.no_roi_chk)
     dw_auto_layout.addRow(self.no_table_chk)
     # dw_auto_layout.addStretch()
     self.dw_auto_grpbox.setLayout(dw_auto_layout)
@@ -382,6 +385,7 @@ class DiameterTab(QDialog):
     self.year_sb.valueChanged.connect(self.check_age)
     self.trunc_img_chk.stateChanged.connect(self.on_truncated_check)
     self.large_obj_chk.stateChanged.connect(self.on_largest_check)
+    self.no_roi_chk.stateChanged.connect(self.on_roi_check)
     self.no_table_chk.stateChanged.connect(self.on_table_check)
     self.calculate_btn.clicked.connect(self.on_calculate)
     self.deff_clear_btn.clicked.connect(self.clearROIs)
@@ -413,17 +417,24 @@ class DiameterTab(QDialog):
   def on_largest_check(self, state):
     self.is_largest_only = state == Qt.Checked
 
-  def on_table_check(self, state):
-    self.is_no_table = state == Qt.Checked
-    if self.is_no_table:
+  def on_roi_check(self, state):
+    self.is_no_roi = state == Qt.Checked
+    if self.is_no_roi:
       self.large_obj_chk.setCheckState(Qt.Unchecked)
       self.trunc_img_chk.setCheckState(Qt.Unchecked)
       self.is_largest_only = False
       self.is_truncated = False
-    self.large_obj_chk.setEnabled(not self.is_no_table)
-    self.trunc_img_chk.setEnabled(not self.is_no_table)
-    self.dw_minimum_area_lbl.setEnabled(not self.is_no_table)
-    self.dw_minimum_area_sb.setEnabled(not self.is_no_table)
+    else:
+      self.no_table_chk.setCheckState(Qt.Unchecked)
+      self.is_no_table = False
+    self.no_table_chk.setEnabled(self.is_no_roi)
+    self.large_obj_chk.setEnabled(not self.is_no_roi)
+    self.trunc_img_chk.setEnabled(not self.is_no_roi)
+    self.dw_minimum_area_lbl.setEnabled(not self.is_no_roi)
+    self.dw_minimum_area_sb.setEnabled(not self.is_no_roi)
+
+  def on_table_check(self, state):
+    self.is_no_table = state == Qt.Checked
 
   def on_source_changed(self, src):
     self.method_cb.clear()
@@ -584,11 +595,12 @@ class DiameterTab(QDialog):
         self.ap_edit.setText(f'{ap:#.2f} cm')
         self.lat_edit.setText(f'{lat:#.2f} cm')
     elif self.baseon == 1:
-      if self.is_no_table:
-        img_alt = get_img_no_table(img, threshold=self.threshold)
-        img = img_alt.copy()
-        img[img<-1000] = -1000
+      if self.is_no_roi:
         mask = np.ones_like(img,  dtype=bool)
+        if self.is_no_table:
+          img_alt = get_img_no_table(img, threshold=self.threshold)
+          img = img_alt.copy()
+        img[img<-1000] = -1000
       else:
         mask = self.get_img_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
         if mask is None:
@@ -597,7 +609,7 @@ class DiameterTab(QDialog):
     self.d_edit.setText(f'{dval:#.2f}')
     self.ctx.app_data.diameter = dval
     if self.baseon==1 and self.is_no_table:
-      if isinstance(self.par.window_width, int) or isinstance(self.par.window_level, int):
+      if isinstance(self.par.window_width, int) and isinstance(self.par.window_level, int):
         img_alt = windowing(img_alt, self.par.window_width, self.par.window_level)
       self.ctx.axes.add_alt_view(img_alt)
     else:
@@ -738,10 +750,11 @@ class DiameterTab(QDialog):
         else:
           d = 0
       else:
-        if self.is_no_table:
-          img = get_img_no_table(img, threshold=self.threshold)
-          img[img<-1000] = -1000
+        if self.is_no_roi:
           mask = np.ones_like(img,  dtype=bool)
+          if self.is_no_table:
+            img = get_img_no_table(img, threshold=self.threshold)
+          img[img<-1000] = -1000
         else:
           mask = get_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
         if mask is not None:
