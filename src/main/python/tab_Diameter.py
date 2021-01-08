@@ -293,6 +293,7 @@ class DiameterTab(QDialog):
 
   def _dw_auto_ui(self):
     self.dw_minimum_area_lbl = QLabel('Min. pixel area')
+    self.dw_threshold_lbl = QLabel('Threshold (HU)')
     self.dw_minimum_area_sb = QSpinBox()
     self.dw_threshold_sb = QSpinBox()
     self.trunc_img_chk = QCheckBox('Truncated image')
@@ -308,7 +309,7 @@ class DiameterTab(QDialog):
     self.dw_minimum_area_sb.setValue(self.minimum_area)
 
     dw_auto_layout = QFormLayout()
-    dw_auto_layout.addRow(QLabel('Threshold (HU)'), self.dw_threshold_sb)
+    dw_auto_layout.addRow(self.dw_threshold_lbl, self.dw_threshold_sb)
     dw_auto_layout.addRow(self.dw_minimum_area_lbl, self.dw_minimum_area_sb)
     dw_auto_layout.addRow(self.trunc_img_chk)
     dw_auto_layout.addRow(self.large_obj_chk)
@@ -432,9 +433,13 @@ class DiameterTab(QDialog):
     self.trunc_img_chk.setEnabled(not self.is_no_roi)
     self.dw_minimum_area_lbl.setEnabled(not self.is_no_roi)
     self.dw_minimum_area_sb.setEnabled(not self.is_no_roi)
+    self.dw_threshold_lbl.setEnabled(not self.is_no_roi)
+    self.dw_threshold_sb.setEnabled(not self.is_no_roi)
 
   def on_table_check(self, state):
     self.is_no_table = state == Qt.Checked
+    self.dw_threshold_lbl.setEnabled(self.is_no_table)
+    self.dw_threshold_sb.setEnabled(self.is_no_table)
 
   def on_source_changed(self, src):
     self.method_cb.clear()
