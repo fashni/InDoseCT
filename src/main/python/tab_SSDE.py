@@ -79,6 +79,13 @@ class SSDETab(QDialog):
     self.plot_btn.setEnabled(False)
     self.plot_btn.setVisible(False)
 
+    self.calc_btn.setAutoDefault(True)
+    self.calc_btn.setDefault(True)
+    self.save_btn.setAutoDefault(False)
+    self.save_btn.setDefault(False)
+    self.plot_btn.setAutoDefault(False)
+    self.plot_btn.setDefault(False)
+
     self.diameter_label = QLabel('<b>Diameter (cm)</b>')
     self.ctdiv_edit = QLineEdit(f'{self.ctx.app_data.CTDIv}')
     self.diameter_edit = QLineEdit(f'{self.ctx.app_data.diameter}')
@@ -92,6 +99,11 @@ class SSDETab(QDialog):
 
     self.next_tab_btn = QPushButton('Next')
     self.prev_tab_btn = QPushButton('Previous')
+
+    self.next_tab_btn.setAutoDefault(False)
+    self.next_tab_btn.setDefault(False)
+    self.prev_tab_btn.setAutoDefault(False)
+    self.prev_tab_btn.setDefault(False)
     self.next_tab_btn.setVisible(False)
 
     edits = [
@@ -159,7 +171,7 @@ class SSDETab(QDialog):
     y = self.ctx.app_data.convf
     xlabel = 'Dw' if self.ctx.app_data.mode==DW else 'Deff'
     title = 'Water Equivalent Diameter' if self.ctx.app_data.mode==DW else 'Effective Diameter'
-    self.figure = PlotDialog()
+    self.figure = PlotDialog(par=self)
     self.figure.actionEnabled(True)
     self.figure.trendActionEnabled(False)
     self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
@@ -169,6 +181,12 @@ class SSDETab(QDialog):
     self.figure.setLabels(xlabel,'Conversion Factor','cm','')
     self.figure.setTitle(f'{title} - Conversion Factor')
     self.figure.show()
+
+  def plot_dialog_closed(self):
+    self.save_btn.setAutoDefault(True)
+    self.save_btn.setDefault(True)
+    self.calc_btn.setAutoDefault(False)
+    self.calc_btn.setDefault(False)
 
   def diameter_mode_handle(self, value):
     if value == DW:
@@ -218,6 +236,10 @@ class SSDETab(QDialog):
     self.plot(self.data)
 
   def reset_fields(self):
+    self.calc_btn.setAutoDefault(True)
+    self.calc_btn.setDefault(True)
+    self.save_btn.setAutoDefault(False)
+    self.save_btn.setDefault(False)
     self.protocol.setCurrentIndex(0)
     self.on_protocol_changed(0)
     self.plot_btn.setEnabled(False)

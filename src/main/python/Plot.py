@@ -186,13 +186,14 @@ class Axes(pg.PlotWidget):
 
 
 class PlotDialog(QDialog):
-  def __init__(self, size=(640, 480), straxis=None):
+  def __init__(self, size=(640, 480), straxis=None, par=None):
     super(PlotDialog, self).__init__()
     self.setAttribute(Qt.WA_DeleteOnClose)
     self.setWindowFlags(self.windowFlags() |
                         Qt.WindowSystemMenuHint |
                         Qt.WindowMinMaxButtonsHint)
     self.size = size
+    self.par = par
     if straxis is None:
       self.axes = Axes()
     else:
@@ -395,8 +396,6 @@ class PlotDialog(QDialog):
       self.opts_dlg.move(x-self.opts_dlg.width(), y)
 
   def on_close(self):
-    if self.opts_dlg.isVisible():
-      self.opts_dlg.close()
     self.close()
 
   def on_save(self):
@@ -465,7 +464,10 @@ class PlotDialog(QDialog):
       self.hLine.setPos(mousePoint.y())
 
   def closeEvent(self, event):
-    self.on_close()
+    if self.opts_dlg.isVisible():
+      self.opts_dlg.close()
+    if self.par is not None:
+      self.par.plot_dialog_closed()
 
 
 class XLSXExporter(pg.exporters.CSVExporter):
