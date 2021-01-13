@@ -1,8 +1,11 @@
-import pydicom
-import sys
-from PyQt5.QtWidgets import QApplication, QDialog, QTreeView, QDialogButtonBox, QVBoxLayout
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QFont
 import collections
+import sys
+
+import pydicom
+from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
+from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
+                             QTreeView, QVBoxLayout)
+
 
 class DicomTree(QDialog):
   def __init__(self, ds=None, *args, **kwargs):

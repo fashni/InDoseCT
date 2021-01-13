@@ -1,8 +1,12 @@
-from PyQt5.QtWidgets import QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QDateEdit, QSpinBox, QComboBox, QPushButton, QMessageBox
-from PyQt5.QtCore import QDate
-from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
-from Plot import PlotDialog
 import numpy as np
+from PyQt5.QtCore import QDate
+from PyQt5.QtSql import QSqlQueryModel, QSqlTableModel
+from PyQt5.QtWidgets import (QComboBox, QDateEdit, QFormLayout, QGroupBox,
+                             QHBoxLayout, QLabel, QMessageBox, QPushButton,
+                             QSpinBox, QWidget)
+
+from Plot import PlotDialog
+
 
 class AnalyzeTab(QWidget):
   def __init__(self, ctx):

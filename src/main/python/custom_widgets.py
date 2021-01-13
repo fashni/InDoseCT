@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QFrame, QSizePolicy, QLineEdit, QLabel
+from PyQt5.QtWidgets import QFrame, QLabel, QLineEdit, QSizePolicy
 
 class HSeparator(QFrame):
   def __init__(self):

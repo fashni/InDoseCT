@@ -1,15 +1,18 @@
-import pyqtgraph as pg
-import numpy as np
-import pyqtgraph.exporters
 import sys
+
+import numpy as np
+import pyqtgraph as pg
+import pyqtgraph.exporters
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
+                             QDialog, QDialogButtonBox, QFileDialog,
+                             QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+                             QMessageBox, QPushButton, QRadioButton, QSpinBox,
+                             QStackedLayout, QVBoxLayout, QWidget)
 from scipy.optimize import curve_fit
 from sklearn.metrics import r2_score
 from xlsxwriter.workbook import Workbook
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QDialog, QWidget, QApplication, QFileDialog, QDialogButtonBox, QLabel,
-                             QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QStackedLayout,
-                             QComboBox, QCheckBox, QGroupBox, QRadioButton, QFormLayout, QSpinBox,
-                             QButtonGroup)
+
 
 class Axes(pg.PlotWidget):
   pg.setConfigOptions(imageAxisOrder='row-major')

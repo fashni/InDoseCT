@@ -1,29 +1,35 @@
-from fbs_runtime.application_context.PyQt5 import ApplicationContext, cached_property
-from PyQt5.QtWidgets import (QMainWindow, QApplication, QHBoxLayout, QVBoxLayout,
-                             QToolBar, QAction, QLabel, QFileDialog, QWidget,
-                             QTabWidget, QSplitter, QProgressDialog, QMessageBox,
-                             QComboBox, QDesktopWidget, QSpinBox, QAbstractSpinBox,
-                             QPushButton, QSizePolicy, QLineEdit, QShortcut)
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QIcon, QFont, QIntValidator
-from PyQt5.QtSql import QSqlTableModel
-import numpy as np
-import sys
-import os
 import json
+import os
+import sys
+
+import numpy as np
+from fbs_runtime.application_context.PyQt5 import (ApplicationContext,
+                                                   cached_property)
+from PyQt5.QtCore import QObject, Qt, pyqtSignal
+from PyQt5.QtGui import QFont, QIcon, QIntValidator
+from PyQt5.QtSql import QSqlTableModel
+from PyQt5.QtWidgets import (QAbstractSpinBox, QAction, QApplication,
+                             QComboBox, QDesktopWidget, QFileDialog,
+                             QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+                             QMessageBox, QProgressDialog, QPushButton,
+                             QShortcut, QSizePolicy, QSpinBox, QSplitter,
+                             QTabWidget, QToolBar, QVBoxLayout, QWidget)
+
 import Plot as plt
-from dicomtree import DicomTree
-from image_processing import get_dicom, windowing, reslice, get_hu_imgs, get_hu_img
-from patient_info import InfoPanel
-from tab_CTDIvol import CTDIVolTab
-from tab_Diameter import DiameterTab
-from tab_SSDE import SSDETab
-from tab_Organ import OrganTab
-from tab_Analyze import AnalyzeTab
-from db import insert_patient, get_records_num, create_patients_table, Database
-from DBViewer import DBViewer
 from AppConfig import AppConfig
 from constants import *
+from db import Database, create_patients_table, get_records_num, insert_patient
+from DBViewer import DBViewer
+from dicomtree import DicomTree
+from image_processing import (get_dicom, get_hu_img, get_hu_imgs, reslice,
+                              windowing)
+from patient_info import InfoPanel
+from tab_Analyze import AnalyzeTab
+from tab_CTDIvol import CTDIVolTab
+from tab_Diameter import DiameterTab
+from tab_Organ import OrganTab
+from tab_SSDE import SSDETab
+
 
 class MainWindow(QMainWindow):
   def __init__(self, ctx):

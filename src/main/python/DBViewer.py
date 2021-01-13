@@ -1,9 +1,11 @@
-from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QIcon, QAbstractItemView
-from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QVBoxLayout, QTableView, QPushButton,
-                             QToolBar, QFileDialog, QMessageBox, QDesktopWidget)
+from PyQt5.QtGui import QAbstractItemView, QIcon
+from PyQt5.QtSql import QSqlQueryModel, QSqlTableModel
+from PyQt5.QtWidgets import (QDesktopWidget, QDialog, QFileDialog, QHBoxLayout,
+                             QMessageBox, QPushButton, QTableView, QToolBar,
+                             QVBoxLayout)
 from xlsxwriter.workbook import Workbook
+
 
 class DBViewer(QDialog):
   resized = pyqtSignal(object)

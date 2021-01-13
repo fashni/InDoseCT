@@ -1,12 +1,14 @@
-import sys
 import json
 import os
+import sys
+
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout,
-                             QLabel, QPushButton, QLineEdit, QFileDialog,
-                             QMessageBox, QTabWidget, QDialog, QDialogButtonBox,
-                            )
+from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
+                             QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+                             QPushButton, QTabWidget, QVBoxLayout, QWidget)
+
 from db import create_patients_table
+
 
 class AppConfig(QDialog):
   def __init__(self, ctx):

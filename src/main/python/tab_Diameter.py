@@ -1,15 +1,19 @@
-from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox,
-                             QLineEdit, QPushButton, QRadioButton, QGroupBox,
-                             QButtonGroup, QCheckBox, QProgressDialog, QSpinBox,
-                             QStackedWidget, QMessageBox, QFormLayout, QDialog)
+import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
-from PyQt5.QtSql import QSqlTableModel, QSqlQueryModel
-from image_processing import get_dw_value, get_deff_value, get_mask, get_mask_pos, get_img_no_table, windowing
-from constants import *
-from Plot import PlotDialog
+from PyQt5.QtSql import QSqlQueryModel, QSqlTableModel
+from PyQt5.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog,
+                             QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+                             QLineEdit, QMessageBox, QProgressDialog,
+                             QPushButton, QRadioButton, QSpinBox,
+                             QStackedWidget, QVBoxLayout, QWidget)
 from scipy import interpolate
-import numpy as np
+
+from constants import *
+from image_processing import (get_deff_value, get_dw_value, get_img_no_table,
+                              get_mask, get_mask_pos, windowing)
+from Plot import PlotDialog
+
 
 class DiameterTab(QDialog):
   def __init__(self, ctx, par, *args, **kwargs):

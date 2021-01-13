@@ -1,8 +1,10 @@
-import sqlite3 as sl
-import os
 import json
-from PyQt5.QtWidgets import QMessageBox
+import os
+import sqlite3 as sl
+
 from PyQt5.QtSql import QSqlDatabase
+from PyQt5.QtWidgets import QMessageBox
+
 
 class Database(object):
   def __init__(self, **kwargs):

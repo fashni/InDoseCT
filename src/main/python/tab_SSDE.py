@@ -1,14 +1,17 @@
-from PyQt5.QtWidgets import (QDialog, QLabel, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout,
-                             QComboBox, QLineEdit, QPushButton, QScrollArea, QRadioButton, QGroupBox,
-                             QButtonGroup, QCheckBox, QMessageBox)
+import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
-import numpy as np
-from custom_widgets import HSeparator
+from PyQt5.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog,
+                             QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
+                             QLabel, QLineEdit, QMessageBox, QPushButton,
+                             QRadioButton, QScrollArea, QVBoxLayout)
+from scipy import interpolate
+
 from constants import *
+from custom_widgets import HSeparator
 from db import get_records
 from Plot import PlotDialog
-from scipy import interpolate
+
 
 class SSDETab(QDialog):
   def __init__(self, ctx, *args, **kwargs):

@@ -1,10 +1,13 @@
-from PyQt5.QtGui import QFont, QDoubleValidator
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QHBoxLayout, QVBoxLayout, QFormLayout, QStackedLayout, QLineEdit, QPushButton,
-                             QLabel, QWidget, QComboBox, QMessageBox, QGroupBox, QDialog)
+from PyQt5.QtGui import QDoubleValidator, QFont
 from PyQt5.QtSql import QSqlTableModel
+from PyQt5.QtWidgets import (QComboBox, QDialog, QFormLayout, QGroupBox,
+                             QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+                             QPushButton, QStackedLayout, QVBoxLayout, QWidget)
+
 from constants import *
 from Plot import PlotDialog
+
 
 class CTDIVolTab(QDialog):
   def __init__(self, ctx, *args, **kwargs):

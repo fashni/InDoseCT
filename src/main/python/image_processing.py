@@ -1,10 +1,12 @@
 import sys
-import pydicom
+
 import numpy as np
+import pydicom
 from pydicom.errors import InvalidDicomError
-from skimage.measure import label, regionprops
-from skimage.morphology import dilation, erosion, disk
 from scipy import ndimage as ndi
+from skimage.measure import label, regionprops
+from skimage.morphology import dilation, disk, erosion
+
 
 def get_hu_imgs(scans):
   imgs = np.stack([get_hu_img(ds) for ds in scans])

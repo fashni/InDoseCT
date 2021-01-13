@@ -1,8 +1,12 @@
-from PyQt5.QtWidgets import (QRadioButton, QGridLayout, QHBoxLayout, QFormLayout, QVBoxLayout, QLineEdit, QLabel, QWidget, QComboBox,
-                             QDateEdit, QSpinBox, QAbstractSpinBox)
-from PyQt5.QtCore import QDate, QRegExp, pyqtSignal, QTimer
+from PyQt5.QtCore import QDate, QRegExp, QTimer, pyqtSignal
 from PyQt5.QtGui import QRegExpValidator, QValidator
+from PyQt5.QtWidgets import (QAbstractSpinBox, QComboBox, QDateEdit,
+                             QFormLayout, QGridLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QRadioButton, QSpinBox, QVBoxLayout,
+                             QWidget)
+
 from db import get_records_num
+
 
 class InfoPanel(QWidget):
   def __init__(self, ctx, *args, **kwargs):

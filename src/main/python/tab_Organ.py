@@ -1,10 +1,14 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QScrollArea, QGroupBox, QFormLayout
+import numpy as np
+import pyqtgraph as pg
 from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
-import pyqtgraph as pg
-import numpy as np
+from PyQt5.QtWidgets import (QComboBox, QFormLayout, QGroupBox, QHBoxLayout,
+                             QLabel, QLineEdit, QPushButton, QScrollArea,
+                             QVBoxLayout, QWidget)
+
 from constants import *
-from Plot import PlotDialog, AxisItem
+from Plot import AxisItem, PlotDialog
+
 
 class OrganTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
