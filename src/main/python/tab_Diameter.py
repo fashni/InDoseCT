@@ -52,7 +52,7 @@ class DiameterTab(QDialog):
     self.idxs = []
     self.d_vals = []
     self.minimum_area = 500
-    self.threshold = -200
+    self.threshold = -300
 
   def initModel(self):
     self.query_model = QSqlQueryModel()

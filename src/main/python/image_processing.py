@@ -77,7 +77,7 @@ def get_img_no_table(img, threshold=-200):
   no_table[tables] = -1000
   return no_table
 
-def get_mask(img, threshold=-200, minimum_area=500, num_of_objects=5, largest_only=False, return_label=False):
+def get_mask(img, threshold=-300, minimum_area=500, num_of_objects=5, largest_only=False, return_label=False):
   if largest_only:
     num_of_objects = 1
   thres = img>threshold
