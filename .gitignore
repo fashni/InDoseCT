@@ -7,3 +7,6 @@ env/
 venv/
 ENV/
 .vscode/
+do_not_track/
+target/
+test*
