@@ -4,11 +4,10 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.exporters
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
-                             QDialog, QDialogButtonBox, QFileDialog,
-                             QFormLayout, QGroupBox, QHBoxLayout, QLabel,
-                             QMessageBox, QPushButton, QRadioButton, QSpinBox,
-                             QStackedLayout, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QDialog,
+                             QDialogButtonBox, QFileDialog, QFormLayout,
+                             QGroupBox, QHBoxLayout, QLabel, QPushButton,
+                             QRadioButton, QSpinBox, QVBoxLayout)
 from scipy.optimize import curve_fit
 from sklearn.metrics import r2_score
 from xlsxwriter.workbook import Workbook
@@ -214,6 +213,7 @@ class PlotDialog(QDialog):
     self.layout = QVBoxLayout()
     self.txt = {}
     self.mean = {'x': None, 'y': None}
+    self.error_bar = {'x': None, 'y': None}
     self.tr_line = False
 
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
@@ -246,6 +246,7 @@ class PlotDialog(QDialog):
     self.buttons.rejected.connect(self.on_close)
     self.buttons.accepted.connect(self.on_save)
     self.opts_btn.clicked.connect(self.on_opts_dialog)
+    [opt.stateChanged.connect(self.apply_stddev_opts) for opt in self.opts_dlg.stdv_chks]
     [opt.stateChanged.connect(self.apply_mean_opts) for opt in self.opts_dlg.mean_chks]
     self.opts_dlg.trdl_btngrp.buttonClicked[int].connect(self.apply_trendline_opts)
     self.opts_dlg.poly_ordr_spn.valueChanged.connect(self.on_poly_order_changed)
@@ -303,11 +304,11 @@ class PlotDialog(QDialog):
     if x is None or y is None:
       return
     mean = x.mean() if axis=='x' else y.mean()
-    anchor = (0, 1) if axis=='x' else (0, 0)
-    pos = (mean, 0) if axis=='x' else (0, mean)
+    anchor = (0, 1) #if axis=='x' else (0, 0)
+    pos = (mean, max(y)) if axis=='x' else (max(x), mean)
     unit = self.x_unit if axis=='x' else self.y_unit
     self.avgLine(mean, axis)
-    self.annotate(f'mean_{axis}', anchor=anchor, pos=pos, text=f'{axis}-mean: {mean:#.2f} {unit}')
+    self.annotate(f'mean_{axis}', anchor=anchor, pos=pos, text=f'mean_{axis}: {mean:#.2f} {unit}')
 
   def get_plot_data(self):
     max_size = 0
@@ -325,16 +326,37 @@ class PlotDialog(QDialog):
       return None, None
     return self.axes.plotItem.curves[max_idx].getData()
 
-  def on_stddev(self):
-    if 'std' in self.txt:
+  def on_stddev(self, axis):
+    if self.error_bar[axis]:
       return
-    x, y = self.get_plot_data()
 
+    x, y = self.get_plot_data()
     if x is None or y is None:
       return
-    x_std = np.std(x)
-    y_std = np.std(y)
-    self.annotate('std', anchor=(0,1), text=f'{self.ylabel} stdev: {y_std:#.2f} {self.y_unit}')
+
+    dep_v = x if axis=='x' else y
+    indep_v = y if axis=='x' else x
+    mean = dep_v.mean()
+    std = dep_v.std()
+
+    top = np.array([mean + std for _ in range(len(indep_v))]) - dep_v
+    bottom = np.array([-mean + std for _ in range(len(indep_v))]) + dep_v
+
+    pos1 = (max(x), mean+std) if axis=='y' else (mean+std, min(y))
+    pos2 = (max(x), mean-std) if axis=='y' else (mean-std, min(y))
+    anchor2 = (0,1) if axis=='y' else (1,0)
+    unit = self.x_unit if axis=='x' else self.y_unit
+
+    pen = pg.mkPen(color=(255,255,255,127), width=2)
+    if axis == 'y':
+      self.error_bar[axis] = pg.ErrorBarItem(x=x, y=y, top=top, bottom=bottom, beam=1, pen=pen)
+    else:
+      self.error_bar[axis] = pg.ErrorBarItem(x=x, y=y, right=top, left=bottom, beam=1, pen=pen)
+
+    self.axes.addItem(self.error_bar[axis])
+    self.error_bar[axis].setZValue(-10)
+    self.annotate(f'{axis}_std_top', anchor=(0,0), pos=pos1, text=f'std_{axis}: {std:#.2f} {unit}')
+    self.annotate(f'{axis}_std_btm', anchor=anchor2, pos=pos2, text=f'std_{axis}: {std:#.2f} {unit}')
 
   def on_trendline(self, method):
     if self.tr_line:
@@ -364,9 +386,12 @@ class PlotDialog(QDialog):
     self.annotate('tr', pos=pos, text=f'y = {eq}\nR² = {r2:#.4f}')
     self.tr_line = True
 
-  def clear_stddev(self):
-    if 'std' in self.txt:
-      self.clearAnnotation('std')
+  def clear_stddev(self, axis):
+    if self.error_bar[axis]:
+      self.axes.removeItem(self.error_bar[axis])
+      self.error_bar[axis] = None
+      self.clearAnnotation(f'{axis}_std_top')
+      self.clearAnnotation(f'{axis}_std_btm')
 
   def clear_trendline(self):
     if self.tr_line:
@@ -377,6 +402,10 @@ class PlotDialog(QDialog):
   def apply_mean_opts(self):
     self.on_avgline('x') if self.opts_dlg.x_mean_chk.isChecked() else self.clearAvgLine('x')
     self.on_avgline('y') if self.opts_dlg.y_mean_chk.isChecked() else self.clearAvgLine('y')
+
+  def apply_stddev_opts(self):
+    self.on_stddev('x') if self.opts_dlg.x_stdv_chk.isChecked() else self.clear_stddev('x')
+    self.on_stddev('y') if self.opts_dlg.y_stdv_chk.isChecked() else self.clear_stddev('y')
 
   def apply_trendline_opts(self, idx):
     button = self.opts_dlg.trdl_btngrp.button(idx)
@@ -423,6 +452,8 @@ class PlotDialog(QDialog):
       exporter = XLSXExporter(self.axes.plotItem, xheader=self.xlabel, yheader=self.ylabel)
     elif filename.lower().endswith('.svg'):
       exporter = pg.exporters.SVGExporter(self.axes.plotItem)
+    else:
+      return
     exporter.export(filename)
 
   def avgLine(self, value, axis):
@@ -430,7 +461,7 @@ class PlotDialog(QDialog):
       angle = 90 if axis=='x' else 0
     else:
       return
-    self.mean[axis] = pg.InfiniteLine(angle=angle, movable=False, pen={'color': "00FFFF", 'width': 1})
+    self.mean[axis] = pg.InfiniteLine(angle=angle, movable=False, pen={'color': "00FFFF", 'width': 2})
     self.axes.addItem(self.mean[axis])
     self.mean[axis].setPos(value)
 
@@ -680,6 +711,8 @@ class CurveFit:
           sign, coef = (' - ' if res else '- '), -coef
         elif coef > 0: # must be true
           sign = (' + ' if res else '')
+        else:
+          sign = ''
 
         str_coef = '' if coef == 1 and power != 0 else numformat%coef
 
