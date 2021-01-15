@@ -112,12 +112,12 @@ class DiameterTab(QDialog):
     self.d_edit.setValidator(QDoubleValidator())
     self.d_edit.setReadOnly(True)
 
-    self.next_tab_btn.setAutoDefault(True)
-    self.next_tab_btn.setDefault(True)
+    self.calculate_btn.setAutoDefault(True)
+    self.calculate_btn.setDefault(True)
+    self.next_tab_btn.setAutoDefault(False)
+    self.next_tab_btn.setDefault(False)
     self.prev_tab_btn.setAutoDefault(False)
     self.prev_tab_btn.setDefault(False)
-    self.calculate_btn.setAutoDefault(False)
-    self.calculate_btn.setDefault(False)
 
     out_layout = QHBoxLayout()
     out_layout.addWidget(self.calculate_btn)
@@ -588,6 +588,10 @@ class DiameterTab(QDialog):
         self.calculate_img_manual()
     elif self.source == 1: # input manual
       self.calculate_manual()
+    self.next_tab_btn.setAutoDefault(True)
+    self.next_tab_btn.setDefault(True)
+    self.calculate_btn.setAutoDefault(False)
+    self.calculate_btn.setDefault(False)
 
   def calculate_auto(self):
     self.ctx.axes.clearGraph()
@@ -913,3 +917,7 @@ class DiameterTab(QDialog):
     self.deff_lat_edit.setText('0 cm')
     self.deff_man_edit1.clear()
     self.deff_man_edit2.clear()
+    self.calculate_btn.setAutoDefault(True)
+    self.calculate_btn.setDefault(True)
+    self.next_tab_btn.setAutoDefault(False)
+    self.next_tab_btn.setDefault(False)
