@@ -204,7 +204,7 @@ class PlotDialog(QDialog):
     self.ylabel = None
     self.x_unit = None
     self.y_unit = None
-    self.opts_dlg = PlotOptions()
+    self.opts_dlg = PlotOptions(parent=self)
     self.initUI()
     self.sigConnect()
 
@@ -212,8 +212,11 @@ class PlotDialog(QDialog):
     self.setWindowTitle('Plot')
     self.layout = QVBoxLayout()
     self.txt = {}
-    self.mean = {'x': None, 'y': None}
-    self.error_bar = {'x': None, 'y': None}
+    self.inf_line = {
+      'meanx': None, 'meany': None,
+      'std1x': None, 'std2x': None,
+      'std1y': None, 'std2y': None,
+    }
     self.tr_line = False
 
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
@@ -259,9 +262,10 @@ class PlotDialog(QDialog):
     self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
 
-  def annotate(self, tag, pos=(0,0), *args, **kwargs):
+  def annotate(self, tag, pos=(0,0), angle=0, *args, **kwargs):
     txt = pg.TextItem(*args, **kwargs)
     txt.setPos(pos[0], pos[1])
+    txt.setAngle(angle)
     self.txt[tag] = txt
     self.axes.addItem(txt)
 
@@ -297,7 +301,8 @@ class PlotDialog(QDialog):
     [opt.setEnabled(state) for opt in self.opts_dlg.stdv_chks]
 
   def on_avgline(self, axis):
-    if self.mean[axis]:
+    name = "mean"
+    if self.inf_line[name+axis]:
       return
     x, y = self.get_plot_data()
 
@@ -306,16 +311,17 @@ class PlotDialog(QDialog):
     mean = x.mean() if axis=='x' else y.mean()
     anchor = (0, 1) #if axis=='x' else (0, 0)
     pos = (mean, max(y)) if axis=='x' else (max(x), mean)
+    angle = 0 if axis=='y' else 90
     unit = self.x_unit if axis=='x' else self.y_unit
-    self.avgLine(mean, axis)
-    self.annotate(f'mean_{axis}', anchor=anchor, pos=pos, text=f'mean_{axis}: {mean:#.2f} {unit}')
+    self.create_inf_line(mean, axis, name, pg.mkPen(color='c', width=2))
+    self.annotate(name+axis, anchor=anchor, pos=pos, angle=angle, text=f'mean_{axis}: {mean:#.2f} {unit}')
 
   def get_plot_data(self):
     max_size = 0
     max_idx = 0
     for idx, curve in enumerate(self.axes.plotItem.curves):
       curve_data = curve.getData()
-      if curve_data[0] is None:
+      if curve_data[0] is None or curve.name()=='trendline':
         continue
       size = curve_data[0].size
       if size > max_size:
@@ -327,7 +333,9 @@ class PlotDialog(QDialog):
     return self.axes.plotItem.curves[max_idx].getData()
 
   def on_stddev(self, axis):
-    if self.error_bar[axis]:
+    name1 = 'std1'
+    name2 = 'std2'
+    if self.inf_line[name1+axis] and self.inf_line[name2+axis]:
       return
 
     x, y = self.get_plot_data()
@@ -339,24 +347,18 @@ class PlotDialog(QDialog):
     mean = dep_v.mean()
     std = dep_v.std()
 
-    top = np.array([mean + std for _ in range(len(indep_v))]) - dep_v
-    bottom = np.array([-mean + std for _ in range(len(indep_v))]) + dep_v
-
-    pos1 = (max(x), mean+std) if axis=='y' else (mean+std, min(y))
-    pos2 = (max(x), mean-std) if axis=='y' else (mean-std, min(y))
-    anchor2 = (0,1) if axis=='y' else (1,0)
+    pos1 = (max(x), mean+std) if axis=='y' else (mean+std, max(y))
+    pos2 = (max(x), mean-std) if axis=='y' else (mean-std, max(y))
+    anchor1 = (0,1) if axis=='y' else (0,1)
+    anchor2 = (0,1) if axis=='y' else (0,1)
+    angle = 0 if axis=='y' else 90
     unit = self.x_unit if axis=='x' else self.y_unit
 
-    pen = pg.mkPen(color=(255,255,255,127), width=2)
-    if axis == 'y':
-      self.error_bar[axis] = pg.ErrorBarItem(x=x, y=y, top=top, bottom=bottom, beam=1, pen=pen)
-    else:
-      self.error_bar[axis] = pg.ErrorBarItem(x=x, y=y, right=top, left=bottom, beam=1, pen=pen)
-
-    self.axes.addItem(self.error_bar[axis])
-    self.error_bar[axis].setZValue(-10)
-    self.annotate(f'{axis}_std_top', anchor=(0,0), pos=pos1, text=f'std_{axis}: {std:#.2f} {unit}')
-    self.annotate(f'{axis}_std_btm', anchor=anchor2, pos=pos2, text=f'std_{axis}: {std:#.2f} {unit}')
+    pen = pg.mkPen(color='m', width=2)
+    self.create_inf_line(mean+std, axis, name1, pen)
+    self.create_inf_line(mean-std, axis, name2, pen)
+    self.annotate(name1+axis, anchor=anchor1, pos=pos1, angle=angle, text=f'std_{axis}: +{std:#.2f} {unit}')
+    self.annotate(name2+axis, anchor=anchor2, pos=pos2, angle=angle, text=f'std_{axis}: -{std:#.2f} {unit}')
 
   def on_trendline(self, method):
     if self.tr_line:
@@ -387,11 +389,16 @@ class PlotDialog(QDialog):
     self.tr_line = True
 
   def clear_stddev(self, axis):
-    if self.error_bar[axis]:
-      self.axes.removeItem(self.error_bar[axis])
-      self.error_bar[axis] = None
-      self.clearAnnotation(f'{axis}_std_top')
-      self.clearAnnotation(f'{axis}_std_btm')
+    if self.inf_line['std1'+axis] and self.inf_line['std2'+axis]:
+      self.clear_inf_line(axis, 'std1')
+      self.clear_inf_line(axis, 'std2')
+      self.clearAnnotation('std1'+axis)
+      self.clearAnnotation('std2'+axis)
+
+  def clear_mean(self, axis):
+    if self.inf_line['mean'+axis]:
+      self.clear_inf_line(axis, 'mean')
+      self.clearAnnotation('mean'+axis)
 
   def clear_trendline(self):
     if self.tr_line:
@@ -400,8 +407,8 @@ class PlotDialog(QDialog):
       self.clearAnnotation('tr')
 
   def apply_mean_opts(self):
-    self.on_avgline('x') if self.opts_dlg.x_mean_chk.isChecked() else self.clearAvgLine('x')
-    self.on_avgline('y') if self.opts_dlg.y_mean_chk.isChecked() else self.clearAvgLine('y')
+    self.on_avgline('x') if self.opts_dlg.x_mean_chk.isChecked() else self.clear_mean('x')
+    self.on_avgline('y') if self.opts_dlg.y_mean_chk.isChecked() else self.clear_mean('y')
 
   def apply_stddev_opts(self):
     self.on_stddev('x') if self.opts_dlg.x_stdv_chk.isChecked() else self.clear_stddev('x')
@@ -456,28 +463,30 @@ class PlotDialog(QDialog):
       return
     exporter.export(filename)
 
-  def avgLine(self, value, axis):
+  def create_inf_line(self, value, axis, name, pen=None):
     if axis=='x' or axis=='y':
       angle = 90 if axis=='x' else 0
     else:
       return
-    self.mean[axis] = pg.InfiniteLine(angle=angle, movable=False, pen={'color': "00FFFF", 'width': 2})
-    self.axes.addItem(self.mean[axis])
-    self.mean[axis].setPos(value)
+    self.inf_line[name+axis] = pg.InfiniteLine(angle=angle, movable=False, pen=pen)
+    self.axes.addItem(self.inf_line[name+axis])
+    self.inf_line[name+axis].setPos(value)
+    self.inf_line[name+axis].setZValue(-10)
 
   def bar(self, *args, **kwargs):
     self.axes.clearAll()
     self.axes.bar(*args, **kwargs)
 
-  def clearAvgLine(self, axis):
-    if self.mean[axis]:
-      self.axes.removeItem(self.mean[axis])
-      self.mean[axis] = None
-      self.clearAnnotation(f'mean_{axis}')
+  def clear_inf_line(self, axis, name):
+    if self.inf_line[name+axis]:
+      self.axes.removeItem(self.inf_line[name+axis])
+      self.inf_line[name+axis] = None
 
   def axis_line(self):
     self.y_axis = pg.InfiniteLine(angle=90, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
     self.x_axis = pg.InfiniteLine(angle=0, movable=False, pen={'color': "FFFFFF", 'width': 1.5})
+    self.y_axis.setZValue(-100)
+    self.x_axis.setZValue(-100)
     self.axes.addItem(self.y_axis, ignoreBounds=True)
     self.axes.addItem(self.x_axis, ignoreBounds=True)
 
