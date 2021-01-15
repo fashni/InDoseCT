@@ -9,8 +9,8 @@ from xlsxwriter.workbook import Workbook
 
 class DBViewer(QDialog):
   resized = pyqtSignal(object)
-  def __init__(self, ctx, par):
-    super(DBViewer, self).__init__()
+  def __init__(self, ctx, par, *args, **kwargs):
+    super(DBViewer, self).__init__(*args,**kwargs)
     self.setAttribute(Qt.WA_DeleteOnClose)
     self.setWindowFlags(self.windowFlags() |
                         Qt.WindowSystemMenuHint |

@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
 
 class DicomTree(QDialog):
   def __init__(self, ds=None, *args, **kwargs):
-    super(DicomTree, self).__init__()
+    super(DicomTree, self).__init__(*args, **kwargs)
     self.initUI()
     self.sigConnect()
     if ds:

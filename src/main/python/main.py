@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
     self.ctx = ctx
     self.configs = AppConfig(self.ctx)
     self.rec_viewer = None
-    self.dt = DicomTree()
+    self.dt = DicomTree(parent=self)
     self.initVar()
     self.initModel()
     self.initUI()
@@ -402,6 +402,7 @@ class MainWindow(QMainWindow):
       self.ctx.axes.add_alt_view(window_img)
     self.ctx.img_dims = (int(self.ctx.dicoms[self.ctx.current_img-1].Rows), int(self.ctx.dicoms[self.ctx.current_img-1].Columns))
     self.ctx.recons_dim = float(self.ctx.dicoms[self.ctx.current_img-1].ReconstructionDiameter)
+    self.dt.set_ds(self.ctx.dicoms[self.ctx.current_img-1])
 
   def prev_img(self, step):
     if not self.ctx.total_img:
