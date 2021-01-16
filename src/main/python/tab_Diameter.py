@@ -5,7 +5,7 @@ from PyQt5.QtSql import QSqlQueryModel, QSqlTableModel
 from PyQt5.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog,
                              QFormLayout, QGroupBox, QHBoxLayout, QLabel,
                              QLineEdit, QMessageBox, QProgressDialog,
-                             QPushButton, QRadioButton, QSpinBox,
+                             QPushButton, QRadioButton, QScrollArea, QSpinBox,
                              QStackedWidget, QVBoxLayout, QWidget)
 from scipy import interpolate
 
@@ -33,6 +33,7 @@ class DiameterTab(QDialog):
     self.is_largest_only = False
     self.is_no_roi = False
     self.is_no_table = False
+    self.is_corr = [False, False]
 
     self.initVar()
     self.initModel()
@@ -53,6 +54,8 @@ class DiameterTab(QDialog):
     self.d_vals = []
     self.minimum_area = 500
     self.threshold = -300
+    self.bone_limit = 250
+    self.stissue_limit = -250
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -140,6 +143,38 @@ class DiameterTab(QDialog):
     self.menu_grpbox = QGroupBox('', self)
     self.menu_grpbox.setLayout(menu_layout)
 
+  def _deff_correction_ui(self):
+    self.bone_chk = QCheckBox("Bone")
+    self.lung_chk = QCheckBox("Lung")
+    self.bone_sb = QSpinBox()
+    self.stissue_sb = QSpinBox()
+
+    self.bone_sb.setRange(np.iinfo('int16').min, np.iinfo('int16').max)
+    self.bone_sb.setValue(self.bone_limit)
+    self.bone_sb.setMaximumWidth(60)
+    self.stissue_sb.setRange(np.iinfo('int16').min, np.iinfo('int16').max)
+    self.stissue_sb.setValue(self.stissue_limit)
+    self.stissue_sb.setMaximumWidth(60)
+
+    chk_layout = QHBoxLayout()
+    chk_layout.addWidget(self.lung_chk)
+    chk_layout.addWidget(self.bone_chk)
+
+    corr_form = QFormLayout()
+    corr_form.addRow(QLabel('Bone (HU)'), self.bone_sb)
+    corr_form.addRow(QLabel('Soft Tissue (HU)'), self.stissue_sb)
+
+    self.lower_bnd_grpbox = QGroupBox('Lower Bound')
+    self.lower_bnd_grpbox.setLayout(corr_form)
+    self.lower_bnd_grpbox.setEnabled(False)
+
+    corr_layout = QVBoxLayout()
+    corr_layout.addLayout(chk_layout)
+    corr_layout.addWidget(self.lower_bnd_grpbox)
+
+    self.deff_auto_corr_grpbox = QGroupBox('Correction', self)
+    self.deff_auto_corr_grpbox.setLayout(corr_layout)
+
   def _3d_opts_ui(self):
     self.to_lbl = QLabel('to')
     self.slice1_sb = QSpinBox()
@@ -188,11 +223,12 @@ class DiameterTab(QDialog):
     self.deff_auto_btngrp = QButtonGroup()
     [self.deff_auto_btngrp.addButton(btn) for btn in self.deff_auto_rbtns]
 
-    self.deff_threshold_sb.setMinimum(np.iinfo('int16').min)
-    self.deff_threshold_sb.setMaximum(np.iinfo('int16').max)
+    self.deff_threshold_sb.setRange(np.iinfo('int16').min, np.iinfo('int16').max)
     self.deff_threshold_sb.setValue(self.threshold)
+    self.deff_threshold_sb.setMaximumWidth(60)
     self.deff_minimum_area_sb.setMaximum(512*512)
     self.deff_minimum_area_sb.setValue(self.minimum_area)
+    self.deff_minimum_area_sb.setMaximumWidth(60)
     self.area_rbtn.setChecked(True)
     self.ap_edit.setMaximumWidth(60)
     self.lat_edit.setMaximumWidth(60)
@@ -203,14 +239,20 @@ class DiameterTab(QDialog):
     info_form.addRow(QLabel('AP'), self.ap_edit)
     info_form.addRow(QLabel('LAT'), self.lat_edit)
 
-    self.deff_auto_info_grpbox = QGroupBox('Info', self)
-    self.deff_auto_info_grpbox.setLayout(info_form)
+    self.deff_auto_info_widget = QWidget()
+    self.deff_auto_info_widget.setLayout(info_form)
+    self.deff_auto_info_widget.setContentsMargins(0,0,0,0)
+
+    method_layout = QVBoxLayout()
+    [method_layout.addWidget(btn) for btn in self.deff_auto_rbtns]
+    method_layout.addStretch()
+
+    method_info_layout = QHBoxLayout()
+    method_info_layout.addLayout(method_layout)
+    method_info_layout.addWidget(self.deff_auto_info_widget)
 
     deff_auto_method_grpbox = QGroupBox('Method', self)
-    deff_auto_method_layout = QVBoxLayout()
-    [deff_auto_method_layout.addWidget(btn) for btn in self.deff_auto_rbtns]
-    deff_auto_method_layout.addStretch()
-    deff_auto_method_grpbox.setLayout(deff_auto_method_layout)
+    deff_auto_method_grpbox.setLayout(method_info_layout)
 
     self.deff_auto_grpbox = QGroupBox('Options', self)
     deff_auto_layout = QFormLayout()
@@ -306,11 +348,12 @@ class DiameterTab(QDialog):
     self.no_table_chk = QCheckBox('Remove table')
     self.dw_auto_grpbox = QGroupBox('Options', self)
 
-    self.dw_threshold_sb.setMinimum(np.iinfo('int16').min)
-    self.dw_threshold_sb.setMaximum(np.iinfo('int16').max)
+    self.dw_threshold_sb.setRange(np.iinfo('int16').min, np.iinfo('int16').max)
     self.dw_threshold_sb.setValue(self.threshold)
+    self.dw_threshold_sb.setMaximumWidth(60)
     self.dw_minimum_area_sb.setMaximum(512*512)
     self.dw_minimum_area_sb.setValue(self.minimum_area)
+    self.dw_minimum_area_sb.setMaximumWidth(60)
 
     dw_auto_layout = QFormLayout()
     dw_auto_layout.addRow(self.dw_threshold_lbl, self.dw_threshold_sb)
@@ -346,6 +389,7 @@ class DiameterTab(QDialog):
     self._deff_manual_ui()
     self._dw_auto_ui()
     self._dw_img_manual_ui()
+    self._deff_correction_ui()
 
     self.opts_stack = QStackedWidget()
     self.opts_stack.addWidget(self.deff_auto_grpbox)
@@ -354,22 +398,27 @@ class DiameterTab(QDialog):
     self.opts_stack.addWidget(self.dw_auto_grpbox)
     self.opts_stack.addWidget(self.dw_img_manual_grpbox)
 
-    self.info_3d_stack = QStackedWidget()
-    self.info_3d_stack.addWidget(self.deff_auto_info_grpbox)
-    self.info_3d_stack.addWidget(self.d_3d_grpbox)
+    opts_layout = QVBoxLayout()
+    opts_layout.addWidget(self.opts_stack)
+    opts_layout.addWidget(self.deff_auto_corr_grpbox)
+    opts_layout.addWidget(self.d_3d_grpbox)
+    opts_layout.addStretch()
 
-    self.opts_layout = QVBoxLayout()
-    self.opts_layout.addWidget(self.opts_stack)
-    self.opts_layout.addWidget(self.info_3d_stack)
-    self.opts_layout.addStretch()
+    opts_widget = QWidget()
+    opts_widget.setContentsMargins(0,0,0,0)
+    opts_widget.setLayout(opts_layout)
 
-    self.info_3d_stack.setVisible(False)
-    self.info_3d_stack.setCurrentIndex(0)
+    self.opts_scroll = QScrollArea()
+    self.opts_scroll.setWidget(opts_widget)
+    self.opts_scroll.setWidgetResizable(True)
+    self.opts_scroll.horizontalScrollBar().setEnabled(False);
+
+    self.d_3d_grpbox.setVisible(False)
 
   def _set_layout(self):
     menu_layout = QHBoxLayout()
     menu_layout.addWidget(self.menu_grpbox)
-    menu_layout.addLayout(self.opts_layout)
+    menu_layout.addWidget(self.opts_scroll)
 
     tab_nav = QHBoxLayout()
     tab_nav.addWidget(self.prev_tab_btn)
@@ -403,6 +452,10 @@ class DiameterTab(QDialog):
     self.dw_polygon_btn.clicked.connect(self.add_polygon)
     self.deff_ap_btn.clicked.connect(self.add_ap_line)
     self.deff_lat_btn.clicked.connect(self.add_lat_line)
+    self.bone_chk.stateChanged.connect(self.on_corr_check)
+    self.lung_chk.stateChanged.connect(self.on_corr_check)
+    self.bone_sb.valueChanged.connect(self.on_bone_limit_changed)
+    self.stissue_sb.valueChanged.connect(self.on_stissue_limit_changed)
     [btn.toggled.connect(self.on_deff_auto_method_changed) for btn in self.deff_auto_rbtns]
     [btn.toggled.connect(self.on_3d_opts_changed) for btn in self.d_3d_rbtns]
 
@@ -445,6 +498,10 @@ class DiameterTab(QDialog):
     self.dw_threshold_lbl.setEnabled(self.is_no_table)
     self.dw_threshold_sb.setEnabled(self.is_no_table)
 
+  def on_corr_check(self, state):
+    self.is_corr[int(self.sender().text().lower() == 'bone')] = state == Qt.Checked
+    self.lower_bnd_grpbox.setEnabled(any(self.is_corr))
+
   def on_source_changed(self, src):
     self.method_cb.clear()
     self.method_cb.addItems(self.src_method_items[src])
@@ -456,9 +513,8 @@ class DiameterTab(QDialog):
     if sel.isChecked():
       self.deff_auto_method = sel.text().lower()
       if self.baseon == 0 and self.method == 0:
-        self.info_3d_stack.setCurrentIndex(0)
         is_area = self.deff_auto_method == 'area'
-        self.info_3d_stack.setVisible(not is_area)
+        self.deff_auto_info_widget.setVisible(not is_area)
       print(self.deff_auto_method)
 
   def on_3d_opts_changed(self):
@@ -477,7 +533,9 @@ class DiameterTab(QDialog):
   def on_set_opts_panel(self):
     self.clearROIs()
     self.opts_stack.setVisible(True)
-    self.info_3d_stack.setVisible(False)
+    self.deff_auto_info_widget.setVisible(False)
+    self.d_3d_grpbox.setVisible(False)
+    self.deff_auto_corr_grpbox.setVisible(False)
     self.d_edit.setReadOnly(True)
     self.baseon = self.baseon_cb.currentIndex()
     self.source = self.source_cb.currentIndex()
@@ -496,22 +554,19 @@ class DiameterTab(QDialog):
         self.d_edit.setReadOnly(False)
         self.d_edit.textChanged.connect(self._on_dw_manual)
     elif self.source == 0: # from img
+      self.d_3d_grpbox.setVisible(self.method == 1)
       if self.baseon == 0: # deff
         if self.method == 0 or self.method == 1:
+          self.deff_auto_corr_grpbox.setVisible(True)
           self.opts_stack.setCurrentIndex(0)
-          self.info_3d_stack.setCurrentIndex(self.method)
-          if self.method == 1:
-            self.info_3d_stack.setVisible(True)
-          else:
-            self.info_3d_stack.setVisible(self.deff_auto_method != 'area')
+          if self.method == 0:
+            self.deff_auto_info_widget.setVisible(self.deff_auto_method != 'area')
         elif self.method == 2:
           self.opts_stack.setCurrentIndex(1)
         self.ctx.app_data.mode = DEFF_IMAGE
       else:
         if self.method == 0 or self.method == 1:
           self.opts_stack.setCurrentIndex(3)
-          self.info_3d_stack.setVisible(self.method == 1)
-          self.info_3d_stack.setCurrentIndex(1)
         elif self.method == 2:
           self.opts_stack.setCurrentIndex(4)
         self.ctx.app_data.mode = DW
@@ -575,6 +630,12 @@ class DiameterTab(QDialog):
     else:
       self.deff_threshold_sb.setValue(self.threshold)
 
+  def on_bone_limit_changed(self):
+    self.bone_limit = self.bone_sb.value()
+
+  def on_stissue_limit_changed(self):
+    self.stissue_limit = self.stissue_sb.value()
+
   def on_calculate(self):
     if self.source == 0: # from img
       if not self.ctx.isImage:
@@ -602,6 +663,7 @@ class DiameterTab(QDialog):
       mask = self.get_img_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=True)
       if mask is None:
         return
+      # correction = sum(v<<i for i, v in enumerate(self.is_corr[::-1]))
       dval, row, col, ap, lat = get_deff_value(mask, dims, rd, self.deff_auto_method)
       if self.deff_auto_method != 'area':
         self.plot_ap_lat(mask, row, col)
@@ -788,7 +850,6 @@ class DiameterTab(QDialog):
     mask = get_mask(*args, **kwargs)
     if mask is None:
       QMessageBox.warning(None, 'Segmentation Failed', 'No object found during segmentation process.')
-      return
     return mask
 
   def plot_mask(self, mask):
