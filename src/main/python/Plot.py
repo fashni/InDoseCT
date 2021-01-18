@@ -53,7 +53,15 @@ class Axes(pg.PlotWidget):
 
   def add_alt_view(self, img):
     self.alt_image = img
-    self.image.setImage(img)
+    self.set_alt_image()
+
+  def set_alt_image(self):
+    if self.alt_image is not None:
+      self.image.setImage(self.alt_image)
+
+  def set_primary_image(self):
+    if self.imagedata is not None:
+      self.image.setImage(self.imagedata)
 
   def scatter(self, *args, **kwargs):
     self.scatterPlot.setData(*args, **kwargs)

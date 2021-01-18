@@ -10,8 +10,10 @@ from PyQt5.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog,
 from scipy import interpolate
 
 from constants import *
-from image_processing import (get_deff_value, get_dw_value, get_img_no_table,
-                              get_mask, get_mask_pos, windowing)
+from image_processing import (get_center, get_correction_mask,
+                              get_deff_correction, get_deff_value,
+                              get_dw_value, get_img_no_table, get_mask,
+                              get_mask_pos, windowing)
 from Plot import PlotDialog
 
 
@@ -512,9 +514,14 @@ class DiameterTab(QDialog):
     sel = self.sender()
     if sel.isChecked():
       self.deff_auto_method = sel.text().lower()
-      if self.baseon == 0 and self.method == 0:
-        is_area = self.deff_auto_method == 'area'
-        self.deff_auto_info_widget.setVisible(not is_area)
+      is_area = self.deff_auto_method == 'area'
+      is_center = self.deff_auto_method == 'center'
+      self.deff_auto_corr_grpbox.setVisible(is_center)
+      if self.method == 0: self.deff_auto_info_widget.setVisible(not is_area)
+      if not is_center:
+        self.bone_chk.setCheckState(Qt.Unchecked)
+        self.lung_chk.setCheckState(Qt.Unchecked)
+        self.is_corr = [False, False]
       print(self.deff_auto_method)
 
   def on_3d_opts_changed(self):
@@ -557,7 +564,7 @@ class DiameterTab(QDialog):
       self.d_3d_grpbox.setVisible(self.method == 1)
       if self.baseon == 0: # deff
         if self.method == 0 or self.method == 1:
-          self.deff_auto_corr_grpbox.setVisible(True)
+          self.deff_auto_corr_grpbox.setVisible(self.deff_auto_method == 'center')
           self.opts_stack.setCurrentIndex(0)
           if self.method == 0:
             self.deff_auto_info_widget.setVisible(self.deff_auto_method != 'area')
@@ -659,36 +666,48 @@ class DiameterTab(QDialog):
     img = self.ctx.get_current_img()
     dims = self.ctx.img_dims
     rd = self.ctx.recons_dim
+    img_to_show = img.copy()
+    dval = 0
+    mask = None
+    correction = 0
+
     if self.baseon == 0: # deff
       mask = self.get_img_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=True)
       if mask is None:
         return
-      # correction = sum(v<<i for i, v in enumerate(self.is_corr[::-1]))
-      dval, row, col, ap, lat = get_deff_value(mask, dims, rd, self.deff_auto_method)
+      correction = sum(v<<i for i, v in enumerate(self.is_corr[::-1]))
+      if correction and self.deff_auto_method=='center':
+        center = get_center(mask)
+        corr_mask = get_correction_mask(img, mask, lb_bone=self.bone_limit, lb_stissue=self.stissue_limit)
+        dval, ap, lat = get_deff_correction(self.is_corr, corr_mask, center, rd)
+        row, col = center
+        img_to_show = corr_mask
+      else:
+        dval, row, col, ap, lat = get_deff_value(mask, dims, rd, self.deff_auto_method)
       if self.deff_auto_method != 'area':
         self.plot_ap_lat(mask, row, col)
         self.ap_edit.setText(f'{ap:#.2f} cm')
         self.lat_edit.setText(f'{lat:#.2f} cm')
+
     elif self.baseon == 1:
       if self.is_no_roi:
         mask = np.ones_like(img,  dtype=bool)
         if self.is_no_table:
-          img_alt = get_img_no_table(img, threshold=self.threshold)
-          img = img_alt.copy()
+          img_to_show = get_img_no_table(img, threshold=self.threshold)
+          img = img_to_show.copy()
         img[img<-1000] = -1000
       else:
         mask = self.get_img_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=self.is_largest_only)
         if mask is None:
           return
       dval = get_dw_value(img, mask, dims, rd, self.is_truncated, self.is_largest_only)
+
     self.d_edit.setText(f'{dval:#.2f}')
     self.ctx.app_data.diameter = dval
-    if self.baseon==1 and self.is_no_table:
-      if isinstance(self.par.window_width, int) and isinstance(self.par.window_level, int):
-        img_alt = windowing(img_alt, self.par.window_width, self.par.window_level)
-      self.ctx.axes.add_alt_view(img_alt)
-    else:
-      self.par.update_image()
+
+    if isinstance(self.par.window_width, int) and isinstance(self.par.window_level, int) and correction==0:
+      img_to_show = windowing(img_to_show, self.par.window_width, self.par.window_level)
+    self.ctx.axes.add_alt_view(img_to_show)
     self.plot_mask(mask)
 
   def calculate_auto_3d(self):
@@ -711,6 +730,9 @@ class DiameterTab(QDialog):
       last = nslice2 if nslice<=nslice2 else nslice
       idxs = index[first-1:last]
       imgs = dcms[first-1:last]
+    else:
+      imgs = dcms
+      idxs = index
 
     avg_dval, idxs = self.get_avg_diameter(imgs, idxs)
     self.d_edit.setText(f'{avg_dval:#.2f}')
@@ -820,7 +842,12 @@ class DiameterTab(QDialog):
         mask = get_mask(img, threshold=self.threshold, minimum_area=self.minimum_area, largest_only=True)
         if mask is not None:
           n_seg += 1
-          res = get_deff_value(mask, self.ctx.img_dims, self.ctx.recons_dim, self.deff_auto_method)
+          correction = sum(v<<i for i, v in enumerate(self.is_corr[::-1]))
+          if correction and self.deff_auto_method=='center':
+            corr_mask = get_correction_mask(img, mask, lb_bone=self.bone_limit, lb_stissue=self.stissue_limit)
+            res = get_deff_correction(self.is_corr, corr_mask, get_center(mask), self.ctx.recons_dim)
+          else:
+            res = get_deff_value(mask, self.ctx.img_dims, self.ctx.recons_dim, self.deff_auto_method)
           d = res[0]
         else:
           d = 0

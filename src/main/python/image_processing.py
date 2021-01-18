@@ -130,6 +130,40 @@ def get_dw_value(img, mask, dims, rd, is_truncated=False, largest_only=False):
     dw *= np.exp(1.14e-6 * percent**3)
   return dw
 
+def get_center(mask):
+  lbl = label(mask)
+  roi = get_regprops(lbl)
+  centroid = roi[0].centroid
+  return tuple([int(x) for x in centroid])
+
+def get_correction_mask(img, mask=None, lb_bone=250, lb_stissue=-250):
+  if mask is None:
+    mask = get_mask(img)
+  corr_mask = mask.astype(int)
+  corr_mask[(corr_mask==1) & (img<lb_stissue)] = 20
+  corr_mask[(corr_mask==1) & (img<lb_bone)] = 40
+  corr_mask[(corr_mask==1)] = 60
+  return corr_mask
+
+def get_deff_correction(correction, corr_mask, center, rd):
+  r,c = corr_mask.shape
+  is_lung, is_bone = correction
+  col = corr_mask[center[0], :]
+  row = corr_mask[:, center[1]]
+  uniq_r, count_r = np.unique(np.delete(row, np.where(row==0)), return_counts=True)
+  uniq_c, count_c = np.unique(np.delete(col, np.where(col==0)), return_counts=True)
+  if is_lung:
+    count_r[np.where(uniq_r==20)] = 0.3 * count_r[np.where(uniq_r==20)]
+    count_c[np.where(uniq_c==20)] = 0.3 * count_c[np.where(uniq_c==20)]
+  if is_bone:
+    count_r[np.where(uniq_r==60)] = 1.8 * count_r[np.where(uniq_r==60)]
+    count_c[np.where(uniq_c==60)] = 1.8 * count_c[np.where(uniq_c==60)]
+
+  corr_len_r = sum(count_r) * (0.1*rd/r)
+  corr_len_c = sum(count_c) * (0.1*rd/c)
+  deff = np.sqrt(corr_len_r*corr_len_c)
+  return deff, corr_len_r, corr_len_c
+
 def get_deff_value(mask, dims, rd, method):
   lbl = label(mask)
   r,c = dims
