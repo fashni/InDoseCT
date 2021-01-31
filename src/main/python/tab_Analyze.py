@@ -13,11 +13,32 @@ class AnalyzeTab(QWidget):
     super().__init__()
     self.ctx = ctx
     self.bins = 20
+    self.initVar()
     self.initModel()
     self.initUI()
     self.set_axis_opts()
     self.set_filter()
     self.sigConnect()
+    self.apply_filter()
+
+  def initVar(self):
+    self.x_opts = ['Record ID', 'CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc']
+    self.x_units = ['', 'mGy', 'Year', 'cm', 'cm', 'mGy', 'mSv', 'mGy-cm', 'mGy-cm']
+    self.y_opts = ['CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc', 'Frequency']
+    self.y_units = ['mGy', 'Year', 'cm', 'cm', 'mGy', 'mSv', 'mGy-cm', 'mGy-cm', '']
+
+    self.age_ftr1 = -1
+    self.age_ftr2 = -1
+    self.date_ftr1 = QDate.currentDate()
+    self.date_ftr2 = QDate.currentDate()
+    self.brand_ftr = 'All'
+    self.instn_ftr = 'All'
+    self.protocol_ftr = 'All'
+    self.scanner_ftr = 'All'
+    self.sex_ftr = 'All'
+
+    self.x_opt = self.x_opts[0]
+    self.y_opt = self.y_opts[0]
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -56,13 +77,18 @@ class AnalyzeTab(QWidget):
     self.brand_cb = QComboBox()
     self.scanner_cb = QComboBox()
     self.instn_cb = QComboBox()
+    self.data_count_lbl = QLabel(str(self.data_query_model.rowCount()))
 
     self.age_sb1.setSpecialValueText('-')
     self.age_sb1.setRange(-1, -1)
+    self.age_sb1.setMinimumWidth(90)
     self.age_sb2.setSpecialValueText('-')
     self.age_sb2.setRange(-1, -1)
+    self.age_sb2.setMinimumWidth(90)
     self.date_edit1.setDisplayFormat('dd/MM/yyyy')
+    self.date_edit1.setMinimumWidth(90)
     self.date_edit2.setDisplayFormat('dd/MM/yyyy')
+    self.date_edit2.setMinimumWidth(90)
     self.bins_sb.setMinimum(1)
     self.bins_sb.setValue(self.bins)
     self.bins_sb.setVisible(False)
@@ -97,6 +123,7 @@ class AnalyzeTab(QWidget):
     flt_layout.addRow(QLabel('Sex'), self.sex_cb)
     flt_layout.addRow(QLabel('Age'), age_layout)
     flt_layout.addRow(QLabel('Exam Date'), date_layout)
+    flt_layout.addRow(QLabel('Data Count'), self.data_count_lbl)
     flt_layout.addWidget(self.reset_btn)
     self.filter_grpbox.setLayout(flt_layout)
 
@@ -220,11 +247,6 @@ class AnalyzeTab(QWidget):
   def set_axis_opts(self):
     sql = "SELECT * FROM PATIENTS LIMIT 1"
     self.query_model.setQuery(sql, self.ctx.database.patient_db)
-
-    self.x_opts = ['Record ID', 'CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc']
-    self.x_units = ['', 'mGy', 'Year', 'cm', 'cm', 'mGy', 'mSv', 'mGy-cm', 'mGy-cm']
-    self.y_opts = ['CTDIvol', 'Age', 'Deff', 'Dw', 'SSDE', 'Effective Dose', 'DLP', 'DLPc', 'Frequency']
-    self.y_units = ['mGy', 'Year', 'cm', 'cm', 'mGy', 'mSv', 'mGy-cm', 'mGy-cm', '']
     self.x_cb.clear()
     self.y_cb.clear()
     self.x_cb.addItems(self.x_opts)
@@ -246,6 +268,7 @@ class AnalyzeTab(QWidget):
     unit_idx = self.x_opts.index(sel)
     self.x_unit = self.x_units[unit_idx]
     self.x_opt = sel
+    self.apply_filter()
 
   def on_y_changed(self, sel):
     if sel=='Frequency':
@@ -267,90 +290,72 @@ class AnalyzeTab(QWidget):
     unit_idx = self.y_opts.index(sel)
     self.y_unit = self.y_units[unit_idx]
     self.y_opt = sel
+    self.apply_filter()
 
   def on_instn_changed(self, idx):
     self.instn_ftr = self.instns[idx]
+    self.apply_filter()
 
   def on_brand_changed(self, idx):
     self.brand_ftr = self.brands[idx]
     self.set_scanner(self.brand_ftr if idx!=0 else None)
+    self.apply_filter()
 
   def on_scanner_changed(self, idx):
     self.scanner_ftr = self.scanners[idx]
+    self.apply_filter()
 
   def on_sex_changed(self, idx):
     self.sex_ftr = self.sexes[idx]
+    self.apply_filter()
 
   def on_protocol_changed(self, idx):
     self.protocol_ftr = self.protocols[idx]
+    self.apply_filter()
 
   def on_age1_changed(self):
     self.age_ftr1 = self.age_sb1.value()
+    self.apply_filter()
 
   def on_age2_changed(self):
     self.age_ftr2 = self.age_sb2.value()
+    self.apply_filter()
 
   def on_date1_changed(self):
     self.date_ftr1 = self.date_edit1.date()
+    self.apply_filter()
 
   def on_date2_changed(self):
     self.date_ftr2 = self.date_edit2.date()
+    self.apply_filter()
 
   def on_bins_changed(self):
     self.bins = self.bins_sb.value()
+    self.apply_filter()
 
   def get_data(self):
-    if self.x_opt == 'Record ID':
-      x = 'id'
-    elif self.x_opt == 'Effective Dose':
-      x = 'effective_dose'
-    elif self.x_opt == 'Deff' or self.x_opt == 'Dw':
-      x = 'diameter'
-      if self.filter:
-        self.filter += ' AND '
-      self.filter += f'diameter_type="{self.x_opt}"'
-    else:
-      x = self.x_opt
-
-    if self.y_opt == 'Effective Dose':
-      y = 'effective_dose'
-    elif self.y_opt == 'Deff' or self.y_opt == 'Dw':
-      y = 'diameter'
-      if self.filter:
-        self.filter += ' AND '
-      self.filter += f'diameter_type="{self.y_opt}"'
-    elif self.y_opt == 'Frequency':
-      y = 'NULL'
-    else:
-      y = self.y_opt
-
-    if self.filter:
-      self.filter += ' AND '
-    if self.y_opt!='Frequency':
-      self.filter += f'{x} is NOT NULL AND {y} is NOT NULL'
-    else:
-      self.filter += f'{x} is NOT NULL'
-
-    sql = f"SELECT {x}, {y} FROM PATIENTS WHERE {self.filter} ORDER BY {x}"
+    sql = f"SELECT {self.x_name}, {self.y_name} FROM PATIENTS WHERE {self.filter} ORDER BY {self.x_name}"
     self.data_query_model.setQuery(sql, self.ctx.database.patient_db)
-    self.x_data = np.array([self.data_query_model.record(n).value(x) for n in range(self.data_query_model.rowCount())])
+    self.x_data = np.array([self.data_query_model.record(n).value(self.x_name) for n in range(self.data_query_model.rowCount())])
 
     if self.y_opt!='Frequency':
-      self.y_data = np.array([self.data_query_model.record(n).value(y) for n in range(self.data_query_model.rowCount())])
+      self.y_data = np.array([self.data_query_model.record(n).value(self.y_name) for n in range(self.data_query_model.rowCount())])
     else:
       hist, bin_edges = np.histogram(self.x_data, bins=self.bins)
       bin_width = bin_edges[1]-bin_edges[0]
       self.x_data = bin_edges#[:-1] + bin_width/2
       self.y_data = hist
 
-  def apply_filter(self):
-    self.filter = ''
+  def apply_sex_filter(self):
     if self.sex_ftr!='All':
+      if self.filter:
+        self.filter += ' AND '
       if self.sex_ftr=='Unspecified':
         self.filter += 'sex is NULL'
       else:
         self.filter += f'sex="{self.sex_ftr}"'
 
+  def apply_protocol_filter(self):
     if self.protocol_ftr!='All':
       if self.filter:
         self.filter += ' AND '
@@ -359,6 +364,7 @@ class AnalyzeTab(QWidget):
       else:
         self.filter += f'protocol="{self.protocol_ftr}"'
 
+  def apply_instn_filter(self):
     if self.instn_ftr!='All':
       if self.filter:
         self.filter += ' AND '
@@ -367,6 +373,7 @@ class AnalyzeTab(QWidget):
       else:
         self.filter += f'institution="{self.instn_ftr}"'
 
+  def apply_brand_filter(self):
     if self.brand_ftr!='All':
       if self.filter:
         self.filter += ' AND '
@@ -375,6 +382,7 @@ class AnalyzeTab(QWidget):
       else:
         self.filter += f'manufacturer="{self.brand_ftr}"'
 
+  def apply_scanner_filter(self):
     if self.scanner_ftr!='All':
       if self.filter:
         self.filter += ' AND '
@@ -383,6 +391,7 @@ class AnalyzeTab(QWidget):
       else:
         self.filter += f'model="{self.scanner_ftr}"'
 
+  def apply_age_filter(self):
     if self.age_ftr1 != -1 and self.age_ftr2 != -1:
       if self.age_ftr1 <= self.age_ftr2:
         lo_age = self.age_ftr1
@@ -394,6 +403,7 @@ class AnalyzeTab(QWidget):
         self.filter += ' AND '
       self.filter += f'age BETWEEN {lo_age} and {hi_age}'
 
+  def apply_date_filter(self):
     if self.filter:
       self.filter += ' AND '
     if self.date_ftr1.toString('yyyyMMdd') <= self.date_ftr2.toString('yyyyMMdd'):
@@ -403,7 +413,54 @@ class AnalyzeTab(QWidget):
       lo_date = self.date_ftr2.toString('yyyyMMdd')
       hi_date = self.date_ftr1.toString('yyyyMMdd')
     self.filter += f'exam_date BETWEEN {lo_date} and {hi_date}'
-    print(self.filter)
+
+  def set_x_data(self):
+    if self.x_opt == 'Record ID':
+      self.x_name = 'id'
+    elif self.x_opt == 'Effective Dose':
+      self.x_name = 'effective_dose'
+    elif self.x_opt == 'Deff' or self.x_opt == 'Dw':
+      self.x_name = 'diameter'
+      if self.filter:
+        self.filter += ' AND '
+      self.filter += f'diameter_type="{self.x_opt}"'
+    else:
+      self.x_name = self.x_opt
+
+  def set_y_data(self):
+    if self.y_opt == 'Effective Dose':
+      self.y_name = 'effective_dose'
+    elif self.y_opt == 'Deff' or self.y_opt == 'Dw':
+      self.y_name = 'diameter'
+      if self.filter:
+        self.filter += ' AND '
+      self.filter += f'diameter_type="{self.y_opt}"'
+    elif self.y_opt == 'Frequency':
+      self.y_name = 'NULL'
+    else:
+      self.y_name = self.y_opt
+
+    if self.filter:
+      self.filter += ' AND '
+    if self.y_opt!='Frequency':
+      self.filter += f'{self.x_name} is NOT NULL AND {self.y_name} is NOT NULL'
+    else:
+      self.filter += f'{self.x_name} is NOT NULL'
+
+  def apply_filter(self):
+    self.filter = ''
+    self.apply_sex_filter()
+    self.apply_protocol_filter()
+    self.apply_instn_filter()
+    self.apply_brand_filter()
+    self.apply_scanner_filter()
+    self.apply_age_filter()
+    self.apply_date_filter()
+
+    self.set_x_data()
+    self.set_y_data()
+    self.get_data()
+    self.data_count_lbl.setText(str(self.data_query_model.rowCount()))
 
   def plot(self):
     self.figure = PlotDialog()
@@ -419,8 +476,7 @@ class AnalyzeTab(QWidget):
     self.figure.show()
 
   def on_generate(self):
-    self.apply_filter()
-    self.get_data()
+    print(self.filter)
     isempty = lambda arr: arr.size==0
     if isempty(self.x_data) or isempty(self.y_data):
       QMessageBox.information(None, "No Data", "Matching data not found.\nPlease try to reduce the filter.")
