@@ -5,8 +5,6 @@ from PyQt5.QtWidgets import (QAbstractSpinBox, QComboBox, QDateEdit,
                              QLineEdit, QRadioButton, QSpinBox, QVBoxLayout,
                              QWidget)
 
-from db import get_records_num
-
 
 class InfoPanel(QWidget):
   def __init__(self, ctx, *args, **kwargs):
@@ -38,7 +36,7 @@ class InfoPanel(QWidget):
     self.scanner_validator.validationChanged.connect(self.on_scanner_validation)
 
   def initUI(self):
-    self.no_edit = QLineEdit(str(get_records_num(self.ctx.patients_database(), 'PATIENTS')+1))
+    self.no_edit = QLineEdit()
     self.name_edit = QLineEdit()
     self.protocol_edit = QLineEdit()
     self.exam_date_edit = QDateEdit()
@@ -64,7 +62,7 @@ class InfoPanel(QWidget):
 
     l_layout = QFormLayout()
     l_layout.setVerticalSpacing(1)
-    l_layout.addRow(QLabel('No'), self.no_edit)
+    l_layout.addRow(QLabel('ID'), self.no_edit)
     l_layout.addRow(QLabel('Name'), self.name_edit)
     l_layout.addRow(QLabel('Age'), self.age_edit)
     l_layout.addRow(QLabel('Sex'), self.sex_edit)
@@ -85,6 +83,7 @@ class InfoPanel(QWidget):
     self.setContentsMargins(0,0,0,0)
 
   def setInfo(self, pat_info):
+    self.id = pat_info['id'] or ''
     self.name = pat_info['name'] or ''
     self.protocol = pat_info['protocol'] or ''
     self.age = pat_info['age'] or -1
@@ -94,6 +93,7 @@ class InfoPanel(QWidget):
     self.instn = pat_info['instn'] or None
     date = QDate.fromString(self.date, 'yyyyMMdd') if self.date is not None else QDate.currentDate()
 
+    self.no_edit.setText(self.id)
     self.name_edit.setText(self.name)
     self.protocol_edit.setText(self.protocol)
     self.age_edit.setValue(self.age)
@@ -110,6 +110,7 @@ class InfoPanel(QWidget):
         brand = brand_model[0] or None
         model = brand_model[1] or None
     info = {
+      'id': self.id or None,
       'name': self.name or None,
       'sex': self.sex or None,
       'age': self.age if self.age>=0 else None,

@@ -58,6 +58,7 @@ def create_patients_table(path):
       con.execute("""
         CREATE TABLE IF NOT EXISTS PATIENTS (
           id INTEGER PRIMARY KEY,
+          pat_id TEXT,
           name TEXT,
           age INTEGER,
           sex TEXT,
@@ -81,8 +82,8 @@ def create_patients_table(path):
 
 def insert_patient(patient_data, path):
   con = create_connection(path)
-  sql = """INSERT INTO PATIENTS (name, age, sex, exam_date, institution, manufacturer, model, protocol, CTDIvol, diameter, diameter_type, SSDE, DLP, DLPc, effective_dose)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+  sql = """INSERT INTO PATIENTS (pat_id, name, age, sex, exam_date, institution, manufacturer, model, protocol, CTDIvol, diameter, diameter_type, SSDE, DLP, DLPc, effective_dose)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
   cur = con.cursor()
   cur.execute(sql, patient_data)
   con.commit()

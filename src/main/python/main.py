@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
 
   def initVar(self):
     self.ctx.initVar()
-    pat_field = ['name', 'sex', 'age', 'protocol', 'date']
+    pat_field = ['id', 'name', 'sex', 'age', 'protocol', 'date', 'brand', 'model', 'scanner', 'instn']
     self.patient_info = dict(zip(pat_field, [None]*len(pat_field)))
     self.window_width = self.ctx.windowing_model.record(0).value("windowwidth")
     self.window_level = self.ctx.windowing_model.record(0).value("windowlevel")
@@ -361,6 +361,7 @@ class MainWindow(QMainWindow):
     model = str(ref.ManufacturerModelName) if 'ManufacturerModelName' in ref else ''
     scanner = brand + '-' + model
     self.patient_info = {
+      'id': str(ref.PatientID) if 'PatientID' in ref else None,
       'name': str(ref.PatientName) if 'PatientName' in ref else None,
       'sex': str(ref.PatientSex) if 'PatientSex' in ref else None,
       'age': int(str(ref.PatientAge)[:3]) if 'PatientAge' in ref else None,
@@ -517,7 +518,6 @@ class MainWindow(QMainWindow):
       except:
         pass
       self.ctx.records_count = get_records_num(self.ctx.patients_database(), 'PATIENTS')
-      self.info_panel.no_edit.setText(str(self.ctx.records_count+1))
       self.analyze_tab.set_filter()
 
   def on_save_db(self):
@@ -530,6 +530,7 @@ class MainWindow(QMainWindow):
     else:
       d_mode = None
     recs = [
+      self.patient_info['id'],    # 'id'
       self.patient_info['name'],    # 'name'
       self.patient_info['age'],   # 'age'
       self.patient_info['sex'],   # 'sex'
@@ -556,7 +557,6 @@ class MainWindow(QMainWindow):
         return
     insert_patient(recs, self.ctx.patients_database())
     self.ctx.records_count += 1
-    self.info_panel.no_edit.setText(str(self.ctx.records_count+1))
     self.analyze_tab.set_filter()
     self.on_close_image()
     self.tabs.setCurrentIndex(0)
