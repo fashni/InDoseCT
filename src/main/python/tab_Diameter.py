@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog,
 from scipy import interpolate
 
 from constants import *
-from image_processing import (get_center, get_correction_mask,
+from image_processing import (get_center, get_center_max, get_correction_mask,
                               get_deff_correction, get_deff_value,
                               get_dw_value, get_img_no_table, get_mask,
                               get_mask_pos, windowing)
@@ -515,10 +515,9 @@ class DiameterTab(QDialog):
     if sel.isChecked():
       self.deff_auto_method = sel.text().lower()
       is_area = self.deff_auto_method == 'area'
-      is_center = self.deff_auto_method == 'center'
-      self.deff_auto_corr_grpbox.setVisible(is_center)
+      self.deff_auto_corr_grpbox.setVisible(not is_area)
       if self.method == 0: self.deff_auto_info_widget.setVisible(not is_area)
-      if not is_center:
+      if is_area:
         self.bone_chk.setCheckState(Qt.Unchecked)
         self.lung_chk.setCheckState(Qt.Unchecked)
         self.is_corr = [False, False]
@@ -564,7 +563,7 @@ class DiameterTab(QDialog):
       self.d_3d_grpbox.setVisible(self.method == 1)
       if self.baseon == 0: # deff
         if self.method == 0 or self.method == 1:
-          self.deff_auto_corr_grpbox.setVisible(self.deff_auto_method == 'center')
+          self.deff_auto_corr_grpbox.setVisible(self.deff_auto_method != 'area')
           self.opts_stack.setCurrentIndex(0)
           if self.method == 0:
             self.deff_auto_info_widget.setVisible(self.deff_auto_method != 'area')
@@ -676,8 +675,8 @@ class DiameterTab(QDialog):
       if mask is None:
         return
       correction = sum(v<<i for i, v in enumerate(self.is_corr[::-1]))
-      if correction and self.deff_auto_method=='center':
-        center = get_center(mask)
+      if correction and self.deff_auto_method!='area':
+        center = get_center(mask) if self.deff_auto_method == 'center' else get_center_max(mask)
         corr_mask = get_correction_mask(img, mask, lb_bone=self.bone_limit, lb_stissue=self.stissue_limit)
         dval, ap, lat = get_deff_correction(self.is_corr, corr_mask, center, rd)
         row, col = center
@@ -843,9 +842,10 @@ class DiameterTab(QDialog):
         if mask is not None:
           n_seg += 1
           correction = sum(v<<i for i, v in enumerate(self.is_corr[::-1]))
-          if correction and self.deff_auto_method=='center':
+          if correction and self.deff_auto_method!='area':
+            center = get_center(mask) if self.deff_auto_method == 'center' else get_center_max(mask)
             corr_mask = get_correction_mask(img, mask, lb_bone=self.bone_limit, lb_stissue=self.stissue_limit)
-            res = get_deff_correction(self.is_corr, corr_mask, get_center(mask), self.ctx.recons_dim)
+            res = get_deff_correction(self.is_corr, corr_mask, center, self.ctx.recons_dim)
           else:
             res = get_deff_value(mask, self.ctx.img_dims, self.ctx.recons_dim, self.deff_auto_method)
           d = res[0]

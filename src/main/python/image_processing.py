@@ -136,6 +136,16 @@ def get_center(mask):
   centroid = roi[0].centroid
   return tuple([int(x) for x in centroid])
 
+def get_center_max(mask):
+  lbl = label(mask)
+  roi = get_regprops(lbl)
+  bb = roi[0].image
+  min_row, min_col, _, _ = roi[0].bbox
+  bbrow, bbcol = bb.shape
+  len_rows = np.array([bb[:, c].sum() for c in range(bbcol)])
+  len_cols = np.array([bb[r, :].sum() for r in range(bbrow)])
+  return (int(np.argmax(len_cols) + min_row), int(np.argmax(len_rows) + min_col))
+
 def get_correction_mask(img, mask=None, lb_bone=250, lb_stissue=-250):
   if mask is None:
     mask = get_mask(img)
