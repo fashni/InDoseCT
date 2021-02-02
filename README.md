@@ -15,7 +15,6 @@ Icons used is this repo are from [Material Design](https://material.io).
   ```fbs run```
 
 # In development
-  * Deff correction for lung and bone
   * Polygon ROI for Dw calculation
   * Sorting by acquisition time and determine how many times the scan performed for the same slice
   * Calculating specific organ dose from image
