@@ -13,6 +13,7 @@ BODY = 2
 
 PAT_RECS_FIELDS = [
   'id',
+  'patient_id',
   'name',
   'age',
   'sex',
