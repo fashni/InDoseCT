@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
     self.phantom_cb = QComboBox()
     self.phantom_cb.tag = 'phantom'
     self.phantom_cb.setModel(self.ctx.phantom_model)
-    self.phantom_cb.setModelColumn(self.ctx.phantom_model.fieldIndex('Protocol'))
+    self.phantom_cb.setModelColumn(self.ctx.phantom_model.fieldIndex('name'))
     self.phantom_cb.setPlaceholderText('Phantom')
 
     opts.addWidget(spacer)
@@ -498,12 +498,14 @@ class MainWindow(QMainWindow):
 
   def on_phantom_update(self, idx):
     self.ctx.phantom = self.ctx.phantom_model.record(idx).value("id")
+    self.ctx.phantom_name = self.ctx.phantom_model.record(idx).value("name")
     self.ssde_tab.protocol_model.setFilter(f"Group_ID={self.ctx.phantom}")
     self.organ_tab.protocol_model.setFilter(f"Group_ID={self.ctx.phantom}")
 
     self.ctdiv_tab.on_volt_changed(self.ctdiv_tab.volt_cb.currentIndex())
-    self.ssde_tab.on_protocol_changed(self.ssde_tab.protocol.currentIndex())
-    self.organ_tab.on_protocol_changed(self.organ_tab.protocol.currentIndex())
+    self.ssde_tab.on_protocol_changed(self.ssde_tab.protocol_cb.currentIndex())
+    self.organ_tab.on_protocol_changed(self.organ_tab.protocol_cb.currentIndex())
+    self.ssde_tab.on_report_changed(self.ssde_tab.report_cb.currentIndex())
 
   def on_open_viewer(self):
     self.rec_viewer = DBViewer(self.ctx, self)
@@ -596,7 +598,7 @@ class AppContext(ApplicationContext):
     self.initVar()
     self.database = Database(deff=self.aapm_db, ctdi=self.ctdi_db, ssde=self.ssde_db, patient=self.patients_database(), windowing=self.windowing_db)
     self.phantom_model = QSqlTableModel(db=self.database.ssde_db)
-    self.phantom_model.setTable("Protocol_Group")
+    self.phantom_model.setTable("Phantom")
     self.phantom_model.select()
     self.windowing_model = QSqlTableModel(db=self.database.windowing_db)
     self.windowing_model.setTable("Parameter")
@@ -605,6 +607,7 @@ class AppContext(ApplicationContext):
     self.app_data = AppData()
     self.axes = plt.Axes(lock_aspect=True)
     self.phantom = HEAD
+    self.phantom_name = "HEAD"
     self.records_count = get_records_num(self.patients_database(), 'PATIENTS')
     self.main_window.show()
     return self.app.exec_()

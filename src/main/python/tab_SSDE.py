@@ -18,64 +18,37 @@ class SSDETab(QDialog):
     super(SSDETab, self).__init__(*args, **kwargs)
     self.ctx = ctx
     self.initModel()
-    self.initData()
     self.initUI()
     self.sigConnect()
 
   def initModel(self):
     self.protocol_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.head_ap_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.head_lat_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.head_e_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.thorax_ap_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.thorax_lat_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.thorax_e_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-    self.effdose_model = QSqlTableModel(db=self.ctx.database.ssde_db)
-
     self.protocol_model.setTable("Protocol")
-    self.head_ap_model.setTable("HeadAP")
-    self.head_lat_model.setTable("HeadLAT")
-    self.head_e_model.setTable("HeadE")
-    self.thorax_ap_model.setTable("ThoraxAP")
-    self.thorax_lat_model.setTable("ThoraxLAT")
-    self.thorax_e_model.setTable("ThoraxE")
-    self.effdose_model.setTable("Effective_Dose")
-
     self.protocol_model.setFilter("Group_ID=1")
-
     self.protocol_model.select()
-    self.head_ap_model.select()
-    self.head_lat_model.select()
-    self.head_e_model.select()
-    self.thorax_ap_model.select()
-    self.thorax_lat_model.select()
-    self.thorax_e_model.select()
+
+    self.report_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.report_model.setTable("Report")
+    self.report_model.select()
+
+    self.cf_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.cf_model.setTable("ConversionFactor")
+    self.cf_model.setFilter("report_id=1")
+    self.cf_model.select()
+
+    self.effdose_model = QSqlTableModel(db=self.ctx.database.ssde_db)
+    self.effdose_model.setTable("Effective_Dose")
     self.effdose_model.select()
-
-  def getData(self, model):
-    data = [[model.data(model.index(i,j)) for i in range(model.rowCount())] for j in range(1,3)]
-    return np.array(data).T
-
-  def initData(self):
-    self.head_ap_data = self.getData(self.head_ap_model)
-    self.head_lat_data = self.getData(self.head_lat_model)
-    self.head_e_data = self.getData(self.head_e_model)
-    self.thorax_ap_data = self.getData(self.thorax_ap_model)
-    self.thorax_lat_data = self.getData(self.thorax_lat_model)
-    self.thorax_e_data = self.getData(self.thorax_e_model)
-
-    self.head_ap_interp = interpolate.splrep(self.head_ap_data[:,0], self.head_ap_data[:,1])
-    self.head_lat_interp = interpolate.splrep(self.head_lat_data[:,0], self.head_lat_data[:,1])
-    self.head_e_interp = interpolate.splrep(self.head_e_data[:,0], self.head_e_data[:,1])
-    self.thorax_ap_interp = interpolate.splrep(self.thorax_ap_data[:,0], self.thorax_ap_data[:,1])
-    self.thorax_lat_interp = interpolate.splrep(self.thorax_lat_data[:,0], self.thorax_lat_data[:,1])
-    self.thorax_e_interp = interpolate.splrep(self.thorax_e_data[:,0], self.thorax_e_data[:,1])
 
   def initUI(self):
     self.figure = PlotDialog()
-    self.protocol = QComboBox()
-    self.protocol.setModel(self.protocol_model)
-    self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))
+    self.protocol_cb = QComboBox()
+    self.protocol_cb.setModel(self.protocol_model)
+    self.protocol_cb.setModelColumn(self.protocol_model.fieldIndex('name'))
+    self.report_cb = QComboBox()
+    self.report_cb.setModel(self.report_model)
+    self.report_cb.setModelColumn(self.report_model.fieldIndex('name'))
+
     self.calc_btn = QPushButton('Calculate')
     self.plot_btn = QPushButton('Plot Result')
     self.save_btn = QPushButton('Save')
@@ -148,8 +121,10 @@ class SSDETab(QDialog):
     tab_nav.addWidget(self.next_tab_btn)
 
     main_layout = QVBoxLayout()
+    main_layout.addWidget(QLabel('Based on:'))
+    main_layout.addWidget(self.report_cb)
     main_layout.addWidget(QLabel('Protocol:'))
-    main_layout.addWidget(self.protocol)
+    main_layout.addWidget(self.protocol_cb)
     main_layout.addWidget(HSeparator())
     main_layout.addLayout(h)
     main_layout.addWidget(self.calc_btn)
@@ -161,7 +136,8 @@ class SSDETab(QDialog):
     self.setLayout(main_layout)
 
   def sigConnect(self):
-    self.protocol.activated[int].connect(self.on_protocol_changed)
+    self.protocol_cb.activated[int].connect(self.on_protocol_changed)
+    self.report_cb.activated[int].connect(self.on_report_changed)
     self.calc_btn.clicked.connect(self.on_calculate)
     self.ctx.app_data.modeValueChanged.connect(self.diameter_mode_handle)
     self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
@@ -210,23 +186,32 @@ class SSDETab(QDialog):
     self.protocol_id = self.protocol_model.record(idx).value("id")
     self.alfa = self.effdose_model.record(self.protocol_id-1).value("alfaE")
     self.beta = self.effdose_model.record(self.protocol_id-1).value("betaE")
-    print(self.protocol_id, self.alfa, self.beta)
+
+  def on_report_changed(self, idx):
+    self.report_id = self.report_model.record(idx).value("id")
+    self.cf_model.setFilter(f"report_id={self.report_id} AND phantom_id={self.ctx.phantom}")
+    self.cf_model.select()
+
+    a_val = self.cf_model.record(0).value("a")
+    b_val = self.cf_model.record(0).value("b")
+    self.cf_eq = lambda x: a_val*np.exp(-b_val*x)
 
   def on_calculate(self):
-    if self.ctx.app_data.mode == DEFF_AP:
-      self.data = self.head_ap_data if self.ctx.phantom == HEAD else self.thorax_ap_data
-      interp = self.head_ap_interp if self.ctx.phantom == HEAD else self.thorax_ap_interp
-    elif self.ctx.app_data.mode == DEFF_LAT:
-      self.data = self.head_lat_data if self.ctx.phantom == HEAD else self.thorax_lat_data
-      interp = self.head_lat_interp if self.ctx.phantom == HEAD else self.thorax_lat_interp
-    else:
-      self.data = self.head_e_data if self.ctx.phantom == HEAD else self.thorax_e_data
-      interp = self.head_e_interp if self.ctx.phantom == HEAD else self.thorax_e_interp
+    minv = 6 if self.ctx.phantom == HEAD else 8
+    maxv = 55 if self.ctx.phantom == HEAD else 45
 
-    self.ctx.app_data.convf = float(interpolate.splev(self.ctx.app_data.diameter, interp))
-    self.ctx.app_data.SSDE = self.ctx.app_data.convf * self.ctx.app_data.CTDIv
-    self.ctx.app_data.DLPc = self.ctx.app_data.convf * self.ctx.app_data.DLP
-    self.ctx.app_data.effdose = self.ctx.app_data.DLP * np.exp(self.alfa*self.ctx.app_data.diameter + self.beta)
+    try:
+      self.ctx.app_data.convf = self.cf_eq(self.ctx.app_data.diameter)
+      self.ctx.app_data.SSDE = self.ctx.app_data.convf * self.ctx.app_data.CTDIv
+      self.ctx.app_data.DLPc = self.ctx.app_data.convf * self.ctx.app_data.DLP
+      self.ctx.app_data.effdose = self.ctx.app_data.DLP * np.exp(self.alfa*self.ctx.app_data.diameter + self.beta)
+    except:
+      QMessageBox.warning(None, "No Data", f"There are no data in {self.report_cb.currentText()} report for {self.ctx.phantom_name} phantom.")
+      return
+
+    deff = np.arange(minv, maxv+1, 1)
+    cf = self.cf_eq(deff)
+    self.data = np.array([deff, cf]).T
 
     self.convf_edit.setText(f'{self.ctx.app_data.convf:#.4f}')
     self.ssde_edit.setText(f'{self.ctx.app_data.SSDE:#.4f}')
@@ -243,7 +228,7 @@ class SSDETab(QDialog):
     self.calc_btn.setDefault(True)
     self.save_btn.setAutoDefault(False)
     self.save_btn.setDefault(False)
-    self.protocol.setCurrentIndex(0)
+    self.protocol_cb.setCurrentIndex(0)
     self.on_protocol_changed(0)
     self.plot_btn.setEnabled(False)
     self.ctdiv_edit.setText(f'{self.ctx.app_data.CTDIv:#.4f}')

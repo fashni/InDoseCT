@@ -42,14 +42,14 @@ class OrganTab(QWidget):
     self.organ_dose_model.select()
 
   def sigConnect(self):
-    self.protocol.activated[int].connect(self.on_protocol_changed)
+    self.protocol_cb.activated[int].connect(self.on_protocol_changed)
     self.calc_btn.clicked.connect(self.on_calculate)
 
   def initUI(self):
     self.figure = PlotDialog()
-    self.protocol = QComboBox()
-    self.protocol.setModel(self.protocol_model)
-    self.protocol.setModelColumn(self.protocol_model.fieldIndex('name'))
+    self.protocol_cb = QComboBox()
+    self.protocol_cb.setModel(self.protocol_model)
+    self.protocol_cb.setModelColumn(self.protocol_model.fieldIndex('name'))
     self.calc_btn = QPushButton('Calculate')
 
     self.organ_labels = []
@@ -81,7 +81,7 @@ class OrganTab(QWidget):
 
     main_layout = QVBoxLayout()
     main_layout.addWidget(QLabel('Protocol:'))
-    main_layout.addWidget(self.protocol)
+    main_layout.addWidget(self.protocol_cb)
     main_layout.addWidget(self.calc_btn)
     main_layout.addWidget(scroll)
     main_layout.addStretch()
@@ -115,10 +115,10 @@ class OrganTab(QWidget):
 
   def on_calculate(self):
     self.organ_dose = self.ctx.app_data.CTDIv * np.exp(self.alfas*self.ctx.app_data.diameter + self.betas)
-    [self.organ_edits[idx].setText(f'{dose:#.4f}') for idx, dose in enumerate(self.organ_dose)]
+    [self.organ_edits[idx].setText(f'{dose:#.2f}') for idx, dose in enumerate(self.organ_dose)]
     self.plot()
 
   def reset_fields(self):
     [organ_edit.setText('0') for organ_edit in self.organ_edits]
-    self.protocol.setCurrentIndex(0)
+    self.protocol_cb.setCurrentIndex(0)
     self.on_protocol_changed(0)
