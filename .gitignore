@@ -1,11 +1,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.env
-.venv
-env/
-venv/
-ENV/
+.env*
+.venv*
+env*/
+venv*/
+ENV*/
 .vscode/
 do_not_track/
 target/
