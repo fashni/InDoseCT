@@ -97,7 +97,7 @@ class SSDETab(QDialog):
 
     left_grpbox = QGroupBox()
     left_layout = QFormLayout()
-    left_layout.addRow(QLabel('<b>CTDIvol (mGy)</b>'), self.ctdiv_edit)
+    left_layout.addRow(QLabel('<b>CTDI<sub>vol</sub> (mGy)</b>'), self.ctdiv_edit)
     left_layout.addRow(self.diameter_label, self.diameter_edit)
     left_layout.addRow(QLabel('<b>Conv Factor</b>'), self.convf_edit)
     left_layout.addRow(QLabel('<b>SSDE (mGy)</b>'), self.ssde_edit)
