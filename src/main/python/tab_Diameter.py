@@ -36,6 +36,10 @@ class DiameterTab(QDialog):
     self.is_no_roi = False
     self.is_no_table = False
     self.is_corr = [False, False]
+    self.minimum_area = 500
+    self.threshold = -300
+    self.bone_limit = 250
+    self.stissue_limit = -250
 
     self.initVar()
     self.initModel()
@@ -54,10 +58,6 @@ class DiameterTab(QDialog):
     self.lineAP = self.lineLAT = 0
     self.idxs = []
     self.d_vals = []
-    self.minimum_area = 500
-    self.threshold = -300
-    self.bone_limit = 250
-    self.stissue_limit = -250
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -458,6 +458,7 @@ class DiameterTab(QDialog):
     self.lung_chk.stateChanged.connect(self.on_corr_check)
     self.bone_sb.valueChanged.connect(self.on_bone_limit_changed)
     self.stissue_sb.valueChanged.connect(self.on_stissue_limit_changed)
+    self.ctx.app_data.imgChanged.connect(self.img_changed_handle)
     [btn.toggled.connect(self.on_deff_auto_method_changed) for btn in self.deff_auto_rbtns]
     [btn.toggled.connect(self.on_3d_opts_changed) for btn in self.d_3d_rbtns]
 
@@ -918,9 +919,7 @@ class DiameterTab(QDialog):
     except:
       return
     rd = self.ctx.recons_dim
-    x1, y1 = p1
-    x2, y2 = p2
-    return np.sqrt((x2-x1)**2+(y2-y1)**2) * (0.1*rd/col)
+    return np.sqrt(((np.array(p2)-np.array(p1))**2).sum()) * (0.1*(rd/row))
 
   def _roi_handle_to_tuple(self, handle):
     return (handle.pos().x(), handle.pos().y())
@@ -962,7 +961,7 @@ class DiameterTab(QDialog):
     self.get_dw_from_ellipse(self.ctx.axes.ellipse)
 
   def add_polygon(self):
-    QMessageBox.information(None, 'Not Available', 'This feature has not been implemented yet.')
+    self.ctx.axes.addPoly()
 
   def get_lat_from_line(self, roi):
     pts = roi.getHandles()
@@ -994,11 +993,14 @@ class DiameterTab(QDialog):
     self.d_edit.setText(f'{dval:#.2f}')
     self.ctx.app_data.diameter = dval
 
+  def img_changed_handle(self, value):
+    if value:
+      self.reset_fields()
+
   def reset_fields(self):
     self.initVar()
-    self.d_edit.setText(f'{self.ctx.app_data.diameter:#.2f}')
-    self.deff_minimum_area_sb.setValue(self.minimum_area)
-    self.deff_threshold_sb.setValue(self.threshold)
+    self.ctx.app_data.diameter = 0
+    self.d_edit.setText('0')
     self.ap_edit.setText('0 cm')
     self.lat_edit.setText('0 cm')
     self.deff_ap_edit.setText('0 cm')

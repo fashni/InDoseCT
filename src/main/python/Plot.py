@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.exporters
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
                              QGroupBox, QHBoxLayout, QLabel, QPushButton,
@@ -14,6 +14,7 @@ from xlsxwriter.workbook import Workbook
 
 
 class Axes(pg.PlotWidget):
+  addPolyFinished = pyqtSignal(object)
   pg.setConfigOptions(imageAxisOrder='row-major')
   pg.setConfigOptions(antialias=True)
   def __init__(self, lock_aspect=False, *args, **kwargs):
@@ -34,6 +35,7 @@ class Axes(pg.PlotWidget):
     self.lineAP = None
     self.ellipse = None
     self.poly = None
+    self.poly_pts_pos = []
     self.addItem(self.image)
     self.addItem(self.linePlot)
     self.addItem(self.scatterPlot)
@@ -145,19 +147,26 @@ class Axes(pg.PlotWidget):
     except:
       return
 
-  def clearShapes(self):
+  def clearPoly(self):
+    try:
+      self.poly_pts_pos = []
+      self.removeItem(self.poly)
+      self.rois.remove('poly')
+    except:
+      pass
+    self.poly = None
+
+  def clearEllipse(self):
     try:
       self.removeItem(self.ellipse)
       self.rois.remove('ellipse')
     except:
       pass
-    try:
-      self.removeItem(self.poly)
-      self.rois.remove('poly')
-    except:
-      pass
     self.ellipse = None
-    self.poly = None
+
+  def clearShapes(self):
+    self.clearEllipse()
+    self.clearPoly()
 
   def imageHoverEvent(self, event):
     if event.isExit():
@@ -191,8 +200,40 @@ class Axes(pg.PlotWidget):
       self.rois.append('ellipse')
 
   def addPoly(self):
-    if self.poly==None and self.imagedata is not None:
-      pass
+    if self.poly is None and self.imagedata is not None:
+      self.click_event_bak = self.image.mouseClickEvent
+      self.double_click_event_bak = self.image.mouseDoubleClickEvent
+      self.image.mouseClickEvent = self.mouse_click_event
+      self.image.mouseDoubleClickEvent = self.mouse_double_click_event
+      self.poly = pg.PolyLineROI(positions=[(0, 0)])
+      self.addItem(self.poly)
+      self.poly.clearPoints()
+      self.poly_pts_pos = []
+
+  def cancel_addPoly(self):
+    if self.poly is not None:
+      self.image.mouseClickEvent = self.click_event_bak
+      self.image.mouseDoubleClickEvent = self.double_click_event_bak
+      self.clearPoly()
+
+  def mouse_double_click_event(self, event):
+    if event.button()==1 and 'poly_pos' in self.graphs.keys():
+      self.image.mouseClickEvent = self.click_event_bak
+      self.image.mouseDoubleClickEvent = self.double_click_event_bak
+      self.poly.setPoints(self.poly_pts_pos, closed=True)
+      self.rois.append('poly')
+      self.clear_graph('poly_pos')
+      self.addPolyFinished.emit(True)
+
+  def mouse_click_event(self, event):
+    if event.button()==1:
+      pos = event.pos()
+      self.poly_pts_pos.append((pos.x(), pos.y()))
+      poly_pts_pos = np.array(self.poly_pts_pos)
+      if 'poly_pos' not in self.graphs.keys():
+        self.plot(poly_pts_pos[:,0], poly_pts_pos[:,1], pen=None, symbol='+', symbolPen=None, symbolSize=10, symbolBrush=(255, 0, 0, 255), name='poly_pos')
+      else:
+        self.graphs['poly_pos'].setData(poly_pts_pos[:,0], poly_pts_pos[:,1])
 
 
 class PlotDialog(QDialog):
@@ -251,7 +292,7 @@ class PlotDialog(QDialog):
     self.setLayout(self.layout)
     self.resize(self.size[0], self.size[1])
     # self.crosshair()
-    self.axis_line()
+    # self.axis_line()
 
   def sigConnect(self):
     self.buttons.rejected.connect(self.on_close)

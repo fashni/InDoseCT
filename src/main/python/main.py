@@ -383,6 +383,7 @@ class MainWindow(QMainWindow):
     else:
       self.ctx.current_img += step
     self.update_image()
+    self.ctx.app_data.emit_img_changed()
 
   def on_next_img(self):
     self.next_img(1)
@@ -415,6 +416,7 @@ class MainWindow(QMainWindow):
     else:
       self.ctx.current_img -= step
     self.update_image()
+    self.ctx.app_data.emit_img_changed()
 
   def on_prev_img(self):
     self.prev_img(1)
@@ -737,6 +739,10 @@ class AppContext(ApplicationContext):
   def default_patients_database(self):
     return os.path.join(self.app_data_dir(), 'Database', 'patient_data.db')
 
+  @cached_property
+  def hk_data(self):
+    return self.get_resource("assets/db/DataHdanK.wt")
+
   def config_file(self):
     return os.path.join(self.app_data_dir(), 'config.json')
 
@@ -754,6 +760,8 @@ class AppData(QObject):
   diameterValueChanged = pyqtSignal(object)
   CTDIValueChanged = pyqtSignal(object)
   DLPValueChanged = pyqtSignal(object)
+  SSDEValueChanged = pyqtSignal(object)
+  imgChanged = pyqtSignal(bool)
 
   def __init__(self, parent=None):
     super(AppData, self).__init__(parent)
@@ -765,9 +773,12 @@ class AppData(QObject):
     self._CTDIv = 0
     self._DLP = 0
     self.DLPc = 0
-    self.SSDE = 0
+    self._SSDE = 0
     self.effdose = 0
     self.convf = 0
+
+  def emit_img_changed(self):
+    self.imgChanged.emit(True)
 
   @property
   def mode(self):
@@ -804,6 +815,15 @@ class AppData(QObject):
   def DLP(self, value):
     self._DLP = value
     self.DLPValueChanged.emit(value)
+
+  @property
+  def SSDE(self):
+    return self._SSDE
+
+  @SSDE.setter
+  def SSDE(self, value):
+    self._SSDE = value
+    self.SSDEValueChanged.emit(value)
 
 
 if __name__ == "__main__":

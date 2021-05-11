@@ -103,7 +103,7 @@ def get_mask(img, threshold=-300, minimum_area=500, num_of_objects=5, largest_on
 
 def get_coord(grid, x):
   where = np.where(grid==x)
-  list_of_coordinates = np.array(tuple(zip(where[0], where[1])))
+  list_of_coordinates = tuple(zip(where[0], where[1]))
   return list_of_coordinates
 
 def get_regprops(mask, img=None):
@@ -230,7 +230,7 @@ def get_mask_pos(mask):
   pad = np.zeros((mask.shape[0]+2, mask.shape[1]+2))
   pad[1:mask.shape[0]+1, 1:mask.shape[1]+1] = mask
   edges = pad - erosion(pad, disk(1))
-  pos = get_coord(edges, True)-1
+  pos = np.array(get_coord(edges, True))-1
   return pos
 
 def windowing(img, window_width, window_level):

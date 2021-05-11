@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog,
                              QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
                              QLabel, QLineEdit, QMessageBox, QPushButton,
                              QRadioButton, QScrollArea, QVBoxLayout)
-from scipy import interpolate
 
 from constants import *
 from custom_widgets import HSeparator
@@ -143,6 +142,7 @@ class SSDETab(QDialog):
     self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
     self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
     self.ctx.app_data.DLPValueChanged.connect(self.dlp_handle)
+    self.ctx.app_data.imgChanged.connect(self.img_changed_handle)
     self.plot_btn.clicked.connect(self.on_plot)
 
   def plot(self, data):
@@ -223,18 +223,24 @@ class SSDETab(QDialog):
   def on_plot(self):
     self.plot(self.data)
 
+  def img_changed_handle(self, value):
+    if value:
+      self.reset_fields()
+
   def reset_fields(self):
+    self.ctx.app_data.convf = 0
+    self.ctx.app_data.SSDE = 0
+    self.ctx.app_data.DLPc = 0
+    self.ctx.app_data.effdose = 0
     self.calc_btn.setAutoDefault(True)
     self.calc_btn.setDefault(True)
     self.save_btn.setAutoDefault(False)
     self.save_btn.setDefault(False)
-    self.protocol_cb.setCurrentIndex(0)
-    self.on_protocol_changed(0)
     self.plot_btn.setEnabled(False)
     self.ctdiv_edit.setText(f'{self.ctx.app_data.CTDIv:#.4f}')
     self.diameter_edit.setText(f'{self.ctx.app_data.diameter:#.4f}')
+    self.dlp_edit.setText(f'{self.ctx.app_data.DLP:#.4f}')
     self.convf_edit.setText(f'{self.ctx.app_data.convf:#.4f}')
     self.ssde_edit.setText(f'{self.ctx.app_data.SSDE:#.4f}')
-    self.dlp_edit.setText(f'{self.ctx.app_data.DLP:#.4f}')
     self.dlpc_edit.setText(f'{self.ctx.app_data.DLPc:#.4f}')
     self.effdose_edit.setText(f'{self.ctx.app_data.effdose:#.4f}')

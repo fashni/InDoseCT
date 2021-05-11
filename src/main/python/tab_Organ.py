@@ -1,11 +1,15 @@
 import numpy as np
+import scipy.io as scio
 from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
 from PyQt5.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QGroupBox,
-                             QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
+                             QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+                             QPushButton, QScrollArea, QStackedWidget,
+                             QVBoxLayout, QWidget, QProgressDialog)
+from scipy import interpolate
 
 from constants import *
+from image_processing import get_center, get_mask
 from Plot import AxisItem, PlotDialog
 
 
@@ -13,17 +17,23 @@ class OrganTab(QWidget):
   def __init__(self, ctx, *args, **kwargs):
     super(OrganTab, self).__init__(*args, **kwargs)
     self.ctx = ctx
+    self.alfas = None
+    self.betas = None
+    self.organ_dose = None
+    self.organ_names = []
     self.initModel()
     self.initVar()
     self.initUI()
     self.sigConnect()
 
   def initVar(self):
-    self.is_accel = False
-    self.alfas = None
-    self.betas = None
-    self.organ_dose = None
-    self.organ_names = []
+    self.is_quick_mode = False
+    self.ssdec = 0
+    self.ssdep = 0
+    self.dist_map = None
+    self.dose_map = None
+    self.organ_dose_mean = 0
+    self.organ_dose_std = 0
 
   def initModel(self):
     self.protocol_model = QSqlTableModel(db=self.ctx.database.ssde_db)
@@ -47,7 +57,13 @@ class OrganTab(QWidget):
     self.calc_db_btn.clicked.connect(self.on_calculate_db)
     self.calc_cnt_btn.clicked.connect(self.on_calculate_cnt)
     self.add_cnt_btn.clicked.connect(self.on_contour)
-    self.is_accelerated_chk.stateChanged.connect(self.on_accelerated_check)
+    self.is_quick_mode_chk.stateChanged.connect(self.on_quick_mode_check)
+    self.ctx.app_data.modeValueChanged.connect(self.diameter_mode_handle)
+    self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
+    self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
+    self.ctx.app_data.SSDEValueChanged.connect(self.ssdew_handle)
+    self.ctx.app_data.imgChanged.connect(self.img_changed_handle)
+    self.ctx.axes.addPolyFinished.connect(self.add_cnt_handle)
 
   def initUI(self):
     self.figure = PlotDialog()
@@ -114,21 +130,29 @@ class OrganTab(QWidget):
   def init_cnt_method_ui(self):
     self.calc_cnt_btn = QPushButton('Calculate')
     self.add_cnt_btn = QPushButton('Add Contour')
-    self.is_accelerated_chk = QCheckBox('Accelerated Mode')
+    self.is_quick_mode_chk = QCheckBox('Quick Mode')
+    self.is_quick_mode_chk.setEnabled(False)
 
-    self.ctdivol_edit = QLineEdit()
-    self.ssdew_edit = QLineEdit()
-    self.ssdec_edit = QLineEdit()
-    self.ssdep_edit = QLineEdit()
-    self.mean_edit = QLineEdit()
-    self.std_edit = QLineEdit()
+    self.diameter_label = QLabel("<b>Diameter (cm)</b>")
+    self.diameter_edit = QLineEdit('0')
+    self.ctdiv_edit = QLineEdit('0')
+    self.ssdew_edit = QLineEdit('0')
+    self.ssdec_edit = QLineEdit('0')
+    self.ssdep_edit = QLineEdit('0')
+    self.mean_edit = QLineEdit('0')
+    self.std_edit = QLineEdit('0')
+
+    edits = [self.diameter_edit, self.ctdiv_edit, self.ssdew_edit, self.ssdec_edit, self.ssdep_edit, self.mean_edit, self.std_edit]
+    [edit.setReadOnly(True) for edit in edits]
+    self.diameter_mode_handle(DEFF_IMAGE)
 
     left = QGroupBox('', self)
     right = QGroupBox('', self)
     left_layout = QFormLayout()
     right_layout = QFormLayout()
 
-    left_layout.addRow(QLabel("<b>CTDI<sub>vol</sub> (mGy)</b>"), self.ctdivol_edit)
+    left_layout.addRow(self.diameter_label, self.diameter_edit)
+    left_layout.addRow(QLabel("<b>CTDI<sub>vol</sub> (mGy)</b>"), self.ctdiv_edit)
     left_layout.addRow(QLabel("<b>SSDE<sub>w</sub> (mGy)</b>"), self.ssdew_edit)
     left_layout.addRow(QLabel("<b>SSDE<sub>c</sub> (mGy)</b>"), self.ssdec_edit)
     left_layout.addRow(QLabel("<b>SSDE<sub>p</sub> (mGy)</b>"), self.ssdep_edit)
@@ -145,7 +169,7 @@ class OrganTab(QWidget):
     main_layout.addLayout(output_area)
     main_layout.addWidget(self.add_cnt_btn)
     main_layout.addWidget(self.calc_cnt_btn)
-    main_layout.addWidget(self.is_accelerated_chk)
+    main_layout.addWidget(self.is_quick_mode_chk)
 
     self.cnt_method_ui = QGroupBox('', self)
     self.cnt_method_ui.setLayout(main_layout)
@@ -165,9 +189,53 @@ class OrganTab(QWidget):
     self.figure.bar(x=list(xdict.keys()), height=self.organ_dose, width=.8, brush='g')
     self.figure.show()
 
+  def plot_cnt(self, dose_vec):
+    import pyqtgraph as pg
+    y, x = np.histogram(dose_vec, bins=20)
+    self.figure = PlotDialog()
+    self.figure.actionEnabled(True)
+    self.figure.trendActionEnabled(False)
+    self.figure.plot(x, y, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
+    self.figure.axes.showGrid(True,True)
+    self.figure.axes.setXRange(np.min(x), np.max(x))
+    self.figure.axes.setYRange(np.min(y), np.max(y))
+    self.figure.setLabels('','Freq','mGy','')
+    self.figure.setTitle('Organ Dose')
+    self.figure.show()
+
   def getData(self):
     self.alfas = np.array([self.organ_dose_model.record(n).value('alfa') for n in range(self.organ_dose_model.rowCount())])
     self.betas = np.array([self.organ_dose_model.record(n).value('beta') for n in range(self.organ_dose_model.rowCount())])
+
+  def diameter_mode_handle(self, value):
+    self.dist_map = None
+    self.dose_map = None
+    self.add_cnt_btn.setEnabled(True)
+    self.add_cnt_btn.setText('Add Contour')
+    if value == DW:
+      self.diameter_label.setText('<b>Dw (cm)</b>')
+      self.is_quick_mode_chk.setEnabled(True)
+    else:
+      self.diameter_label.setText('<b>Deff (cm)</b>')
+      self.is_quick_mode_chk.setCheckState(Qt.Unchecked)
+      self.is_quick_mode_chk.setEnabled(False)
+
+  def diameter_handle(self, value):
+    self.diameter_edit.setText(f'{value:#.4f}')
+
+  def ctdiv_handle(self, value):
+    self.ctdiv_edit.setText(f'{value:#.4f}')
+
+  def ssdew_handle(self, value):
+    self.ssdew_edit.setText(f'{value:#.4f}')
+
+  def add_cnt_handle(self, value):
+    self.add_cnt_btn.setEnabled(value)
+    self.calc_cnt_btn.setEnabled(value)
+
+  def img_changed_handle(self, value):
+    if value:
+      self.reset_fields()
 
   def on_method_changed(self):
     self.main_area.setCurrentIndex(self.method_cb.currentIndex())
@@ -183,16 +251,125 @@ class OrganTab(QWidget):
     [self.organ_edits[idx].setText(f'{dose:#.2f}') for idx, dose in enumerate(self.organ_dose)]
     self.plot()
 
+  def get_ssde(self):
+    h, k = self.get_interpolation()
+    diameter = self.ctx.app_data.diameter
+    self.ssdec = h(diameter)*self.ctx.app_data.SSDE
+    self.ssdep = k(diameter)*self.ctx.app_data.SSDE
+    self.ssdec_edit.setText(f'{self.ssdec:#.4f}')
+    self.ssdep_edit.setText(f'{self.ssdep:#.4f}')
+
+  def build_dose_map(self):
+    def avg_profile_line(p1, p2):
+      x0, y0 = p1
+      x1, y1 = p2
+      length = int(np.hypot(x1-x0, y1-y0))
+      x = np.linspace(x0, x1, length).astype(int)
+      y = np.linspace(y0, y1, length).astype(int)
+      return img[x, y].mean()
+
+    rd = self.ctx.recons_dim
+    row, col = self.ctx.get_current_img().shape
+    diameter = self.ctx.app_data.diameter
+    mask = self.get_img_mask(self.ctx.get_current_img(), largest_only=True)
+    if mask is not None:
+      mask = mask.astype(float)
+    mask_pos = np.argwhere(mask==1)
+    center = get_center(mask)
+
+    dist_vec = np.sqrt(((mask_pos-center)**2).sum(1))
+    if self.ctx.app_data.mode==DW:
+      img = self.ctx.get_current_img()
+      profile_line_vec = np.zeros_like(dist_vec, dtype=float)
+
+      n = mask_pos.shape[0]
+      progress = QProgressDialog(f"Building dose map...", "Stop", 0, n, self)
+      progress.setWindowModality(Qt.WindowModal)
+      progress.setMinimumDuration(1000)
+      for idx, pos in enumerate(mask_pos):
+        profile_line_vec[idx] = avg_profile_line(pos, center)
+        progress.setValue(idx)
+        if progress.wasCanceled():
+          break
+      progress.setValue(n)
+
+      if np.isnan(profile_line_vec.sum()):
+        profile_line_vec = np.nan_to_num(profile_line_vec)
+      dist_vec *= ((profile_line_vec/1000)+1)
+
+    dist_vec *= (0.1*(rd/row))
+    dose_vec = ((dist_vec / ((diameter*0.5)-1)) * (self.ssdep-self.ssdec)) + self.ssdec
+    self.dist_map = np.zeros_like(mask, dtype=float)
+    self.dose_map = np.zeros_like(mask, dtype=float)
+    self.dist_map[tuple(mask_pos.T)] = dist_vec
+    self.dose_map[tuple(mask_pos.T)] = dose_vec
+
   def on_calculate_cnt(self):
-    print(self.is_accel)
+    if self.ctx.axes.poly is None:
+      QMessageBox.warning(None, "Warning", "Organ contour not found.")
+      return
+    if self.ctx.app_data.diameter==0 or self.ctx.app_data.SSDE==0:
+      QMessageBox.warning(None, "Warning", "Diameter and SSDE value not found.")
+      return
+
+    self.get_ssde()
+    if self.dose_map is None:
+      self.build_dose_map()
+
+    organ_dose_map = self.ctx.axes.poly.getArrayRegion(self.dose_map, self.ctx.axes.image, returnMappedCoords=False)
+    organ_dose_mask_pos = np.argwhere(organ_dose_map!=0)
+    organ_dose_vec = organ_dose_map[tuple(organ_dose_mask_pos.T)]
+    self.mean_edit.setText(f'{organ_dose_vec.mean():#.4f}')
+    self.std_edit.setText(f'{organ_dose_vec.std():#.4f}')
+    self.plot_cnt(organ_dose_vec)
 
   def on_contour(self):
-    pass
+    print(self.ctx.axes.rois)
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+      return
+    if self.ctx.axes.poly is None:
+      self.ctx.axes.addPoly()
+      self.add_cnt_btn.setText("Clear Contour")
+      self.add_cnt_btn.setEnabled(False)
+      self.calc_cnt_btn.setEnabled(False)
+    else:
+      self.ctx.axes.clearPoly()
+      self.add_cnt_btn.setText("Add Contour")
 
-  def on_accelerated_check(self, state):
-    self.is_accel = state == Qt.Checked
+  def get_organ_mask(self, roi, dose_map):
+    img = roi.getArrayRegion(dose_map, self.ctx.axes.image, returnMappedCoords=False)
+    return roi.renderShapeMask(img.shape[0],img.shape[1])
+
+  def get_img_mask(self, *args, **kwargs):
+    mask = get_mask(*args, **kwargs)
+    if mask is None:
+      QMessageBox.warning(None, 'Segmentation Failed', 'No object found during segmentation process.')
+    return mask
+
+  def get_interpolation(self):
+    arr = scio.loadmat(self.ctx.hk_data)['A']
+    dw = arr[0]
+    hf = arr[5]
+    kf = arr[11]
+    h = interpolate.interp1d(dw, hf, kind='cubic')
+    k = interpolate.interp1d(dw, kf, kind='cubic')
+    return (h, k)
+
+  def on_quick_mode_check(self, state):
+    self.is_quick_mode = state == Qt.Checked
 
   def reset_fields(self):
     [organ_edit.setText('0') for organ_edit in self.organ_edits]
     self.protocol_cb.setCurrentIndex(0)
     self.on_protocol_changed(0)
+    self.initVar()
+    self.ctx.axes.cancel_addPoly()
+    self.calc_cnt_btn.setEnabled(True)
+    self.add_cnt_btn.setEnabled(True)
+    self.add_cnt_btn.setText('Add Contour')
+    self.ssdec_edit.setText('0')
+    self.ssdep_edit.setText('0')
+    self.mean_edit.setText('0')
+    self.std_edit.setText('0')
+    self.is_quick_mode_chk.setCheckState(Qt.Unchecked)
