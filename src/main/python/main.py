@@ -264,6 +264,7 @@ class MainWindow(QMainWindow):
     self.organ_tab = OrganTab(self.ctx)
     self.analyze_tab = AnalyzeTab(self.ctx)
 
+    self.tabs.tabBar().setStyleSheet("QTabBar {font-weight: bold;}")
     self.tabs.addTab(self.ctdiv_tab, 'CTDIvol')
     self.tabs.addTab(self.diameter_tab, 'Diameter')
     self.tabs.addTab(self.ssde_tab, 'SSDE')

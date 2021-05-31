@@ -220,8 +220,8 @@ class CTDIVolTab(QDialog):
 
     calc_widget = QWidget(self)
     calc_layout = QHBoxLayout()
-    calc_layout.addWidget(calco_grpbox)
     calc_layout.addWidget(calci_grpbox)
+    calc_layout.addWidget(calco_grpbox)
     calc_layout.setContentsMargins(0,0,0,0)
     calc_widget.setLayout(calc_layout)
 

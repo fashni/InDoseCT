@@ -68,7 +68,7 @@ class OrganTab(QWidget):
   def initUI(self):
     self.figure = PlotDialog()
     self.method_cb = QComboBox()
-    self.method_cb.addItems(['Database', 'Contour'])
+    self.method_cb.addItems(['MC Data', 'Direct calculation'])
 
     self.init_db_method_ui()
     self.init_cnt_method_ui()
@@ -190,16 +190,12 @@ class OrganTab(QWidget):
     self.figure.show()
 
   def plot_cnt(self, dose_vec):
-    import pyqtgraph as pg
-    y, x = np.histogram(dose_vec, bins=20)
     self.figure = PlotDialog()
     self.figure.actionEnabled(True)
     self.figure.trendActionEnabled(False)
-    self.figure.plot(x, y, stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
+    self.figure.histogram(dose_vec, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     self.figure.axes.showGrid(True,True)
-    self.figure.axes.setXRange(np.min(x), np.max(x))
-    self.figure.axes.setYRange(np.min(y), np.max(y))
-    self.figure.setLabels('','Freq','mGy','')
+    self.figure.setLabels('','Frequency','mGy','')
     self.figure.setTitle('Organ Dose')
     self.figure.show()
 

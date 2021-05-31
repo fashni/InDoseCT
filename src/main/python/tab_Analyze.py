@@ -128,8 +128,8 @@ class AnalyzeTab(QWidget):
     self.filter_grpbox.setLayout(flt_layout)
 
     mainlayout = QHBoxLayout()
-    mainlayout.addWidget(self.axis_grpbox)
     mainlayout.addWidget(self.filter_grpbox)
+    mainlayout.addWidget(self.axis_grpbox)
     self.setLayout(mainlayout)
 
   def set_filter(self):
@@ -340,11 +340,6 @@ class AnalyzeTab(QWidget):
 
     if self.y_opt!='Frequency':
       self.y_data = np.array([self.data_query_model.record(n).value(self.y_name) for n in range(self.data_query_model.rowCount())])
-    else:
-      hist, bin_edges = np.histogram(self.x_data, bins=self.bins)
-      bin_width = bin_edges[1]-bin_edges[0]
-      self.x_data = bin_edges#[:-1] + bin_width/2
-      self.y_data = hist
 
   def apply_sex_filter(self):
     if self.sex_ftr!='All':
@@ -465,10 +460,11 @@ class AnalyzeTab(QWidget):
   def plot(self):
     self.figure = PlotDialog()
     self.figure.axes.addLegend(pen='w', brush=(64,64,64,127))
+    self.figure.actionEnabled(True)
     if self.y_opt=='Frequency':
-      self.figure.plot(self.x_data, self.y_data, name=f'{self.x_opt} {self.y_opt}', stepMode=True, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
+      self.figure.trendActionEnabled(False)
+      self.figure.histogram(self.x_data, bins=self.bins, name=f'{self.y_opt}', fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     else:
-      self.figure.actionEnabled(True)
       self.figure.plot(self.x_data, self.y_data, name='data points', pen=None, symbol='o', symbolSize=8, symbolPen='k', symbolBrush=(255, 255, 0, 255))
     self.figure.axes.showGrid(True,True)
     self.figure.setLabels(self.x_opt, self.y_opt, self.x_unit, self.y_unit)

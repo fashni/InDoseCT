@@ -249,13 +249,17 @@ class PlotDialog(QDialog):
       self.axes = Axes()
     else:
       self.axes = Axes(axisItems={'bottom': straxis})
+    self.opts_dlg = PlotOptions(parent=self)
+    self.initVar()
+    self.initUI()
+    self.sigConnect()
+
+  def initVar(self):
+    self.n_data = 0
     self.xlabel = None
     self.ylabel = None
     self.x_unit = None
     self.y_unit = None
-    self.opts_dlg = PlotOptions(parent=self)
-    self.initUI()
-    self.sigConnect()
 
   def initUI(self):
     self.setWindowTitle('Plot')
@@ -310,6 +314,13 @@ class PlotDialog(QDialog):
   def scatter(self, *args, **kwargs):
     self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
+
+  def histogram(self, data, bins=20, **kwargs):
+    self.data['histogram'] = data
+    y, x = np.histogram(data, bins=bins)
+    self.plot(x, y, stepMode=True, savedata=False, **kwargs)
+    self.axes.setXRange(np.min(x), np.max(x))
+    self.axes.setYRange(np.min(y), np.max(y))
 
   def annotate(self, tag, pos=(0,0), angle=0, *args, **kwargs):
     txt = pg.TextItem(*args, **kwargs)
