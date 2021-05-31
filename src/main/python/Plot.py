@@ -223,7 +223,7 @@ class Axes(pg.PlotWidget):
       self.poly.setPoints(self.poly_pts_pos, closed=True)
       self.rois.append('poly')
       self.clear_graph('poly_pos')
-      self.addPolyFinished.emit(True)
+      self.addPolyFinished.emit(self.poly)
 
   def mouse_click_event(self, event):
     if event.button()==1:
@@ -316,7 +316,6 @@ class PlotDialog(QDialog):
     self.axes.scatter(*args, **kwargs)
 
   def histogram(self, data, bins=20, **kwargs):
-    self.data['histogram'] = data
     y, x = np.histogram(data, bins=bins)
     self.plot(x, y, stepMode=True, savedata=False, **kwargs)
     self.axes.setXRange(np.min(x), np.max(x))

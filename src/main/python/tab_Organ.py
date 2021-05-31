@@ -226,8 +226,8 @@ class OrganTab(QWidget):
     self.ssdew_edit.setText(f'{value:#.4f}')
 
   def add_cnt_handle(self, value):
-    self.add_cnt_btn.setEnabled(value)
-    self.calc_cnt_btn.setEnabled(value)
+    self.add_cnt_btn.setEnabled(True)
+    self.calc_cnt_btn.setEnabled(True)
 
   def img_changed_handle(self, value):
     if value:

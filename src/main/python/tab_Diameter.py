@@ -961,7 +961,12 @@ class DiameterTab(QDialog):
     self.get_dw_from_ellipse(self.ctx.axes.ellipse)
 
   def add_polygon(self):
+    if not self.ctx.isImage:
+      QMessageBox.warning(None, "Warning", "Open DICOM files first.")
+      return
+    self.ctx.axes.addPolyFinished.connect(self.get_dw_from_ellipse)
     self.ctx.axes.addPoly()
+    self.ctx.axes.poly.sigRegionChangeFinished.connect(self.get_dw_from_ellipse)
 
   def get_lat_from_line(self, roi):
     pts = roi.getHandles()
