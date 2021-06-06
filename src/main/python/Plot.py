@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
                              QGroupBox, QHBoxLayout, QLabel, QPushButton,
-                             QRadioButton, QSpinBox, QVBoxLayout)
+                             QRadioButton, QSpinBox, QVBoxLayout, QWidget)
 from scipy.optimize import curve_fit
 from sklearn.metrics import r2_score
 from xlsxwriter.workbook import Workbook
@@ -170,8 +170,8 @@ class Axes(pg.PlotWidget):
 
   def imageHoverEvent(self, event):
     if event.isExit():
-        self.setTitle("")
-        return
+      self.setTitle("")
+      return
     pos = event.pos()
     i, j = pos.x(), pos.y()
     i = int(np.clip(i, 0, self.imagedata.shape[0] - 1))
@@ -237,7 +237,7 @@ class Axes(pg.PlotWidget):
 
 
 class PlotDialog(QDialog):
-  def __init__(self, size=(640, 480), straxis=None, par=None):
+  def __init__(self, size=(640, 480), lock_aspect=False, straxis=None, par=None):
     super(PlotDialog, self).__init__()
     self.setAttribute(Qt.WA_DeleteOnClose)
     self.setWindowFlags(self.windowFlags() |
@@ -246,9 +246,9 @@ class PlotDialog(QDialog):
     self.size = size
     self.par = par
     if straxis is None:
-      self.axes = Axes()
+      self.axes = Axes(lock_aspect=lock_aspect)
     else:
-      self.axes = Axes(axisItems={'bottom': straxis})
+      self.axes = Axes(lock_aspect=lock_aspect, axisItems={'bottom': straxis})
     self.opts_dlg = PlotOptions(parent=self)
     self.initVar()
     self.initUI()
@@ -871,6 +871,57 @@ class PlotOptions(QDialog):
 
   def on_trdl_changed(self):
     self.poly_ordr_spn.setEnabled(self.sender().text().lower() == 'polynomial')
+
+
+class ImageViewDialog(QDialog):
+  pg.setConfigOptions(antialias=True)
+  def __init__(self, size=(640, 480), *args, **kwargs):
+    super(ImageViewDialog, self).__init__(*args, **kwargs)
+    self.setAttribute(Qt.WA_DeleteOnClose)
+    self.setWindowFlags(self.windowFlags() |
+                        Qt.WindowSystemMenuHint |
+                        Qt.WindowMinMaxButtonsHint)
+    self.resize(size[0], size[1])
+    self.initUI()
+
+  def initUI(self):
+    self.plot_item = pg.PlotItem()
+    self.plot_item.setLabel(axis='left')
+    self.plot_item.setLabel(axis='bottom')
+    self.plot_item.setTitle("")
+
+    self.image_item = pg.ImageItem()
+    self.image_item.hoverEvent = self.imageHoverEvent
+
+    self.imv = pg.ImageView(view=self.plot_item, imageItem=self.image_item)
+    self.imv.ui.roiBtn.hide()
+    self.imv.ui.menuBtn.hide()
+    layout = QVBoxLayout()
+    layout.addWidget(self.imv)
+    self.setLayout(layout)
+
+  def imshow(self, img):
+    self.image_data = img
+    self.imv.setImage(img)
+
+  def set_cmap(self, colors):
+    # cmap = pg.colormap
+    cmap = pg.ColorMap(pos=np.linspace(0.0, 1.0, len(colors)), color=colors)
+    self.imv.setColorMap(cmap)
+
+  def setTitle(self, title):
+    self.setWindowTitle(title)
+
+  def imageHoverEvent(self, event):
+    if event.isExit():
+      self.plot_item.setTitle("")
+      return
+    pos = event.pos()
+    i, j = pos.x(), pos.y()
+    i = int(np.clip(i, 0, self.image_data.shape[0] - 1))
+    j = int(np.clip(j, 0, self.image_data.shape[1] - 1))
+    val = self.image_data[j, i]
+    self.plot_item.setTitle(f"pixel: ({i:#d}, {j:#d})  value: {val:#g}")
 
 
 if __name__ == '__main__':

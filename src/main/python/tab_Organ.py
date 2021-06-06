@@ -10,7 +10,7 @@ from scipy import interpolate
 
 from constants import *
 from image_processing import get_center, get_mask
-from Plot import AxisItem, PlotDialog
+from Plot import AxisItem, PlotDialog, ImageViewDialog
 
 
 class OrganTab(QWidget):
@@ -28,6 +28,8 @@ class OrganTab(QWidget):
 
   def initVar(self):
     self.is_quick_mode = False
+    self.show_dosemap = False
+    self.show_hk = False
     self.ssdec = 0
     self.ssdep = 0
     self.dist_map = None
@@ -58,6 +60,8 @@ class OrganTab(QWidget):
     self.calc_cnt_btn.clicked.connect(self.on_calculate_cnt)
     self.add_cnt_btn.clicked.connect(self.on_contour)
     self.is_quick_mode_chk.stateChanged.connect(self.on_quick_mode_check)
+    self.show_hk_chk.stateChanged.connect(self.on_show_hk_check)
+    self.show_dosemap_chk.stateChanged.connect(self.on_show_dosemap_check)
     self.ctx.app_data.modeValueChanged.connect(self.diameter_mode_handle)
     self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
     self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
@@ -132,6 +136,8 @@ class OrganTab(QWidget):
     self.add_cnt_btn = QPushButton('Add Contour')
     self.is_quick_mode_chk = QCheckBox('Quick Mode')
     self.is_quick_mode_chk.setEnabled(False)
+    self.show_dosemap_chk = QCheckBox('Show Dose Map')
+    self.show_hk_chk = QCheckBox('Show Corr. Factor Graph')
 
     self.diameter_label = QLabel("<b>Diameter (cm)</b>")
     self.diameter_edit = QLineEdit('0')
@@ -165,11 +171,17 @@ class OrganTab(QWidget):
     output_area.addWidget(left)
     output_area.addWidget(right)
 
+    opt_area = QHBoxLayout()
+    opt_area.addWidget(self.is_quick_mode_chk)
+    opt_area.addWidget(self.show_dosemap_chk)
+    opt_area.addWidget(self.show_hk_chk)
+    opt_area.addStretch()
+
     main_layout = QVBoxLayout()
     main_layout.addLayout(output_area)
     main_layout.addWidget(self.add_cnt_btn)
     main_layout.addWidget(self.calc_cnt_btn)
-    main_layout.addWidget(self.is_quick_mode_chk)
+    main_layout.addLayout(opt_area)
 
     self.cnt_method_ui = QGroupBox('', self)
     self.cnt_method_ui.setLayout(main_layout)
@@ -195,9 +207,36 @@ class OrganTab(QWidget):
     self.figure.trendActionEnabled(False)
     self.figure.histogram(dose_vec, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     self.figure.axes.showGrid(True,True)
-    self.figure.setLabels('','Frequency','mGy','')
+    self.figure.setLabels('Organ Dose','Frequency','mGy','')
     self.figure.setTitle('Organ Dose')
     self.figure.show()
+
+  def plot_hk(self):
+    h, k, dw = self.get_interpolation()
+    h_data = h(dw)
+    k_data = k(dw)
+    self.figure_hk = PlotDialog()
+    self.figure_hk.setTitle('Correction Factor')
+    self.figure_hk.plot(dw, h_data, pen={'color': "FFFF00", 'width': 2}, symbol=None, name='h_factor')
+    self.figure_hk.plot(dw, k_data, pen={'color': "00FFFF", 'width': 2}, symbol=None, name='k_factor')
+    self.figure_hk.annotate('h_data', pos=(dw[len(dw)//2], h_data[len(h_data)//2]), text='h-factor', anchor=(0,1))
+    self.figure_hk.annotate('k_data', pos=(dw[len(dw)//2], k_data[len(k_data)//2]), text='k-factor')
+    self.figure_hk.axes.showGrid(True,True)
+    self.figure_hk.setLabels('Diameter','Correction Factor','mm','')
+    self.figure_hk.axes.setXRange(np.min(dw), np.max(dw))
+    self.figure_hk.axes.setYRange(np.min([np.min(k_data), np.min(h_data)]), np.max([np.max(k_data), np.max(h_data)]))
+    self.figure_hk.show()
+
+  def plot_dosemap(self):
+    colors = [(0, 0, 0),
+              (255, 0, 0),
+              (255, 255, 0),
+              (255, 255, 255)]
+    self.figure_dose = ImageViewDialog()
+    self.figure_dose.setTitle('Dose Map')
+    self.figure_dose.imshow(self.dose_map)
+    self.figure_dose.set_cmap(colors)
+    self.figure_dose.show()
 
   def getData(self):
     self.alfas = np.array([self.organ_dose_model.record(n).value('alfa') for n in range(self.organ_dose_model.rowCount())])
@@ -248,7 +287,7 @@ class OrganTab(QWidget):
     self.plot()
 
   def get_ssde(self):
-    h, k = self.get_interpolation()
+    h, k, _ = self.get_interpolation()
     diameter = self.ctx.app_data.diameter
     self.ssdec = h(diameter)*self.ctx.app_data.SSDE
     self.ssdep = k(diameter)*self.ctx.app_data.SSDE
@@ -317,6 +356,10 @@ class OrganTab(QWidget):
     organ_dose_vec = organ_dose_map[tuple(organ_dose_mask_pos.T)]
     self.mean_edit.setText(f'{organ_dose_vec.mean():#.4f}')
     self.std_edit.setText(f'{organ_dose_vec.std():#.4f}')
+    if self.show_hk:
+      self.plot_hk()
+    if self.show_dosemap:
+      self.plot_dosemap()
     self.plot_cnt(organ_dose_vec)
 
   def on_contour(self):
@@ -350,10 +393,16 @@ class OrganTab(QWidget):
     kf = arr[11]
     h = interpolate.interp1d(dw, hf, kind='cubic')
     k = interpolate.interp1d(dw, kf, kind='cubic')
-    return (h, k)
+    return (h, k, dw)
 
   def on_quick_mode_check(self, state):
     self.is_quick_mode = state == Qt.Checked
+
+  def on_show_dosemap_check(self, state):
+    self.show_dosemap = state == Qt.Checked
+
+  def on_show_hk_check(self, state):
+    self.show_hk = state == Qt.Checked
 
   def reset_fields(self):
     [organ_edit.setText('0') for organ_edit in self.organ_edits]
@@ -369,3 +418,5 @@ class OrganTab(QWidget):
     self.mean_edit.setText('0')
     self.std_edit.setText('0')
     self.is_quick_mode_chk.setCheckState(Qt.Unchecked)
+    self.show_hk_chk.setCheckState(Qt.Unchecked)
+    self.show_dosemap_chk.setCheckState(Qt.Unchecked)
