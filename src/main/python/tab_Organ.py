@@ -205,6 +205,8 @@ class OrganTab(QWidget):
     self.figure = PlotDialog()
     self.figure.actionEnabled(True)
     self.figure.trendActionEnabled(False)
+    self.figure.opts_dlg.y_mean_chk.setEnabled(False)
+    self.figure.opts_dlg.y_stdv_chk.setEnabled(False)
     self.figure.histogram(dose_vec, fillLevel=0, brush=(0,0,255,150), symbol='o', symbolSize=5)
     self.figure.axes.showGrid(True,True)
     self.figure.setLabels('Organ Dose','Frequency','mGy','')
@@ -228,14 +230,9 @@ class OrganTab(QWidget):
     self.figure_hk.show()
 
   def plot_dosemap(self):
-    colors = [(0, 0, 0),
-              (255, 0, 0),
-              (255, 255, 0),
-              (255, 255, 255)]
-    self.figure_dose = ImageViewDialog()
+    self.figure_dose = ImageViewDialog(unit='dose')
     self.figure_dose.setTitle('Dose Map')
     self.figure_dose.imshow(self.dose_map)
-    self.figure_dose.set_cmap(colors)
     self.figure_dose.show()
 
   def getData(self):

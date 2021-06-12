@@ -4,10 +4,10 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.exporters
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QDialog,
-                             QDialogButtonBox, QFileDialog, QFormLayout,
-                             QGroupBox, QHBoxLayout, QLabel, QPushButton,
-                             QRadioButton, QSpinBox, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
+                             QDialog, QDialogButtonBox, QFileDialog,
+                             QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+                             QPushButton, QRadioButton, QSpinBox, QVBoxLayout)
 from scipy.optimize import curve_fit
 from sklearn.metrics import r2_score
 from xlsxwriter.workbook import Workbook
@@ -28,6 +28,7 @@ class Axes(pg.PlotWidget):
     self.image = pg.ImageItem()
     self.linePlot = pg.PlotDataItem()
     self.scatterPlot = pg.PlotDataItem()
+    self.data = {}
     self.graphs = {}
     self.n_graphs = 0
     self.imagedata = None
@@ -78,10 +79,19 @@ class Axes(pg.PlotWidget):
     self.rois.append('marker')
 
   def plot(self, *args, **kwargs):
-    if 'name' in kwargs:
-      tag = kwargs['name']
-    else:
-      tag = f'series{self.n_graphs}'
+    tag = kwargs['name'] if 'name' in kwargs else f'series{self.n_graphs}'
+    savedata = True
+    if 'savedata' in kwargs.keys():
+      savedata = kwargs['savedata']
+      kwargs.pop('savedata')
+    if savedata:
+      if len(args)==1:
+        data = args[0]
+      elif len(args)==2:
+        data = np.vstack(args).T
+      else:
+        data = None
+      self.data[tag] = data
     plot = pg.PlotDataItem()
     plot.setData(*args, **kwargs)
     self.addItem(plot)
@@ -275,6 +285,7 @@ class PlotDialog(QDialog):
     btns = QDialogButtonBox.Save | QDialogButtonBox.Close
     self.buttons = QDialogButtonBox(btns)
     self.opts_btn = QPushButton('Options')
+    # self.test_btn = QPushButton('Test')
 
     self.buttons.button(QDialogButtonBox.Close).setAutoDefault(True)
     self.buttons.button(QDialogButtonBox.Close).setDefault(True)
@@ -283,11 +294,14 @@ class PlotDialog(QDialog):
     self.buttons.button(QDialogButtonBox.Save).setDefault(False)
     self.opts_btn.setAutoDefault(False)
     self.opts_btn.setDefault(False)
+    # self.test_btn.setAutoDefault(False)
+    # self.test_btn.setDefault(False)
 
     self.actionEnabled(False)
 
     btn_layout = QHBoxLayout()
     btn_layout.addWidget(self.opts_btn)
+    # btn_layout.addWidget(self.test_btn)
     btn_layout.addStretch()
     btn_layout.addWidget(self.buttons)
 
@@ -302,24 +316,32 @@ class PlotDialog(QDialog):
     self.buttons.rejected.connect(self.on_close)
     self.buttons.accepted.connect(self.on_save)
     self.opts_btn.clicked.connect(self.on_opts_dialog)
+    # self.test_btn.clicked.connect(self.on_test)
     [opt.stateChanged.connect(self.apply_stddev_opts) for opt in self.opts_dlg.stdv_chks]
     [opt.stateChanged.connect(self.apply_mean_opts) for opt in self.opts_dlg.mean_chks]
     self.opts_dlg.trdl_btngrp.buttonClicked[int].connect(self.apply_trendline_opts)
     self.opts_dlg.poly_ordr_spn.valueChanged.connect(self.on_poly_order_changed)
     # self.proxy = pg.SignalProxy(self.axes.linePlot.scene().sigMouseMoved, rateLimit=60, slot=self.mouseMoved)
 
+  def on_test(self):
+    pass
+
   def plot(self, *args, **kwargs):
     self.axes.plot(*args, **kwargs)
+    self.n_data += 1
 
   def scatter(self, *args, **kwargs):
     self.axes.scatterPlot.clear()
     self.axes.scatter(*args, **kwargs)
+    self.n_data += 1
 
   def histogram(self, data, bins=20, **kwargs):
     y, x = np.histogram(data, bins=bins)
     self.plot(x, y, stepMode=True, savedata=False, **kwargs)
     self.axes.setXRange(np.min(x), np.max(x))
     self.axes.setYRange(np.min(y), np.max(y))
+    tag = kwargs['name'] if 'name' in kwargs.keys() else f'series{self.n_data-1}'
+    self.axes.data[tag] = np.stack((data, data)).T
 
   def annotate(self, tag, pos=(0,0), angle=0, *args, **kwargs):
     txt = pg.TextItem(*args, **kwargs)
@@ -363,7 +385,7 @@ class PlotDialog(QDialog):
     name = "mean"
     if self.inf_line[name+axis]:
       return
-    x, y = self.get_plot_data()
+    x, y = self.get_data()
 
     if x is None or y is None:
       return
@@ -374,6 +396,18 @@ class PlotDialog(QDialog):
     unit = self.x_unit if axis=='x' else self.y_unit
     self.create_inf_line(mean, axis, name, pg.mkPen(color='c', width=2))
     self.annotate(name+axis, anchor=anchor, pos=pos, angle=angle, text=f'mean_{axis}: {mean:#.2f} {unit}')
+
+  def get_data(self):
+    max_size = 0
+    max_tag = None
+    for tag, data in self.axes.data.items():
+      if data.shape[0] > max_size:
+        max_size = data.shape[0]
+        max_tag = tag
+
+    if max_size==0 or max_tag is None:
+      return None, None
+    return self.axes.data[max_tag].T
 
   def get_plot_data(self):
     max_size = 0
@@ -397,7 +431,7 @@ class PlotDialog(QDialog):
     if self.inf_line[name1+axis] and self.inf_line[name2+axis]:
       return
 
-    x, y = self.get_plot_data()
+    x, y = self.get_data()
     if x is None or y is None:
       return
 
@@ -423,7 +457,7 @@ class PlotDialog(QDialog):
     if self.tr_line:
       self.clear_trendline()
 
-    x, y = self.get_plot_data()
+    x, y = self.get_data()
     if x is None or y is None:
       return
 
@@ -875,14 +909,17 @@ class PlotOptions(QDialog):
 
 class ImageViewDialog(QDialog):
   pg.setConfigOptions(antialias=True)
-  def __init__(self, size=(640, 480), *args, **kwargs):
+  def __init__(self, size=(640, 480), unit=None, *args, **kwargs):
     super(ImageViewDialog, self).__init__(*args, **kwargs)
     self.setAttribute(Qt.WA_DeleteOnClose)
     self.setWindowFlags(self.windowFlags() |
                         Qt.WindowSystemMenuHint |
                         Qt.WindowMinMaxButtonsHint)
+    self.unit = 'value' if unit is None else unit
     self.resize(size[0], size[1])
     self.initUI()
+    self.sigConnect()
+    self.apply_cmap('thermal')
 
   def initUI(self):
     self.plot_item = pg.PlotItem()
@@ -896,21 +933,41 @@ class ImageViewDialog(QDialog):
     self.imv = pg.ImageView(view=self.plot_item, imageItem=self.image_item)
     self.imv.ui.roiBtn.hide()
     self.imv.ui.menuBtn.hide()
+
+    self.cmap_cb = QComboBox()
+    self.cmap_cb.addItems(["thermal", "flame", "yellowy",
+                           "bipolar", "spectrum", "cyclic",
+                           "greyclip", "grey", "viridis",
+                           "inferno", "plasma", "magma"])
+
+    cb_layout = QHBoxLayout()
+    cb_layout.addStretch()
+    cb_layout.addWidget(QLabel('Color map:'))
+    cb_layout.addWidget(self.cmap_cb)
+
     layout = QVBoxLayout()
     layout.addWidget(self.imv)
+    layout.addLayout(cb_layout)
     self.setLayout(layout)
+
+  def sigConnect(self):
+    self.cmap_cb.activated[str].connect(self.apply_cmap)
 
   def imshow(self, img):
     self.image_data = img
     self.imv.setImage(img)
+    img_flat = img.flatten()
+    self.imv.setLevels(min=np.min(img_flat[np.nonzero(img_flat)]), max=np.max(img_flat))
 
   def set_cmap(self, colors):
-    # cmap = pg.colormap
     cmap = pg.ColorMap(pos=np.linspace(0.0, 1.0, len(colors)), color=colors)
     self.imv.setColorMap(cmap)
 
   def setTitle(self, title):
     self.setWindowTitle(title)
+
+  def apply_cmap(self, name):
+    self.imv.setPredefinedGradient(name)
 
   def imageHoverEvent(self, event):
     if event.isExit():
@@ -921,7 +978,7 @@ class ImageViewDialog(QDialog):
     i = int(np.clip(i, 0, self.image_data.shape[0] - 1))
     j = int(np.clip(j, 0, self.image_data.shape[1] - 1))
     val = self.image_data[j, i]
-    self.plot_item.setTitle(f"pixel: ({i:#d}, {j:#d})  value: {val:#g}")
+    self.plot_item.setTitle(f"location: ({i:#d}, {j:#d})  {self.unit}: {val:#g}")
 
 
 if __name__ == '__main__':
