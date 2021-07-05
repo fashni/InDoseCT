@@ -92,6 +92,7 @@ class CTDIVolTab(QDialog):
     self.ctdiv_d_edit.textChanged[str].connect(self.on_dicom_manual)
     self.tcm_btn.clicked.connect(self.on_get_tcm)
     self.scn_btn.clicked.connect(self.get_scan_length_dicom)
+    self.ctx.app_data.imgChanged.connect(self.img_changed_handle)
 
   def initUI(self):
     self.figure = PlotDialog()
@@ -279,7 +280,7 @@ class CTDIVolTab(QDialog):
 
   def get_ctdiv_dicom(self):
     try:
-      self.CTDIv = float(self.ctx.dicoms[0].CTDIvol)
+      self.CTDIv = float(self.ctx.dicoms[self.ctx.current_img-1].CTDIvol)
     except:
       if not self.disable_warning:
         QMessageBox.warning(None, "Warning", "The DICOM does not contain the value of CTDIvol.\nPlease try different method.")
@@ -403,6 +404,10 @@ class CTDIVolTab(QDialog):
     self.DLP = self.CTDIv*self.scan_length
     self.dlp_d_edit.setText(f'{self.DLP:#.2f}')
     self.set_app_data()
+
+  def img_changed_handle(self, value):
+    if value:
+      self.calculate(False)
 
   def calculate(self, auto=True):
     if self.mode==0:

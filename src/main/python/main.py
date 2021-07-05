@@ -324,6 +324,7 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(None, "Info", "The specified file is not a valid DICOM file.")
       return
 
+    self.ctx.isImage = True
     self.ctx.dicoms = files
     self.ctx.total_img = len(self.ctx.dicoms)
     self.total_lbl.setText(str(self.ctx.total_img))
@@ -339,7 +340,6 @@ class MainWindow(QMainWindow):
     self.phantom_cb.setCurrentIndex(phantom_id)
     self.on_phantom_update(phantom_id)
     self.info_panel.setInfo(self.patient_info)
-    self.ctx.isImage = True
     self.dcmtree_btn.setEnabled(True)
     self.close_img_btn.setEnabled(True)
     self.windowing_cb.setEnabled(True)
