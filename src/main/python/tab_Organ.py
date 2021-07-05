@@ -2,7 +2,7 @@ import numpy as np
 import scipy.io as scio
 from PyQt5.QtCore import Qt
 from PyQt5.QtSql import QSqlTableModel
-from PyQt5.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QGroupBox,
+from PyQt5.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QGridLayout, QGroupBox,
                              QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                              QPushButton, QScrollArea, QStackedWidget,
                              QVBoxLayout, QWidget, QProgressDialog)
@@ -29,6 +29,7 @@ class OrganTab(QWidget):
   def initVar(self):
     self.is_quick_mode = False
     self.show_dosemap = False
+    self.show_dosedist = False
     self.show_hk = False
     self.ssdec = 0
     self.ssdep = 0
@@ -62,6 +63,7 @@ class OrganTab(QWidget):
     self.is_quick_mode_chk.stateChanged.connect(self.on_quick_mode_check)
     self.show_hk_chk.stateChanged.connect(self.on_show_hk_check)
     self.show_dosemap_chk.stateChanged.connect(self.on_show_dosemap_check)
+    self.show_dosedist_chk.stateChanged.connect(self.on_show_dosedist_check)
     self.ctx.app_data.modeValueChanged.connect(self.diameter_mode_handle)
     self.ctx.app_data.diameterValueChanged.connect(self.diameter_handle)
     self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
@@ -137,6 +139,7 @@ class OrganTab(QWidget):
     self.is_quick_mode_chk = QCheckBox('Quick Mode')
     self.is_quick_mode_chk.setEnabled(False)
     self.show_dosemap_chk = QCheckBox('Show Dose Map')
+    self.show_dosedist_chk = QCheckBox('Show Histogram')
     self.show_hk_chk = QCheckBox('Show Corr. Factor Graph')
 
     self.diameter_label = QLabel("<b>Diameter (cm)</b>")
@@ -171,11 +174,11 @@ class OrganTab(QWidget):
     output_area.addWidget(left)
     output_area.addWidget(right)
 
-    opt_area = QHBoxLayout()
-    opt_area.addWidget(self.is_quick_mode_chk)
-    opt_area.addWidget(self.show_dosemap_chk)
-    opt_area.addWidget(self.show_hk_chk)
-    opt_area.addStretch()
+    opt_area = QGridLayout()
+    opt_area.addWidget(self.is_quick_mode_chk, 0, 0)
+    opt_area.addWidget(self.show_dosedist_chk, 0, 1)
+    opt_area.addWidget(self.show_hk_chk, 1, 0)
+    opt_area.addWidget(self.show_dosemap_chk, 1, 1)
 
     main_layout = QVBoxLayout()
     main_layout.addLayout(output_area)
@@ -357,7 +360,8 @@ class OrganTab(QWidget):
       self.plot_hk()
     if self.show_dosemap:
       self.plot_dosemap()
-    self.plot_cnt(organ_dose_vec)
+    if self.show_dosedist:
+      self.plot_cnt(organ_dose_vec)
 
   def on_contour(self):
     print(self.ctx.axes.rois)
@@ -398,6 +402,9 @@ class OrganTab(QWidget):
   def on_show_dosemap_check(self, state):
     self.show_dosemap = state == Qt.Checked
 
+  def on_show_dosedist_check(self, state):
+    self.show_dosedist = state == Qt.Checked
+
   def on_show_hk_check(self, state):
     self.show_hk = state == Qt.Checked
 
@@ -417,3 +424,4 @@ class OrganTab(QWidget):
     self.is_quick_mode_chk.setCheckState(Qt.Unchecked)
     self.show_hk_chk.setCheckState(Qt.Unchecked)
     self.show_dosemap_chk.setCheckState(Qt.Unchecked)
+    self.show_dosedist_chk.setCheckState(Qt.Unchecked)

@@ -16,6 +16,7 @@ class SSDETab(QDialog):
   def __init__(self, ctx, *args, **kwargs):
     super(SSDETab, self).__init__(*args, **kwargs)
     self.ctx = ctx
+    self.show_graph = False
     self.initModel()
     self.initUI()
     self.sigConnect()
@@ -47,19 +48,15 @@ class SSDETab(QDialog):
     self.report_cb = QComboBox()
     self.report_cb.setModel(self.report_model)
     self.report_cb.setModelColumn(self.report_model.fieldIndex('name'))
+    self.plot_chk = QCheckBox('Show Graph')
 
     self.calc_btn = QPushButton('Calculate')
-    self.plot_btn = QPushButton('Plot Result')
     self.save_btn = QPushButton('Save')
-    self.plot_btn.setEnabled(False)
-    self.plot_btn.setVisible(False)
-
+  
     self.calc_btn.setAutoDefault(True)
     self.calc_btn.setDefault(True)
     self.save_btn.setAutoDefault(False)
     self.save_btn.setDefault(False)
-    self.plot_btn.setAutoDefault(False)
-    self.plot_btn.setDefault(False)
 
     self.diameter_label = QLabel('<b>Diameter (cm)</b>')
     self.ctdiv_edit = QLineEdit(f'{self.ctx.app_data.CTDIv}')
@@ -119,6 +116,11 @@ class SSDETab(QDialog):
     tab_nav.addStretch()
     tab_nav.addWidget(self.next_tab_btn)
 
+    btn_layout = QHBoxLayout()
+    btn_layout.addWidget(self.calc_btn)
+    btn_layout.addWidget(self.save_btn)
+    btn_layout.addStretch()
+
     main_layout = QVBoxLayout()
     main_layout.addWidget(QLabel('Based on:'))
     main_layout.addWidget(self.report_cb)
@@ -126,9 +128,8 @@ class SSDETab(QDialog):
     main_layout.addWidget(self.protocol_cb)
     main_layout.addWidget(HSeparator())
     main_layout.addLayout(h)
-    main_layout.addWidget(self.calc_btn)
-    main_layout.addWidget(self.plot_btn)
-    main_layout.addWidget(self.save_btn)
+    main_layout.addLayout(btn_layout)
+    main_layout.addWidget(self.plot_chk)
     main_layout.addStretch()
     main_layout.addLayout(tab_nav)
 
@@ -143,7 +144,7 @@ class SSDETab(QDialog):
     self.ctx.app_data.CTDIValueChanged.connect(self.ctdiv_handle)
     self.ctx.app_data.DLPValueChanged.connect(self.dlp_handle)
     self.ctx.app_data.imgChanged.connect(self.img_changed_handle)
-    self.plot_btn.clicked.connect(self.on_plot)
+    self.plot_chk.stateChanged.connect(self.on_show_graph_check)
 
   def plot(self, data):
     x = self.ctx.app_data.diameter
@@ -196,6 +197,9 @@ class SSDETab(QDialog):
     b_val = self.cf_model.record(0).value("b")
     self.cf_eq = lambda x: a_val*np.exp(-b_val*x)
 
+  def on_show_graph_check(self, state):
+    self.show_graph = state == Qt.Checked
+
   def on_calculate(self):
     minv = 6 if self.ctx.phantom == HEAD else 8
     maxv = 55 if self.ctx.phantom == HEAD else 45
@@ -217,8 +221,8 @@ class SSDETab(QDialog):
     self.ssde_edit.setText(f'{self.ctx.app_data.SSDE:#.4f}')
     self.dlpc_edit.setText(f'{self.ctx.app_data.DLPc:#.4f}')
     self.effdose_edit.setText(f'{self.ctx.app_data.effdose:#.4f}')
-    self.plot_btn.setEnabled(True)
-    self.on_plot()
+    if self.show_graph:
+      self.on_plot()
 
   def on_plot(self):
     self.plot(self.data)
@@ -232,11 +236,12 @@ class SSDETab(QDialog):
     self.ctx.app_data.SSDE = 0
     self.ctx.app_data.DLPc = 0
     self.ctx.app_data.effdose = 0
+    self.show_graph = False
+    self.plot_chk.setCheckState(Qt.Unchecked)
     self.calc_btn.setAutoDefault(True)
     self.calc_btn.setDefault(True)
     self.save_btn.setAutoDefault(False)
     self.save_btn.setDefault(False)
-    self.plot_btn.setEnabled(False)
     self.ctdiv_edit.setText(f'{self.ctx.app_data.CTDIv:#.4f}')
     self.diameter_edit.setText(f'{self.ctx.app_data.diameter:#.4f}')
     self.dlp_edit.setText(f'{self.ctx.app_data.DLP:#.4f}')

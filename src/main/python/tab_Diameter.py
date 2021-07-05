@@ -58,6 +58,7 @@ class DiameterTab(QDialog):
     self.lineAP = self.lineLAT = 0
     self.idxs = []
     self.d_vals = []
+    self.show_graph = False
 
   def initModel(self):
     self.query_model = QSqlQueryModel()
@@ -106,6 +107,7 @@ class DiameterTab(QDialog):
     self.source_cb = QComboBox()
     self.method_cb = QComboBox()
     self.calculate_btn = QPushButton('Calculate')
+    self.plot_chk = QCheckBox('Show Graph')
     self.d_edit = QLineEdit(f'{self.ctx.app_data.diameter}')
     self.next_tab_btn = QPushButton('Next')
     self.prev_tab_btn = QPushButton('Previous')
@@ -140,6 +142,7 @@ class DiameterTab(QDialog):
     menu_layout.addWidget(self.method_cb)
     menu_layout.addWidget(QLabel(''))
     menu_layout.addLayout(out_layout)
+    menu_layout.addWidget(self.plot_chk)
     menu_layout.addStretch()
 
     self.menu_grpbox = QGroupBox('', self)
@@ -461,6 +464,15 @@ class DiameterTab(QDialog):
     self.ctx.app_data.imgChanged.connect(self.img_changed_handle)
     [btn.toggled.connect(self.on_deff_auto_method_changed) for btn in self.deff_auto_rbtns]
     [btn.toggled.connect(self.on_3d_opts_changed) for btn in self.d_3d_rbtns]
+    self.plot_chk.stateChanged.connect(self.on_show_graph_check)
+
+  def on_show_graph_check(self, state):
+    self.show_graph = state == Qt.Checked
+
+  def plot_chk_handle(self, state):
+    self.plot_chk.setEnabled(state)
+    self.show_graph = False
+    self.plot_chk.setCheckState(Qt.Unchecked)
 
   def getData(self, model):
     data = [[model.data(model.index(i,j)) for i in range(model.rowCount())] for j in range(1,3)]
@@ -553,6 +565,7 @@ class DiameterTab(QDialog):
       pass
     if self.source == 1:# and (self.sender().tag is 'source' or self.sender().tag is 'based'):
       if self.baseon == 0 and self.method == 0:
+        self.plot_chk_handle(True)
         self.opts_stack.setCurrentIndex(2)
         self.ctx.app_data.mode = DEFF_MANUAL
       else:
@@ -562,6 +575,7 @@ class DiameterTab(QDialog):
         self.d_edit.textChanged.connect(self._on_dw_manual)
     elif self.source == 0: # from img
       self.d_3d_grpbox.setVisible(self.method == 1)
+      self.plot_chk_handle(self.method == 1)
       if self.baseon == 0: # deff
         if self.method == 0 or self.method == 1:
           self.deff_auto_corr_grpbox.setVisible(self.deff_auto_method != 'area')
@@ -738,7 +752,8 @@ class DiameterTab(QDialog):
     self.d_edit.setText(f'{avg_dval:#.2f}')
     self.ctx.app_data.diameter = avg_dval
     self.idxs = [i+1 for i in idxs]
-    self.plot_3d_auto()
+    if self.show_graph:
+      self.plot_3d_auto()
 
   def calculate_img_manual(self):
     pass
@@ -803,16 +818,18 @@ class DiameterTab(QDialog):
         dval = float(interpolate.splev(val1, interp))
       self.d_edit.setText(f'{dval:#.2f}')
       self.ctx.app_data.diameter = dval
-      self.figure = PlotDialog()
-      self.figure.actionEnabled(True)
-      self.figure.trendActionEnabled(False)
-      self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
-      self.figure.plot([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
-      self.figure.annotate('deff', pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')
-      self.figure.axes.showGrid(True,True)
-      self.figure.setLabels(label,'Effective Diameter',unit,'cm')
-      self.figure.setTitle(f'{label} - Deff')
-      self.figure.show()
+
+      if self.show_graph:
+        self.figure = PlotDialog()
+        self.figure.actionEnabled(True)
+        self.figure.trendActionEnabled(False)
+        self.figure.plot(data, pen={'color': "FFFF00", 'width': 2}, symbol=None)
+        self.figure.plot([val1], [dval], symbol='o', symbolPen=None, symbolSize=8, symbolBrush=(255, 0, 0, 255))
+        self.figure.annotate('deff', pos=(val1,dval), text=f'{label}: {val1:#.2f} {unit}\nEffective Diameter: {dval:#.2f} cm')
+        self.figure.axes.showGrid(True,True)
+        self.figure.setLabels(label,'Effective Diameter',unit,'cm')
+        self.figure.setTitle(f'{label} - Deff')
+        self.figure.show()
     else:
       pass
 
@@ -1016,3 +1033,4 @@ class DiameterTab(QDialog):
     self.calculate_btn.setDefault(True)
     self.next_tab_btn.setAutoDefault(False)
     self.next_tab_btn.setDefault(False)
+    self.plot_chk.setCheckState(Qt.Unchecked)
